@@ -66,13 +66,13 @@ def parse_options
   options = {}
 
   OptionParser.new do |opts|
-    opts.banner = "Usage: build.rb [options] [branch/sha]"
+    opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/sha]"
 
     opts.on('--srgb', "Include sRGB patch.") do
       options[:srgb] = true
     end
 
-    opts.on("--no-fullscreen", "Don't include fullscreen patch") do
+    opts.on("--no-fullscreen", "Don't include fullscreen patch.") do
       options[:no_fullscreen] = true
     end
   end.parse!
