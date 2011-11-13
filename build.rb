@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
-
 require 'json'
 require 'date'
+require 'optparse'
 
 
 #
@@ -18,17 +18,39 @@ BUILDS_DIR  = "#{ROOT_DIR}/builds"
 
 
 #
+# Main
+#
+
+def main
+  opts = parse_options
+
+  ref  = ARGV.shift
+  meta = get_ref_info(ref)
+
+  if meta['sha'] && meta['date']
+    tarball = download_tarball(meta['sha'])
+    source  = extract_tarball(tarball, patches(opts))
+    app     = compile_source(source)
+
+    archive_app(app, meta['sha'], meta['date'])
+  else
+    raise "\nERROR: Failed to get commit info from GitHub API."
+  end
+end
+
+
+#
 # Patches
 #
 
-def patches
+def patches(opts = {})
   p = []
 
-  if !ARGV.include?('--no-fullscreen')
+  if !opts[:no_fullscreen]
     p << 'https://raw.github.com/gist/1012927'
   end
 
-  if ARGV.include?('--srgb')
+  if opts[:srgb]
     p << 'https://raw.github.com/gist/1361934'
   end
 
@@ -37,23 +59,25 @@ end
 
 
 #
-# Main
+# Options
 #
 
-def main
-  ref = ARGV.shift
+def parse_options
+  options = {}
 
-  meta    = get_ref_info(ref)
+  OptionParser.new do |opts|
+    opts.banner = "Usage: build.rb [options] [branch/sha]"
 
-  if meta['sha'] && meta['date']
-    tarball = download_tarball(meta['sha'])
-    source  = extract_tarball(tarball, patches)
-    app     = compile_source(source)
+    opts.on('--srgb', "Include sRGB patch.") do
+      options[:srgb] = true
+    end
 
-    archive_app(app, meta['sha'], meta['date'])
-  else
-    raise "\nERROR: Failed to get commit info from GitHub API."
-  end
+    opts.on("--no-fullscreen", "Don't include fullscreen patch") do
+      options[:no_fullscreen] = true
+    end
+  end.parse!
+
+  options
 end
 
 
