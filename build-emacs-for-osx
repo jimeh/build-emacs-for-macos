@@ -13,7 +13,7 @@ LATEST_URL   = "https://api.github.com/repos/emacsmirror/emacs/commits?sha=%s"
 
 ROOT_DIR    = File.expand_path('..', __FILE__)
 TARBALL_DIR = "#{ROOT_DIR}/tarballs"
-SOURCES_DIR  = "#{ROOT_DIR}/sources"
+SOURCES_DIR = "#{ROOT_DIR}/sources"
 BUILDS_DIR  = "#{ROOT_DIR}/builds"
 
 
