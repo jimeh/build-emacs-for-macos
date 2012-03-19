@@ -30,11 +30,11 @@ this in Emacs built with it.
 Myself I run the following command which will download a tarball of the
 `master` branch, apply the fullscreen and sRGB patches, and build Emacs.app:
 
-    ./build-emacs-for-osx --srgb
+    ./build-emacs-for-osx
 
 Or for example if you want to build the `EMACS_PRETEST_24_0_91` tag, run:
 
-    ./build-emacs-for-osx --srgb EMACS_PRETEST_24_0_91
+    ./build-emacs-for-osx EMACS_PRETEST_24_0_91
 
 Resulting applications are saved to the `builds` directory in a bzip2
 compressed tarball.

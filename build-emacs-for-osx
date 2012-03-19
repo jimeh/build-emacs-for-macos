@@ -46,7 +46,7 @@ end
 def patches(opts = {})
   p = []
 
-  if !opts[:no_fullscreen]
+  if opts[:fullscreen]
     p << 'https://raw.github.com/gist/1012927'
   end
 
@@ -63,18 +63,20 @@ end
 #
 
 def parse_options
-  options = {}
+  options = {:fullscreen => true, :srgb => true}
 
   OptionParser.new do |opts|
     opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/tag/sha]"
 
-    opts.on('--srgb', "Include sRGB patch.") do
-      options[:srgb] = true
+    opts.on("--no-fullscreen", "Don't include fullscreen patch.") do
+      options[:fullscreen] = false
     end
 
-    opts.on("--no-fullscreen", "Don't include fullscreen patch.") do
-      options[:no_fullscreen] = true
+    opts.on('--no-srgb', "Don't include sRGB patch.") do
+      options[:srgb] = false
     end
+
+    opts.on("--srgb", "Option deprecated - sRGB patch is applied by default.")
   end.parse!
 
   options
