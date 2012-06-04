@@ -137,6 +137,7 @@ def compile_source(source)
     end
 
     system "cd \"#{source}\" && ./configure --with-ns"
+    system "cd \"#{source}\" && make bootstrap"
     system "cd \"#{source}\" && make install"
 
     raise "\nERROR: Build failed." unless File.exist?("#{target}/Emacs.app")
