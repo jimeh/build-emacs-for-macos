@@ -52,7 +52,8 @@ def patches(opts = {})
   end
 
   if opts[:srgb]
-    p << 'https://raw.github.com/gist/1361934'
+    p << 'https://raw.github.com/gist/1361934/' +
+      'f5b58b8d5f06650749addbe2a198b8cf1d0ce5a3'
   end
 
   if opts[:xcode3]
