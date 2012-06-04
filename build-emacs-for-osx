@@ -77,7 +77,6 @@ def parse_options
       options[:srgb] = false
     end
 
-    opts.on("--srgb", "Deprecated: sRGB patch is applied by default.")
   end.parse!
 
   options
