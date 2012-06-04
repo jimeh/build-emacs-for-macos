@@ -55,6 +55,11 @@ def patches(opts = {})
     p << 'https://raw.github.com/gist/1361934'
   end
 
+  if opts[:xcode3]
+    p << 'https://raw.github.com/gist/2867761/' +
+      '0f7483a5985de5b49b4b9c155d999d16fc587bd9'
+  end
+
   p
 end
 
@@ -64,7 +69,7 @@ end
 #
 
 def parse_options
-  options = {:fullscreen => true, :srgb => true}
+  options = {:fullscreen => true, :srgb => true, :xcode3 => true}
 
   OptionParser.new do |opts|
     opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/tag/sha]"
@@ -77,6 +82,9 @@ def parse_options
       options[:srgb] = false
     end
 
+    opts.on("--no-xcode3", "Skip Xcode 3 patch (harmless to Xcode 4).") do
+      options[:xcode3] = false
+    end
   end.parse!
 
   options
