@@ -47,8 +47,16 @@ def patches(opts = {})
   p = []
 
   if opts[:fullscreen]
-    p << 'https://raw.github.com/gist/1746342/' +
-      '702dfe9e2dd79fddd536aa90d561efdeec2ba716'
+    if !opts[:lion]
+      # Use non-Lion fullscreen patch. Works on Lion, but doesn't integrate
+      # with Mission Control like a "true" Lion Fullscreen app.
+      p << 'https://raw.github.com/gist/1746342/' +
+        '702dfe9e2dd79fddd536aa90d561efdeec2ba716'
+    else
+      # Use a "true" Lion Fullscreen patch.
+      p << 'https://raw.github.com/gist/2238260/' +
+        'e44224323706d3fa8b435e75a0da7b461801ae5f'
+    end
   end
 
   if opts[:srgb]
@@ -65,10 +73,18 @@ end
 #
 
 def parse_options
-  options = {:fullscreen => true, :srgb => true}
+  options = {
+    :lion       => false,
+    :fullscreen => true,
+    :srgb       => true
+  }
 
   OptionParser.new do |opts|
     opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/tag/sha]"
+
+    opts.on("--lion", "Enable 'true' Lion fullscreen mode.") do
+      options[:lion] = true
+    end
 
     opts.on("--no-fullscreen", "Skip fullscreen patch.") do
       options[:fullscreen] = false
