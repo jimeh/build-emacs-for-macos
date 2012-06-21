@@ -3,8 +3,11 @@
 Use this script at your own risk. It currently works for me on my own machine,
 which as of writing runs:
 
-* Mac OS X Lion 10.7.3 (11D50)
-* Xcode 4.2 (4D199)
+* Mac OS X Lion 10.7.4 (11E53)
+* Xcode + Command Line Tools 4.3.2 (4E2002)
+* [GCC Installer][gcc] for 10.7
+
+[gcc]: https://github.com/kennethreitz/osx-gcc-installer
 
 Your luck might vary. Do note that it does not build a universal application.
 The CPU architecture of the built application will be that of the machine it
