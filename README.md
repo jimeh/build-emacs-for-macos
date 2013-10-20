@@ -65,7 +65,7 @@ There might be more side-effects to, but I haven't noticed any.
         DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
                     Version 2, December 2004
 
- Copyright (C) 2004 Jim Myhrberg
+ Copyright (C) 2013 Jim Myhrberg
 
  Everyone is permitted to copy and distribute verbatim or modified
  copies of this license document, and changing it is allowed as long
