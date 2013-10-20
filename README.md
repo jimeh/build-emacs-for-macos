@@ -57,3 +57,22 @@ are just over 30MB, compared to ~1GB to pull the offical Bzr repo.
 The only option passed in `./configure` is `--with-ns`, meaning the resulting
 application only supports the CPU architecture of the system is was built on.
 There might be more side-effects to, but I haven't noticed any.
+
+
+## License
+
+```
+        DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+                    Version 2, December 2004
+
+ Copyright (C) 2004 Jim Myhrberg
+
+ Everyone is permitted to copy and distribute verbatim or modified
+ copies of this license document, and changing it is allowed as long
+ as the name is changed.
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.
+```
