@@ -8,8 +8,8 @@ require 'optparse'
 # Config
 #
 
-DOWNLOAD_URL = "https://github.com/emacsmirror/emacs/tarball/%s"
-LATEST_URL   = "https://api.github.com/repos/emacsmirror/emacs/commits?sha=%s"
+DOWNLOAD_URL = "https://github.com/mirrors/emacs/tarball/%s"
+LATEST_URL   = "https://api.github.com/repos/mirrors/emacs/commits?sha=%s"
 
 ROOT_DIR    = File.expand_path('..', __FILE__)
 TARBALL_DIR = "#{ROOT_DIR}/tarballs"
@@ -46,22 +46,15 @@ end
 def patches(opts = {})
   p = []
 
-  if opts[:fullscreen]
-    if !opts[:lion]
-      # Use non-Lion fullscreen patch. Works on Lion, but doesn't integrate
-      # with Mission Control like a "true" Lion Fullscreen app.
-      p << 'https://raw.github.com/gist/1746342/' +
-        '702dfe9e2dd79fddd536aa90d561efdeec2ba716'
-    else
-      # Use a "true" Lion Fullscreen patch.
-      p << 'https://raw.github.com/gist/2238260/' +
-        'e44224323706d3fa8b435e75a0da7b461801ae5f'
-    end
-  end
 
   if opts[:srgb]
-    p << 'https://raw.github.com/gist/1361934/' +
-      'f5b58b8d5f06650749addbe2a198b8cf1d0ce5a3'
+    p << {
+      :replace => [
+        "src/nsterm.m",
+        "*col = [NSColor colorWithCalibratedRed: r green: g blue: b alpha: 1.0];",
+        "*col = [NSColor colorWithDeviceRed: r green: g blue: b alpha: 1.0];"
+      ]
+    }
   end
 
   p
@@ -73,22 +66,14 @@ end
 #
 
 def parse_options
-  options = {
-    :lion       => false,
-    :fullscreen => true,
-    :srgb       => true
-  }
+  options = {:srgb => true}
 
   OptionParser.new do |opts|
-    opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/tag/sha]"
-
-    opts.on("--lion", "Enable 'true' Lion fullscreen mode.") do
-      options[:lion] = true
-    end
-
-    opts.on("--no-fullscreen", "Skip fullscreen patch.") do
-      options[:fullscreen] = false
-    end
+    opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/tag/sha]\n" +
+      "\n" +
+      "Branch, tag, and SHA are from the mirrors/emacs Github repo,\n" +
+      "available here: https://github.com/mirrors/emacs\n" +
+      "\n"
 
     opts.on('--no-srgb', "Skip sRGB patch.") do
       options[:srgb] = false
@@ -108,7 +93,7 @@ def download_tarball(sha)
 
   url = (DOWNLOAD_URL % sha)
 
-  filename = "emacsmirror-emacs-#{sha[0..6]}.tgz"
+  filename = "mirrors-emacs-#{sha[0..6]}.tgz"
   target   = File.join(TARBALL_DIR, filename)
 
   if !File.exist?(target)
@@ -132,8 +117,8 @@ def extract_tarball(filename, patches = [])
     puts "\nExtracting tarball..."
     system "tar -xzf \"#{filename}\" -C \"#{SOURCES_DIR}\""
     raise "\nERROR: Tarball extraction failed." unless File.exist?(target)
-    patches.each do |url|
-      apply_patch(url, target)
+    patches.each do |patch|
+      apply_patch(patch, target)
     end
   else
     puts "\nINFO: #{dirname} source tree exists, attempting to use."
@@ -152,7 +137,7 @@ def compile_source(source)
     end
 
     system "cd \"#{source}\" && ./configure --with-ns"
-    system "cd \"#{source}\" && make bootstrap"
+    # system "cd \"#{source}\" && make bootstrap"
     system "cd \"#{source}\" && make install"
 
     raise "\nERROR: Build failed." unless File.exist?("#{target}/Emacs.app")
@@ -199,22 +184,40 @@ def get_ref_info(ref = 'master')
   }
 end
 
-def apply_patch(url, target)
+def apply_patch(patch, target)
   raise "ERROR: \"#{target}\" does not exist." unless File.exist?(target)
-  system "mkdir -p \"#{target}/patches\""
+  if patch[:url]
+    system "mkdir -p \"#{target}/patches\""
 
-  patch_file = "#{target}/patches/patch-{num}.diff"
-  num = 1
-  while File.exist? patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
-    num += 1
+    patch_file = "#{target}/patches/patch-{num}.diff"
+    num = 1
+    while File.exist? patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
+      num += 1
+    end
+    patch_file.gsub!('{num}', num.to_s.rjust(3, '0'))
+
+    puts "Downloading patch: #{url}"
+    system "curl -L# \"#{url}\" -o \"#{patch_file}\""
+
+    puts "Applying patch..."
+    system "cd \"#{target}\" && patch -f -p1 -i \"#{patch_file}\""
+  elsif patch[:replace]
+    raise "ERROR: Patch replace input error" unless patch[:replace].size == 3
+    file, before, after = patch[:replace]
+    filepath = File.join(target, file)
+
+    if !File.exist?(filepath)
+      raise "ERROR: \"#{file}\" does not exist in #{target}"
+    end
+
+    f = File.open(filepath, 'rb')
+    s = f.read
+    sub = s.gsub!(before, after)
+    raise "ERROR: Replacement filed in #{file}" if sub.nil?
+
+    f.reopen(filepath, 'wb').write(s)
+    f.close
   end
-  patch_file.gsub!('{num}', num.to_s.rjust(3, '0'))
-
-  puts "Downloading patch: #{url}"
-  system "curl -L# \"#{url}\" -o \"#{patch_file}\""
-
-  puts "Applying patch..."
-  system "cd \"#{target}\" && patch -f -p1 -i \"#{patch_file}\""
 end
 
 
