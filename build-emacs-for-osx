@@ -49,7 +49,12 @@ def patches(opts = {})
 
   if opts[:srgb]
     p << {
-      :replace => [
+      :replace => [ # sRGB patch for latest version of nsterm.m.
+        "src/nsterm.m",
+        "return [NSColor colorWithCalibratedRed: red",
+        "return [NSColor colorWithDeviceRed: red"
+      ],
+      :replace => [ # sRGB patch for older version of nsterm.m.
         "src/nsterm.m",
         "*col = [NSColor colorWithCalibratedRed: r green: g blue: b alpha: 1.0];",
         "*col = [NSColor colorWithDeviceRed: r green: g blue: b alpha: 1.0];"
@@ -134,10 +139,12 @@ def compile_source(source)
 
     if File.exist? "#{source}/autogen/copy_autogen"
       system "cd \"#{source}\" && autogen/copy_autogen"
+    elsif File.exist? "#{source}/autogen.sh"
+      system "cd \"#{source}\" && ./autogen.sh"
     end
 
     system "cd \"#{source}\" && ./configure --with-ns"
-    # system "cd \"#{source}\" && make bootstrap"
+    system "cd \"#{source}\" && make"
     system "cd \"#{source}\" && make install"
 
     raise "\nERROR: Build failed." unless File.exist?("#{target}/Emacs.app")
