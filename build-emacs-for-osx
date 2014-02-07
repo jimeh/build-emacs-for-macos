@@ -49,15 +49,20 @@ def patches(opts = {})
 
   if opts[:srgb]
     p << {
-      :replace => [ # sRGB patch for latest version of nsterm.m.
-        "src/nsterm.m",
-        "return [NSColor colorWithCalibratedRed: red",
-        "return [NSColor colorWithDeviceRed: red"
-      ],
       :replace => [ # sRGB patch for older version of nsterm.m.
         "src/nsterm.m",
         "*col = [NSColor colorWithCalibratedRed: r green: g blue: b alpha: 1.0];",
         "*col = [NSColor colorWithDeviceRed: r green: g blue: b alpha: 1.0];"
+      ]
+    }
+  end
+
+  if opts[:srgb_244]
+    p << {
+      :replace => [
+        "src/nsterm.m",
+        "return [NSColor colorWithCalibratedRed: red",
+        "return [NSColor colorWithDeviceRed: red"
       ]
     }
   end
@@ -71,7 +76,7 @@ end
 #
 
 def parse_options
-  options = {:srgb => true}
+  options = {:srgb => false, :srgb_244 => false}
 
   OptionParser.new do |opts|
     opts.banner = "Usage: ./build-emacs-for-osx [options] [branch/tag/sha]\n" +
@@ -80,8 +85,12 @@ def parse_options
       "available here: https://github.com/mirrors/emacs\n" +
       "\n"
 
-    opts.on('--no-srgb', "Skip sRGB patch.") do
-      options[:srgb] = false
+    opts.on('--srgb', "Use sRGB patch (pre Emacs 24.4).") do
+      options[:srgb] = true
+    end
+
+    opts.on('--srgb-244', "Use sRGB patch for 24.3 -> 24.4 dev builds. sRGB patch not needed in final 24.4.") do
+      options[:srgb] = true
     end
   end.parse!
 
