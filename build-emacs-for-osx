@@ -9,7 +9,7 @@ require 'optparse'
 #
 
 DOWNLOAD_URL = "https://github.com/mirrors/emacs/tarball/%s"
-LATEST_URL   = "https://api.github.com/repos/mirrors/emacs/commits?sha=%s"
+LATEST_URL   = "https://api.github.com/repos/emacs-mirror/emacs/commits?sha=%s"
 
 ROOT_DIR    = File.expand_path('..', __FILE__)
 TARBALL_DIR = "#{ROOT_DIR}/tarballs"
@@ -107,7 +107,7 @@ def download_tarball(sha)
 
   url = (DOWNLOAD_URL % sha)
 
-  filename = "mirrors-emacs-#{sha[0..6]}.tgz"
+  filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
   target   = File.join(TARBALL_DIR, filename)
 
   if !File.exist?(target)
