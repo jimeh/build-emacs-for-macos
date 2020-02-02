@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+brew 'gmp'
+brew 'gnutls'
+brew 'jansson'
+brew 'libffi'
+brew 'libiconv'
+brew 'libtasn1'
+brew 'libunistring'
+brew 'libxml2'
+brew 'ncurses'
+brew 'nettle'
+brew 'pkg-config'
+brew 'texinfo'
+brew 'zlib'
