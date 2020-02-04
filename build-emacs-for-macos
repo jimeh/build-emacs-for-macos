@@ -7,140 +7,111 @@ require 'json'
 require 'optparse'
 require 'pathname'
 
-#
-# Config
-#
+class Build
+  DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
+  LATEST_URL = 'https://api.github.com/repos/' \
+                 'emacs-mirror/emacs/commits?sha=%s'
 
-DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
-LATEST_URL   = 'https://api.github.com/repos/emacs-mirror/emacs/commits?sha=%s'
+  attr_reader :root_dir
+  attr_reader :ref
+  attr_reader :options
 
-ROOT_DIR    = File.expand_path(__dir__)
-TARBALL_DIR = "#{ROOT_DIR}/tarballs"
-SOURCES_DIR = "#{ROOT_DIR}/sources"
-BUILDS_DIR  = "#{ROOT_DIR}/builds"
-
-#
-# Main
-#
-
-def main
-  opts = parse_options
-
-  ref  = ARGV.shift
-  meta = get_ref_info(ref)
-
-  if meta['sha'] && meta['date']
-    tarball = download_tarball(meta['sha'])
-    source  = extract_tarball(tarball, patches(opts))
-    app     = compile_source(source, opts)
-    internalize_libraries(app)
-
-    archive_app(app, ref, meta['sha'], meta['date'])
-  else
-    raise "\nERROR: Failed to get commit info from GitHub API."
-  end
-end
-
-#
-# Patches
-#
-
-def patches(opts = {})
-  p = []
-
-  if opts[:xwidgets]
-    p << {
-      url: 'https://gist.github.com/fuxialexander/' \
-           '0231e994fd27be6dd87db60339238813/raw/' \
-           'b30c2d3294835f41e2c8afa1e63571531a38f3cf/0_all_webkit.patch'
-    }
+  def initialize(root_dir, ref = 'master', options = {})
+    @root_dir = root_dir
+    @ref = ref
+    @options = options
   end
 
-  p
-end
-
-#
-# Options
-#
-
-def parse_options
-  options = {}
-
-  OptionParser.new do |opts|
-    opts.banner = <<~DOC
-      Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
-
-      Branch, tag, and SHA are from the mirrors/emacs Github repo,
-      available here: https://github.com/mirrors/emacs
-    DOC
-
-    opts.on('-j', '--parallel PROCS',
-            'Compile in parallel using PROCS processes') do |v|
-      options[:parallel] = v
+  def build
+    unless meta[:sha] && meta[:date]
+      raise 'ERROR: Failed to get commit info from GitHub API.'
     end
 
-    opts.on('-x', '--xwidgets', 'Compile in parallel using PROCS processes') do
-      options[:xwidgets] = true
+    tarball = download_tarball(meta[:sha])
+    source = extract_tarball(tarball, patches(options))
+    patches(options).each { |patch| apply_patch(patch, source) }
+    app = compile_source(source)
+
+    LibEmbedder.new(app, brew_dir, os.version, extra_libs).embed
+
+    archive_app(app)
+  end
+
+  private
+
+  def tarball_dir
+    @tarball_dir ||= File.join(root_dir, 'tarballs')
+  end
+
+  def source_dir
+    @source_dir ||= File.join(root_dir, 'sources')
+  end
+
+  def build_dir
+    @build_dir ||= File.join(root_dir, 'builds')
+  end
+
+  def brew_dir
+    @brew_dir ||= `brew --prefix`.chomp
+  end
+
+  def extra_libs
+    @extra_libs ||= [
+      "#{brew_dir}/opt/expat/lib/libexpat.1.dylib",
+      "#{brew_dir}/opt/libiconv/lib/libiconv.2.dylib",
+      "#{brew_dir}/opt/zlib/lib/libz.1.dylib"
+    ]
+  end
+
+  def download_tarball(sha)
+    FileUtils.mkdir_p(tarball_dir)
+
+    url = (DOWNLOAD_URL % sha)
+    filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
+    target   = File.join(tarball_dir, filename)
+
+    if File.exist?(target)
+      puts "INFO: #{filename} already exists locally, attempting to use."
+      return target
     end
-  end.parse!
 
-  options
-end
-
-#
-# Core Methods
-#
-
-def download_tarball(sha)
-  FileUtils.mkdir_p(TARBALL_DIR)
-
-  url = (DOWNLOAD_URL % sha)
-
-  filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
-  target   = File.join(TARBALL_DIR, filename)
-
-  if !File.exist?(target)
-    puts "\nDownloading tarball from GitHub. This could take a while, " \
+    puts 'Downloading tarball from GitHub. This could take a while, ' \
          'please be patient.'
-    unless run_cmd("curl -L \"#{url}\" -o \"#{target}\"")
-      raise "\nERROR: Download failed."
-    end
-  else
-    puts "\nINFO: #{filename} already exists locally, attempting to use."
+    result = run_cmd('curl', '-L', url, '-o', target)
+    raise 'ERROR: Download failed.' unless result
+
+    target
   end
-  target
-end
 
-def extract_tarball(filename, patches = [])
-  FileUtils.mkdir_p(SOURCES_DIR)
+  def extract_tarball(filename, patches = [])
+    FileUtils.mkdir_p(source_dir)
 
-  dirname = File.basename(filename).gsub(/\.\w+$/, '')
-  target = "#{SOURCES_DIR}/#{dirname}"
+    dirname = File.basename(filename).gsub(/\.\w+$/, '')
+    target = File.join(source_dir, dirname)
 
-  if !File.exist?(target)
-    puts "\nExtracting tarball..."
-    unless run_cmd("tar -xzf \"#{filename}\" -C \"#{SOURCES_DIR}\"")
-      raise "\nERROR: Tarball extraction failed."
+    if File.exist?(target)
+      puts "\nINFO: #{dirname} source tree exists, attempting to use."
+      return target
     end
 
-    patches.each do |patch|
-      apply_patch(patch, target)
-    end
-  else
-    puts "\nINFO: #{dirname} source tree exists, attempting to use."
+    puts 'Extracting tarball...'
+    result = run_cmd('tar', '-xzf', filename, '-C', source_dir)
+    raise 'ERROR: Tarball extraction failed.' unless result
+
+    target
   end
-  target
-end
 
-def compile_source(source, opts)
-  target = "#{source}/nextstep"
+  def compile_source(source)
+    target = "#{source}/nextstep"
+    emacs_app = "#{target}/Emacs.app"
 
-  if !File.exist?("#{target}/Emacs.app")
-    puts "\nCompiling from source. This will take a while..."
+    if File.exist?("#{target}/Emacs.app")
+      puts 'INFO: Emacs.app already exists in ' \
+           "\"#{target.gsub(root_dir + '/', '')}\", attempting to use."
+      return emacs_app
+    end
 
-    v = get_macos_version
-    ver = "#{v[:major]}.#{v[:minor]}"
-    brew_dir = `brew --prefix`.chomp
+    puts 'Compiling from source. This will take a while...'
 
     ENV['CC'] = 'cc'
     ENV['PKG_CONFIG_PATH'] = [
@@ -150,7 +121,7 @@ def compile_source(source, opts)
       "#{brew_dir}/opt/libxml2/lib/pkgconfig",
       "#{brew_dir}/opt/ncurses/lib/pkgconfig",
       "#{brew_dir}/opt/zlib/lib/pkgconfig",
-      "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{ver}",
+      "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{os.version}",
       ENV['PKG_CONFIG_PATH']
     ].compact.join(':')
 
@@ -167,9 +138,9 @@ def compile_source(source, opts)
       '/Library/Application Support/Emacs/${version}/site-lisp:' \
       '/Library/Application Support/Emacs/site-lisp'
     ]
-    configure_flags << '--with-xwidgets' if opts[:xwidgets]
+    configure_flags << '--with-xwidgets' if options[:xwidgets]
 
-    parallel_flags = opts[:parallel] ? ['-j', opts[:parallel]] : []
+    parallel_flags = options[:parallel] ? ['-j', options[:parallel]] : []
 
     FileUtils.cd(source) do
       if File.exist?('autogen/copy_autogen')
@@ -182,7 +153,7 @@ def compile_source(source, opts)
 
       # Disable aligned_alloc on Mojave and below. See issue:
       # https://github.com/daviderestivo/homebrew-emacs-head/issues/15
-      if v[:major] <= 10 && v[:minor] <= 14
+      if os.major <= 10 && os.minor <= 14
         puts 'Force disabling of aligned_alloc on macOS <= Mojave (10.14.x)'
         disable_alligned_alloc
       end
@@ -191,226 +162,267 @@ def compile_source(source, opts)
       run_cmd 'make', 'install'
     end
 
-    raise "\nERROR: Build failed." unless File.exist?("#{target}/Emacs.app")
-  else
-    puts "\nINFO: Emacs.app already exists in " \
-         "\"#{target.gsub(ROOT_DIR + '/', '')}\", attempting to use."
+    raise 'ERROR: Build failed.' unless File.exist?(emacs_app)
+
+    emacs_app
   end
-  "#{target}/Emacs.app"
-end
 
-def internalize_libraries(app)
-  raise "\nERROR: #{app} does not exist" unless File.exist?(app)
+  def archive_app(app)
+    FileUtils.mkdir_p(build_dir)
 
-  puts "\nEmbedding libraries into Emacs.app"
+    metadata = [ref, meta[:date], meta[:sha][0..6], "macOS-#{os.version}"]
 
-  v = get_macos_version
-  brew_dir = `brew --prefix`.chomp
-  lib_dir = "lib-x86_64-#{[v[:major], v[:minor]].join('_')}"
+    filename = "Emacs.app-[#{metadata.join('][')}].tbz"
+    target   = "#{build_dir}/#{filename}"
 
-  extra_libs = [
-    "#{brew_dir}/opt/expat/lib/libexpat.1.dylib",
-    "#{brew_dir}/opt/libiconv/lib/libiconv.2.dylib",
-    "#{brew_dir}/opt/zlib/lib/libz.1.dylib"
-  ]
+    app_base = File.basename(app)
+    app_dir  = File.dirname(app)
 
-  FileUtils.cd(File.dirname(app)) do
-    copy_libs(
-      "#{app}/Contents/MacOS/Emacs",
-      brew_dir,
-      "#{app}/Contents/MacOS/#{lib_dir}"
-    )
-
-    copy_extra_libs(
-      extra_libs,
-      "#{app}/Contents/MacOS/Emacs",
-      brew_dir,
-      "#{app}/Contents/MacOS/#{lib_dir}"
-    )
-
-    self_ref_libs(
-      "#{app}/Contents/MacOS/Emacs",
-      "#{app}/Contents/MacOS/#{lib_dir}"
-    )
+    if !File.exist?(target)
+      puts "\nCreating #{filename} archive in \"#{build_dir}\"..."
+      FileUtils.cd(app_dir) { system('tar', '-cjf', target, app_base) }
+    else
+      puts "\nINFO: #{filename} archive exists in " \
+           "#{build_dir.gsub(root_dir + '/', '')}, skipping archving."
+    end
   end
-end
 
-def archive_app(app, ref, sha, date)
-  FileUtils.mkdir_p(BUILDS_DIR)
+  def os
+    @os ||= begin
+      ver = `sw_vers -productVersion`.chomp
+                                     .sub(/^(\d+\.\d+\.\d)+/, '\1')
+                                     .split('.')
+                                     .map(&:to_i)
 
-  v = get_macos_version
-  metadata = [ref, date, sha[0..6], "macOS-#{v[:major]}.#{v[:minor]}"]
-
-  filename = "Emacs.app-[#{metadata.join('][')}].tbz"
-  target   = "#{BUILDS_DIR}/#{filename}"
-
-  app_base = File.basename(app)
-  app_dir  = File.dirname(app)
-
-  if !File.exist?(target)
-    puts "\nCreating #{filename} archive in \"#{BUILDS_DIR}\"..."
-    FileUtils.cd(app_dir) { system('tar', '-cjf', target, app_base) }
-  else
-
-    puts "\nINFO: #{filename} archive exists in " \
-         "#{BUILDS_DIR.gsub(ROOT_DIR + '/', '')}, skipping archving."
+      OpenStruct.new(
+        'version' => "#{ver[0]}.#{ver[1]}",
+        'major' => ver[0],
+        'minor' => ver[1],
+        'patch' => ver[2]
+      )
+    end
   end
-end
 
-#
-# Helper Methods
-#
+  def disable_alligned_alloc
+    filename = 'src/config.h'
+    content = File.read(filename)
+                  .gsub('#define HAVE_ALIGNED_ALLOC 1',
+                        '#undef HAVE_ALIGNED_ALLOC')
+                  .gsub('#define HAVE_DECL_ALIGNED_ALLOC 1',
+                        '#undef HAVE_DECL_ALIGNED_ALLOC')
+                  .gsub('#define HAVE_ALLOCA 1',
+                        '#undef HAVE_ALLOCA')
+                  .gsub('#define HAVE_ALLOCA_H 1',
+                        '#undef HAVE_ALLOCA_H')
 
-def run_cmd(*args)
-  puts '==> ' + args.join(' ')
-  system(*args)
-end
+    File.open(filename, 'w') { |f| f.write(content) }
+  end
 
-def copy_libs(exe, brew_dir, lib_dir, rel_path = nil)
-  exe_file = File.basename(exe)
-  rel_path ||= Pathname.new(lib_dir).relative_path_from(File.dirname(exe)).to_s
+  def meta
+    @meta ||= begin
+      response = `curl "#{LATEST_URL % ref}" 2>/dev/null`
+      meta = JSON.parse(response).first
 
-  `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
-    match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
-    next unless match && match[1].start_with?(brew_dir)
+      {
+        sha: meta['sha'],
+        date: Date.parse(meta['commit']['committer']['date'])
+      }
+    end
+  end
 
-    while_writable(exe) do
-      if match[2] == exe_file
-        system('install_name_tool', '-id',
-               "@executable_path/#{rel_path}/#{match[2]}", exe)
-      else
-        system('install_name_tool', '-change', match[1],
-               "@executable_path/#{rel_path}/#{match[2]}", exe)
+  def run_cmd(*args)
+    puts '==> ' + args.join(' ')
+    system(*args)
+  end
+
+  def patches(opts = {})
+    p = []
+
+    if opts[:xwidgets]
+      p << {
+        url: 'https://gist.github.com/fuxialexander/' \
+             '0231e994fd27be6dd87db60339238813/raw/' \
+             'b30c2d3294835f41e2c8afa1e63571531a38f3cf/0_all_webkit.patch'
+      }
+    end
+
+    p
+  end
+
+  def apply_patch(patch, target)
+    raise "ERROR: \"#{target}\" does not exist." unless File.exist?(target)
+
+    if patch[:url]
+      system('mkdir', '-p', "#{target}/patches")
+
+      patch_file = "#{target}/patches/patch-{num}.diff"
+      num = 1
+      while File.exist?(patch_file.gsub('{num}', num.to_s.rjust(3, '0')))
+        num += 1
       end
+      patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
+
+      puts "Downloading patch: #{patch[:url]}"
+      system('curl', '-L#', patch[:url], '-o', patch_file)
+
+      puts 'Applying patch...'
+      FileUtils.cd(target) { system('patch', '-f', '-p1', '-i', patch_file) }
+    elsif patch[:replace]
+      raise 'ERROR: Patch replace input error' unless patch[:replace].size == 3
+
+      file, before, after = patch[:replace]
+      filepath = File.join(target, file)
+
+      unless File.exist?(filepath)
+        raise "ERROR: \"#{file}\" does not exist in #{target}"
+      end
+
+      f = File.open(filepath, 'rb')
+      s = f.read
+      sub = s.gsub!(before, after)
+      raise "ERROR: Replacement filed in #{file}" if sub.nil?
+
+      f.reopen(filepath, 'wb').write(s)
+      f.close
     end
-
-    next if match[2] == exe_file || File.exist?("#{lib_dir}/#{match[2]}")
-
-    FileUtils.mkdir_p(lib_dir)
-    FileUtils.cp(match[1], lib_dir)
-    copy_libs("#{lib_dir}/#{match[2]}", brew_dir, lib_dir, rel_path)
   end
 end
 
-def copy_extra_libs(extra_libs, exe, brew_dir, lib_dir, rel_path = nil)
-  rel_path ||= Pathname.new(lib_dir).relative_path_from(File.dirname(exe)).to_s
+class LibEmbedder
+  attr_reader :app
+  attr_reader :lib_source
+  attr_reader :macos_version
+  attr_reader :extra_libs
 
-  extra_libs.each do |lib|
-    lib_file = File.basename(lib)
-    target = "#{lib_dir}/#{lib_file}"
-    unless File.exist?(target)
-      FileUtils.mkdir_p(lib_dir)
-      FileUtils.cp(lib, lib_dir)
-    end
+  def initialize(app, lib_source, macos_version, extra_libs = [])
+    raise "ERROR: #{app} does not exist" unless File.exist?(app)
 
-    while_writable(target) do
-      system('install_name_tool', '-id',
-             "@executable_path/#{rel_path}/#{lib_file}", target)
-    end
-
-    copy_libs(target, brew_dir, lib_dir, rel_path)
+    @app = app
+    @lib_source = lib_source
+    @macos_version = macos_version
+    @extra_libs = extra_libs
   end
-end
 
-def self_ref_libs(exe, lib_dir)
-  rel_path = Pathname.new(lib_dir).relative_path_from(File.dirname(exe)).to_s
-  lib_paths ||= Dir.glob("#{lib_dir}/*")
-  libs = lib_paths.map { |f| File.basename(f) }
+  def embed
+    puts 'Embedding libraries into Emacs.app'
 
-  ([exe] + lib_paths).each do |bin_path|
-    `otool -L "#{bin_path}"`.split("\n")[1..-1].each do |line|
+    FileUtils.cd(File.dirname(app)) do
+      copy_libs(bin)
+      copy_extra_libs(extra_libs, bin) if extra_libs.any?
+      self_ref_libs(bin)
+    end
+  end
+
+  private
+
+  def bin
+    "#{app}/Contents/MacOS/Emacs"
+  end
+
+  def lib_dir
+    "#{app}/Contents/MacOS/lib-x86_64-#{macos_version}"
+  end
+
+  def copy_libs(exe, rel_path = nil)
+    exe_file = File.basename(exe)
+    rel_path ||= Pathname.new(lib_dir).relative_path_from(
+      File.dirname(exe)
+    ).to_s
+
+    `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
       match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
-      next unless match
-      next if match[1].start_with?('@executable_path/')
-      next unless libs.include?(match[2])
+      next unless match && match[1].start_with?(lib_source)
 
-      while_writable(bin_path) do
-        system('install_name_tool', '-change', match[1],
-               "@executable_path/#{rel_path}/#{match[2]}",
-               bin_path)
+      while_writable(exe) do
+        if match[2] == exe_file
+          system('install_name_tool', '-id',
+                 "@executable_path/#{rel_path}/#{match[2]}", exe)
+        else
+          system('install_name_tool', '-change', match[1],
+                 "@executable_path/#{rel_path}/#{match[2]}", exe)
+        end
+      end
+
+      next if match[2] == exe_file || File.exist?("#{lib_dir}/#{match[2]}")
+
+      FileUtils.mkdir_p(lib_dir)
+      FileUtils.cp(match[1], lib_dir)
+      copy_libs("#{lib_dir}/#{match[2]}", rel_path)
+    end
+  end
+
+  def copy_extra_libs(extra_libs, exe, rel_path = nil)
+    rel_path ||= Pathname.new(lib_dir).relative_path_from(
+      File.dirname(exe)
+    ).to_s
+
+    extra_libs.each do |lib|
+      lib_file = File.basename(lib)
+      target = "#{lib_dir}/#{lib_file}"
+      unless File.exist?(target)
+        FileUtils.mkdir_p(lib_dir)
+        FileUtils.cp(lib, lib_dir)
+      end
+
+      while_writable(target) do
+        system('install_name_tool', '-id',
+               "@executable_path/#{rel_path}/#{lib_file}", target)
+      end
+
+      copy_libs(target, rel_path)
+    end
+  end
+
+  def self_ref_libs(exe)
+    rel_path = Pathname.new(lib_dir).relative_path_from(File.dirname(exe)).to_s
+    lib_paths ||= Dir.glob("#{lib_dir}/*")
+    libs = lib_paths.map { |f| File.basename(f) }
+
+    ([exe] + lib_paths).each do |bin_path|
+      `otool -L "#{bin_path}"`.split("\n")[1..-1].each do |line|
+        match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
+        next unless match
+        next if match[1].start_with?('@executable_path/')
+        next unless libs.include?(match[2])
+
+        while_writable(bin_path) do
+          system(
+            'install_name_tool', '-change', match[1],
+            "@executable_path/#{rel_path}/#{match[2]}",
+            bin_path
+          )
+        end
       end
     end
   end
-end
 
-def while_writable(file)
-  mode = File.stat(file).mode
-  File.chmod(0o775, file)
-  yield
-  File.chmod(mode, file)
-end
-
-def get_macos_version
-  v = `sw_vers -productVersion`.chomp
-                               .sub(/^(\d+\.\d+\.\d)+/, '\1')
-                               .split('.')
-                               .map(&:to_i)
-
-  { major: v[0], minor: v[1], patch: v[2] }
-end
-
-def disable_alligned_alloc
-  filename = 'src/config.h'
-  content = File.read(filename)
-                .gsub('#define HAVE_ALIGNED_ALLOC 1',
-                      '#undef HAVE_ALIGNED_ALLOC')
-                .gsub('#define HAVE_DECL_ALIGNED_ALLOC 1',
-                      '#undef HAVE_DECL_ALIGNED_ALLOC')
-                .gsub('#define HAVE_ALLOCA 1',
-                      '#undef HAVE_ALLOCA')
-                .gsub('#define HAVE_ALLOCA_H 1',
-                      '#undef HAVE_ALLOCA_H')
-
-  File.open(filename, 'w') { |f| f.write(content) }
-end
-
-def get_ref_info(ref = 'master')
-  response = `curl "#{LATEST_URL % ref}" 2>/dev/null`
-  meta = JSON.parse(response).first
-  {
-    'sha' => meta['sha'],
-    'date' => Date.parse(meta['commit']['committer']['date'])
-  }
-end
-
-def apply_patch(patch, target)
-  raise "ERROR: \"#{target}\" does not exist." unless File.exist?(target)
-
-  if patch[:url]
-    system "mkdir -p \"#{target}/patches\""
-
-    patch_file = "#{target}/patches/patch-{num}.diff"
-    num = 1
-    num += 1 while File.exist?(patch_file.gsub('{num}', num.to_s.rjust(3, '0')))
-    patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
-
-    puts "Downloading patch: #{patch[:url]}"
-    system "curl -L# \"#{patch[:url]}\" -o \"#{patch_file}\""
-
-    puts 'Applying patch...'
-    system "cd \"#{target}\" && patch -f -p1 -i \"#{patch_file}\""
-  elsif patch[:replace]
-    raise 'ERROR: Patch replace input error' unless patch[:replace].size == 3
-
-    file, before, after = patch[:replace]
-    filepath = File.join(target, file)
-
-    unless File.exist?(filepath)
-      raise "ERROR: \"#{file}\" does not exist in #{target}"
-    end
-
-    f = File.open(filepath, 'rb')
-    s = f.read
-    sub = s.gsub!(before, after)
-    raise "ERROR: Replacement filed in #{file}" if sub.nil?
-
-    f.reopen(filepath, 'wb').write(s)
-    f.close
+  def while_writable(file)
+    mode = File.stat(file).mode
+    File.chmod(0o775, file)
+    yield
+    File.chmod(mode, file)
   end
 end
 
-#
-# Run it!
-#
+if __FILE__ == $PROGRAM_NAME
+  cli_options = {}
+  OptionParser.new do |opts|
+    opts.banner = <<~DOC
+      Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
-main
+      Branch, tag, and SHA are from the mirrors/emacs Github repo,
+      available here: https://github.com/mirrors/emacs
+    DOC
+
+    opts.on('-j', '--parallel PROCS',
+            'Compile in parallel using PROCS processes') do |v|
+      cli_options[:parallel] = v
+    end
+
+    opts.on('-x', '--xwidgets', 'Apply XWidgets patch for Emacs 27') do
+      cli_options[:xwidgets] = true
+    end
+  end.parse!
+
+  Build.new(File.expand_path(__dir__), ARGV.shift, cli_options).build
+end
