@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+brew 'curl'
+brew 'expat'
 brew 'gmp'
 brew 'gnutls'
 brew 'jansson'
