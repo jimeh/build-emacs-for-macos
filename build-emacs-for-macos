@@ -10,7 +10,7 @@ require 'pathname'
 class Build
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
   LATEST_URL = 'https://api.github.com/repos/' \
-                 'emacs-mirror/emacs/commits?sha=%s'
+                 'emacs-mirror/emacs/commits/emacs-27?sha=%s'
 
   attr_reader :root_dir
   attr_reader :ref
@@ -221,7 +221,7 @@ class Build
   def meta
     @meta ||= begin
       response = `curl "#{LATEST_URL % ref}" 2>/dev/null`
-      meta = JSON.parse(response).first
+      meta = JSON.parse(response)
 
       {
         sha: meta['sha'],
