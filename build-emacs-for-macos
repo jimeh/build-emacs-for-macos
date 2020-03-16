@@ -240,9 +240,8 @@ class Build
 
     if opts[:xwidgets]
       p << {
-        url: 'https://gist.github.com/fuxialexander/' \
-             '0231e994fd27be6dd87db60339238813/raw/' \
-             'b30c2d3294835f41e2c8afa1e63571531a38f3cf/0_all_webkit.patch'
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             'patches/xwidgets_webkit_in_cocoa.patch'
       }
     end
 
