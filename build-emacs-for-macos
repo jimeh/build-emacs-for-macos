@@ -29,7 +29,6 @@ class Build
 
     tarball = download_tarball(meta[:sha])
     source = extract_tarball(tarball, patches(options))
-    patches(options).each { |patch| apply_patch(patch, source) }
     app = compile_source(source)
 
     LibEmbedder.new(app, brew_dir, os.version, extra_libs).embed
@@ -97,6 +96,8 @@ class Build
     puts 'Extracting tarball...'
     result = run_cmd('tar', '-xzf', filename, '-C', source_dir)
     raise 'ERROR: Tarball extraction failed.' unless result
+
+    patches.each { |patch| apply_patch(patch, target) }
 
     target
   end
