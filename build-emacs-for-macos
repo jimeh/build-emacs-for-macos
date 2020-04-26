@@ -242,7 +242,8 @@ class Build
     if opts[:xwidgets]
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             'patches/xwidgets_webkit_in_cocoa.patch'
+             'patches/xwidgets_webkit_in_cocoa' \
+             "#{'-emacs-27' if ref == 'emacs-27'}.patch"
       }
     end
 
