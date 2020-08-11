@@ -236,24 +236,35 @@ class Build
     system(*args)
   end
 
+  def patch_version
+    @patch_version ||= begin
+      case ref
+      when /^emacs-27.*/
+        'emacs-27'
+      when /^emacs-28.*/, 'master'
+        'emacs-28'
+      end
+    end
+  end
+
   def patches(opts = {})
     p = []
 
-    if %w[emacs-27 emacs-28].include?(ref)
+    if patch_version
       if opts[:xwidgets]
         p << {
           url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{ref}/xwidgets_webkit_in_cocoa.patch"
+               "patches/#{patch_version}/xwidgets_webkit_in_cocoa.patch"
         }
       end
 
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{ref}/fix-window-role.patch"
+             "patches/#{patch_version}/fix-window-role.patch"
       }
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{ref}/system-appearance.patch"
+             "patches/#{patch_version}/system-appearance.patch"
       }
     end
 
