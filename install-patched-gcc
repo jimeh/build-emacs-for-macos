@@ -1,4 +1,15 @@
 #! /usr/bin/env bash
+set -e
 
-export HOMEBREW_NO_AUTO_UPDATE=1
-brew install ./Formulas/gcc.rb --build-from-source --force
+brewdir="$(brew --prefix)"
+formula="${brewdir}/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/gcc.rb"
+
+if [ ! -f "$formula" ]; then
+  echo "ERROR: ${formula} does not exist." 1>&2
+  exit 1
+fi
+
+cp "$formula" ./Formula/
+
+patch -f -p1 -i ./Formula/gcc.rb.patch
+brew install ./Formula/gcc.rb --build-from-source --force

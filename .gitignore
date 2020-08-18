@@ -1,5 +1,6 @@
 .DS_Store
+Formula/*
+Gemfile.lock
 builds
 sources
 tarballs
-Gemfile.lock

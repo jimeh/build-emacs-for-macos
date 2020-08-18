@@ -1,0 +1,21 @@
+diff --git a/Formula/gcc.rb b/Formula/gcc.rb
+index 1bd636d496..03ad124218 100644
+--- a/Formula/gcc.rb
++++ b/Formula/gcc.rb
+@@ -53,7 +53,7 @@ class Gcc < Formula
+     #  - Ada, which requires a pre-existing GCC Ada compiler to bootstrap
+     #  - Go, currently not supported on macOS
+     #  - BRIG
+-    languages = %w[c c++ objc obj-c++ fortran]
++    languages = %w[c c++ objc obj-c++ fortran jit]
+
+     osmajor = `uname -r`.split(".").first
+     pkgversion = "Homebrew GCC #{pkg_version} #{build.used_options*" "}".strip
+@@ -73,6 +73,7 @@ class Gcc < Formula
+       --with-system-zlib
+       --with-pkgversion=#{pkgversion}
+       --with-bugurl=https://github.com/Homebrew/homebrew-core/issues
++      --enable-host-shared
+     ]
+
+     # Xcode 10 dropped 32-bit support

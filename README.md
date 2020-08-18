@@ -94,17 +94,27 @@ To build the stable `emacs-27.1` release git tag, with XWidgets support, run:
 
 To build a Emacs.app with native-comp support
 ([gccemacs](https://akrl.sdf.org/gccemacs.html)) from the `feature/native-comp`
-branch, you will need to install a patched version of Homebrew's `gcc` formula,
-which is included in `Forumlas/gcc.rb`. This can easily be installed by running:
+branch, you will need to install a patched version of Homebrew's `gcc` formula
+that includes libgccjit.
+
+The patch itself is in `./Formula/gcc.rb.patch`, and comes from
+[this](https://gist.github.com/mikroskeem/0a5c909c1880408adf732ceba6d3f9ab#1-gcc-with-libgccjit-enabled)
+gist.
+
+You can install the patched formula by running the helper script:
 
 ```
 ./install-patched-gcc
 ```
 
-This requires installing and compiling GCC from source, and take anywhere
+The helper script will copy your local `gcc.rb` Forumla from Homebrew to
+`./Formula`, and apply the `./Formula/gcc.rb.patch` to it. After which it then
+proceed to install the patched gcc formula which includes libgccjit.
+
+As it requires installing and compiling GCC from source, it can take anywhere
 between 30-60 minutes or more depending on your machine.
 
-Then to build a Emacs.app with native compilation enabled, run:
+And finally to build a Emacs.app with native compilation enabled, run:
 
 ```
 ./build-emacs-for-macos -j 4 --native-comp feature/native-comp
@@ -127,6 +137,11 @@ Emacs.
 - Patches applied are pulled from
   [emacs-plus](https://github.com/d12frosted/homebrew-emacs-plus), which is an
   excellent Homebrew formula with lots of options not available elsewhere.
+- The following gists were all extremely useful in figuring out how get get
+  native-comp building on macOS:
+  - https://gist.github.com/mikroskeem/0a5c909c1880408adf732ceba6d3f9ab#1-gcc-with-libgccjit-enabled
+  - https://github.com/shshkn/emacs.d/blob/master/docs/nativecomp.md
+  - https://gist.github.com/AllenDang/f019593e65572a8e0aefc96058a2d23e
 
 ## Internals
 
