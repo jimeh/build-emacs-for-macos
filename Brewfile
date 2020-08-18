@@ -3,6 +3,7 @@
 brew 'curl'
 brew 'expat'
 brew 'gmp'
+brew 'gnu-sed'
 brew 'gnutls'
 brew 'jansson'
 brew 'libffi'

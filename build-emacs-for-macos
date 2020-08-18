@@ -7,10 +7,16 @@ require 'json'
 require 'optparse'
 require 'pathname'
 
+def err(msg = nil)
+  warn("ERROR: #{msg}") if msg
+  exit 1
+end
+
 class Build
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
   LATEST_URL = 'https://api.github.com/repos/' \
-                 'emacs-mirror/emacs/commits?sha=%s'
+               'emacs-mirror/emacs/commits?sha=%s'
+  NATIVE_COMP_REF_REGEXP = %r{^feature/native-comp}.freeze
 
   attr_reader :root_dir
   attr_reader :ref
@@ -24,7 +30,7 @@ class Build
 
   def build
     unless meta[:sha] && meta[:date]
-      raise 'ERROR: Failed to get commit info from GitHub API.'
+      err 'Failed to get commit info from GitHub API.'
     end
 
     tarball = download_tarball(meta[:sha])
@@ -54,6 +60,10 @@ class Build
     @brew_dir ||= `brew --prefix`.chomp
   end
 
+  def gcc_dir
+    @gcc_dir ||= `brew --prefix gcc`.chomp
+  end
+
   def extra_libs
     @extra_libs ||= [
       "#{brew_dir}/opt/expat/lib/libexpat.1.dylib",
@@ -77,7 +87,7 @@ class Build
     puts 'Downloading tarball from GitHub. This could take a while, ' \
          'please be patient.'
     result = run_cmd('curl', '-L', url, '-o', target)
-    raise 'ERROR: Download failed.' unless result
+    err 'Download failed.' unless result
 
     target
   end
@@ -95,11 +105,26 @@ class Build
 
     puts 'Extracting tarball...'
     result = run_cmd('tar', '-xzf', filename, '-C', source_dir)
-    raise 'ERROR: Tarball extraction failed.' unless result
+    err 'Tarball extraction failed.' unless result
 
     patches.each { |patch| apply_patch(patch, target) }
 
     target
+  end
+
+  def detect_native_comp
+    return if `./configure --help | grep -- '--with-nativecomp'`.strip != ''
+
+    err 'This emacs source tree does not support native-comp'
+  end
+
+  def detect_libgccjit
+    err 'gcc not installed' unless Dir.exist?(gcc_dir)
+
+    return if Dir["#{gcc_dir}/lib/**/libgccjit.so*"].any?
+
+    err "Detected GCC (#{gcc_dir}) does not have libgccjit. Ensure patched " \
+        'gcc brew formula has been installed via ./install-patched-gcc'
   end
 
   def compile_source(source)
@@ -114,40 +139,68 @@ class Build
 
     puts 'Compiling from source. This will take a while...'
 
-    ENV['CC'] = 'cc'
-    ENV['PKG_CONFIG_PATH'] = [
-      "#{brew_dir}/lib/pkgconfig",
-      "#{brew_dir}/share/pkgconfig",
-      "#{brew_dir}/opt/expat/lib/pkgconfig",
-      "#{brew_dir}/opt/libxml2/lib/pkgconfig",
-      "#{brew_dir}/opt/ncurses/lib/pkgconfig",
-      "#{brew_dir}/opt/zlib/lib/pkgconfig",
-      "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{os.version}",
-      ENV['PKG_CONFIG_PATH']
-    ].compact.join(':')
-
-    ENV['PATH'] = [
-      "#{brew_dir}/bin",
-      "#{brew_dir}/opt/texinfo/bin",
-      ENV['PATH']
-    ].compact.join(':')
-
-    configure_flags = [
-      '--with-ns',
-      '--with-modules',
-      '--enable-locallisppath=' \
-      '/Library/Application Support/Emacs/${version}/site-lisp:' \
-      '/Library/Application Support/Emacs/site-lisp'
-    ]
-    configure_flags << '--with-xwidgets' if options[:xwidgets]
-
-    parallel_flags = options[:parallel] ? ['-j', options[:parallel]] : []
-
     FileUtils.cd(source) do
       if File.exist?('autogen/copy_autogen')
         run_cmd 'autogen/copy_autogen'
       elsif File.exist?('autogen.sh')
         run_cmd './autogen.sh'
+      end
+
+      if options[:native_comp]
+        detect_native_comp
+        detect_libgccjit
+
+        ENV['NATIVE_FAST_BOOT'] = '1' if options[:native_fast_boot]
+        ENV['CFLAGS'] = [
+          "-I#{gcc_dir}/include",
+          '-O2',
+          '-march=native'
+        ].compact.join(' ')
+
+        ENV['LDFLAGS'] = [
+          "-L#{gcc_dir}/lib/gcc/10",
+          "-I#{gcc_dir}/include"
+        ].compact.join(' ')
+
+        ENV['LIBRARY_PATH'] = [
+          "#{gcc_dir}/lib/gcc/10",
+          ENV['LIBRARY_PATH']
+        ].compact.join(':')
+      end
+
+      ENV['CC'] = 'clang'
+      ENV['PKG_CONFIG_PATH'] = [
+        "#{brew_dir}/lib/pkgconfig",
+        "#{brew_dir}/share/pkgconfig",
+        "#{brew_dir}/opt/expat/lib/pkgconfig",
+        "#{brew_dir}/opt/libxml2/lib/pkgconfig",
+        "#{brew_dir}/opt/ncurses/lib/pkgconfig",
+        "#{brew_dir}/opt/zlib/lib/pkgconfig",
+        "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{os.version}",
+        ENV['PKG_CONFIG_PATH']
+      ].compact.join(':')
+
+      ENV['PATH'] = [
+        "#{brew_dir}/opt/gnu-sed/libexec/gnubin",
+        "#{brew_dir}/bin",
+        "#{brew_dir}/opt/texinfo/bin",
+        ENV['PATH']
+      ].compact.join(':')
+
+      configure_flags = [
+        '--with-ns',
+        '--with-modules',
+        '--enable-locallisppath=' \
+        '/Library/Application Support/Emacs/${version}/site-lisp:' \
+        '/Library/Application Support/Emacs/site-lisp'
+      ]
+      configure_flags << '--with-xwidgets' if options[:xwidgets]
+      configure_flags << '--with-nativecomp' if options[:native_comp]
+
+      make_flags = []
+      make_flags += ['-j', options[:parallel]] if options[:parallel]
+      if options[:native_comp]
+        make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
       end
 
       run_cmd './configure', *configure_flags
@@ -159,11 +212,11 @@ class Build
         disable_alligned_alloc
       end
 
-      run_cmd 'make', *parallel_flags
+      run_cmd 'make', *make_flags
       run_cmd 'make', 'install'
     end
 
-    raise 'ERROR: Build failed.' unless File.exist?(emacs_app)
+    err 'Build failed.' unless File.exist?(emacs_app)
 
     emacs_app
   end
@@ -171,7 +224,13 @@ class Build
   def archive_app(app)
     FileUtils.mkdir_p(build_dir)
 
-    metadata = [ref, meta[:date], meta[:sha][0..6], "macOS-#{os.version}"]
+    metadata = [
+      ref.gsub(/\W/, '-'),
+      meta[:date],
+      meta[:sha][0..6],
+      "macOS-#{os.version}",
+      arch
+    ]
 
     filename = "Emacs.app-[#{metadata.join('][')}].tbz"
     target   = "#{build_dir}/#{filename}"
@@ -204,6 +263,10 @@ class Build
     end
   end
 
+  def arch
+    @arch = `uname -m`.strip
+  end
+
   def disable_alligned_alloc
     filename = 'src/config.h'
     content = File.read(filename)
@@ -233,7 +296,7 @@ class Build
 
   def run_cmd(*args)
     puts '==> ' + args.join(' ')
-    system(*args)
+    system(*args) || exit($CHILD_STATUS.exitstatus)
   end
 
   def patch_version
@@ -241,7 +304,7 @@ class Build
       case ref
       when /^emacs-27.*/
         'emacs-27'
-      when /^emacs-28.*/, 'master'
+      when /^emacs-28.*/, NATIVE_COMP_REF_REGEXP, 'master'
         'emacs-28'
       end
     end
@@ -251,7 +314,7 @@ class Build
     p = []
 
     if patch_version
-      if opts[:xwidgets]
+      if opts[:xwidgets] && patch_version == 'emacs-27'
         p << {
           url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
                "patches/#{patch_version}/xwidgets_webkit_in_cocoa.patch"
@@ -272,10 +335,10 @@ class Build
   end
 
   def apply_patch(patch, target)
-    raise "ERROR: \"#{target}\" does not exist." unless File.exist?(target)
+    err "\"#{target}\" does not exist." unless File.exist?(target)
 
     if patch[:url]
-      system('mkdir', '-p', "#{target}/patches")
+      run_cmd('mkdir', '-p', "#{target}/patches")
 
       patch_file = "#{target}/patches/patch-{num}.diff"
       num = 1
@@ -285,24 +348,22 @@ class Build
       patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
 
       puts "Downloading patch: #{patch[:url]}"
-      system('curl', '-L#', patch[:url], '-o', patch_file)
+      run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
 
       puts 'Applying patch...'
-      FileUtils.cd(target) { system('patch', '-f', '-p1', '-i', patch_file) }
+      FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch_file) }
     elsif patch[:replace]
-      raise 'ERROR: Patch replace input error' unless patch[:replace].size == 3
+      err 'Patch replace input error' unless patch[:replace].size == 3
 
       file, before, after = patch[:replace]
       filepath = File.join(target, file)
 
-      unless File.exist?(filepath)
-        raise "ERROR: \"#{file}\" does not exist in #{target}"
-      end
+      err "\"#{file}\" does not exist in #{target}" unless File.exist?(filepath)
 
       f = File.open(filepath, 'rb')
       s = f.read
       sub = s.gsub!(before, after)
-      raise "ERROR: Replacement filed in #{file}" if sub.nil?
+      err "Replacement filed in #{file}" if sub.nil?
 
       f.reopen(filepath, 'wb').write(s)
       f.close
@@ -317,7 +378,7 @@ class LibEmbedder
   attr_reader :extra_libs
 
   def initialize(app, lib_source, macos_version, extra_libs = [])
-    raise "ERROR: #{app} does not exist" unless File.exist?(app)
+    err "#{app} does not exist" unless File.exist?(app)
 
     @app = app
     @lib_source = lib_source
@@ -337,12 +398,16 @@ class LibEmbedder
 
   private
 
+  def arch
+    @arch = `uname -m`.strip
+  end
+
   def bin
     "#{app}/Contents/MacOS/Emacs"
   end
 
   def lib_dir
-    "#{app}/Contents/MacOS/lib-x86_64-#{macos_version}"
+    "#{app}/Contents/MacOS/lib-#{arch}-#{macos_version}"
   end
 
   def copy_libs(exe, rel_path = nil)
@@ -443,6 +508,14 @@ if __FILE__ == $PROGRAM_NAME
 
     opts.on('-x', '--xwidgets', 'Apply XWidgets patch for Emacs 27') do
       cli_options[:xwidgets] = true
+    end
+
+    opts.on('--native-comp', 'Enable native-comp') do
+      cli_options[:native_comp] = true
+    end
+
+    opts.on('--native-fast-boot', 'Only relevant with --native-comp') do
+      cli_options[:native_fast_boot] = true
     end
   end.parse!
 
