@@ -18,7 +18,7 @@ Use this script at your own risk.
 
 ## Status
 
-As of writing (2020-08-18) it works for me on my machine. Your luck may vary.
+As of writing (2020-08-19) it works for me on my machine. Your luck may vary.
 
 I have successfully built:
 
@@ -28,8 +28,7 @@ I have successfully built:
 
 For reference, my machine is:
 
-- 13-inch MacBook Pro (2020)
-- 10th Gen i7, 2.3 GHz 4-core/8-thread CPU
+- 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
 - macOS 10.15.6 (19G2021)
 - Xcode 11.6
 
@@ -60,34 +59,33 @@ The build produced does have some limitations:
 ```
 Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
-Branch, tag, and SHA are from the mirrors/emacs Github repo,
-available here: https://github.com/mirrors/emacs
-    -j, --parallel PROCS             Compile in parallel using PROCS processes
-    -x, --xwidgets                   Apply XWidgets patch for Emacs 27
-        --native-comp                Enable native-comp
-        --native-fast-boot           Only relevant with --native-comp
+Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
+available here: https://github.com/emacs-mirror/emacs
+    -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 8)
+        --[no-]xwidgets              Enable/disable XWidgets (default: enabled)
+        --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
+        --[no-]native-fast-boot      Enable/disable NATIVE_FAST_BOOT (default: enabled if native-comp supported)
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
 tarball.
 
-I would typically recommend to pass a `-j` value equal to the number of CPU
-threads your machine has to ensure a fast build. In the below examples I'll be
-using `-j 4`.
+If you don't want the build process to eat all your CPU cores, pass in a `-j`
+value of how many CPU cores you want it to use.
 
 ### Examples
 
-To download a tarball of the `master` branch (Emacs 28.x), build Emacs.app from
-it:
+To download a tarball of the `master` branch (Emacs 28.x) and build Emacs.app
+from it:
 
 ```
-./build-emacs-for-macos -j 4
+./build-emacs-for-macos
 ```
 
-To build the stable `emacs-27.1` release git tag, with XWidgets support, run:
+To build the stable `emacs-27.1` release git tag run:
 
 ```
-./build-emacs-for-macos -j 4 --xwidgets emacs-27.1
+./build-emacs-for-macos emacs-27.1
 ```
 
 ## Native-Comp
@@ -117,28 +115,66 @@ between 30-60 minutes or more depending on your machine.
 And finally to build a Emacs.app with native compilation enabled, run:
 
 ```
-./build-emacs-for-macos -j 4 --native-comp feature/native-comp
+./build-emacs-for-macos feature/native-comp
 ```
 
-On my machine with `-j 8` this takes around 20-25 minutes. The increased build
-time is cause all lisp files in the app are compiled to native `*.eln` files.
+By default `NATIVE_FAST_BOOT` is enabled which ensures a fast build by native
+compiling as few lisp source files as possible to build the app. Any remaining
+lisp files will be dynamically compiled in the background the first time you use
+them.
 
-The build time can be sped up by using `--native-fast-boot`, which compiles a
-minimal required set of lisp files to native code during build, and will compile
-the rest dynamically in the background as they get loaded while you're using
-Emacs.
+On my machine it takes around 10-15 minutes to build Emacs.app with
+`NATIVE_FAST_BOOT` enabled. With it disabled it takes around 25 minutes.
+
+### Configuration
+
+Add the following near the top of your `early-init.el` or `init.el`:
+
+```elisp
+(setq comp-speed 2)
+```
+
+By default natively compiled `*.eln` files will be cached in
+`~/.emacs.d/eln-cache/`. If you want to customize that, simply add a new path as
+the first element to the `comp-eln-load-path` variable. The path string must end
+with a `/`.
+
+For example, to cache them into `cache/eln-cache` within your Emacs
+configuration directory, you can do something like this:
+
+```elisp
+(when (boundp 'comp-eln-load-path)
+  (add-to-list 'comp-eln-load-path
+               (expand-file-name "cache/eln-cache/" user-emacs-directory)))
+```
+
+### Issues (as of 2020-08-19)
+
+After the changes in [Update 11](https://akrl.sdf.org/gccemacs.html#org4b11ea1)
+to gccemacs, the native `*.eln` files are cached with a hash. This hash seems to
+be in part based on the absolute file path of the lisp file in question. As
+Emacs.app is self-contained, the absolute path as build time and will not be the
+same as once it's installed into `/Applications`.
+
+This means that all the natively compiled `*.eln` files bundled into Emacs.app
+will not be used, and instead all lisp sources will be natively compiled and
+cached in the the user cache (`~/.emacs.d/eln-cache/` by default). Native
+compilation status can be viewed in the `*Async-native-compile-log*` buffer.
+
+Because of this, `NATIVE_FAST_BOOT` is enabled by default ensuring as fast a
+build as possible, with as little native compilation as possible on build time.
 
 ## Credits
 
-- I've borrowed some ideas and in general used
-  [David Caldwell](https://github.com/caldwell)'s excellent
-  [build-emacs](https://github.com/caldwell/build-emacs) project, which produces
-  all builds for [emacsformacosx.com](https://emacsformacosx.com).
+- I've borrowed some ideas from [David Caldwell](https://github.com/caldwell)'s
+  excellent [build-emacs](https://github.com/caldwell/build-emacs) project,
+  which produces all builds for
+  [emacsformacosx.com](https://emacsformacosx.com).
 - Patches applied are pulled from
   [emacs-plus](https://github.com/d12frosted/homebrew-emacs-plus), which is an
   excellent Homebrew formula with lots of options not available elsewhere.
-- The following gists were all extremely useful in figuring out how get get
-  native-comp building on macOS:
+- The following sources were extremely useful in figuring out how get get the
+  `feature/native-comp` branch building on macOS:
   - https://gist.github.com/mikroskeem/0a5c909c1880408adf732ceba6d3f9ab#1-gcc-with-libgccjit-enabled
   - https://github.com/shshkn/emacs.d/blob/master/docs/nativecomp.md
   - https://gist.github.com/AllenDang/f019593e65572a8e0aefc96058a2d23e

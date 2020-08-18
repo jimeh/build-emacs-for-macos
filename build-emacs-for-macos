@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require 'date'
+require 'etc'
 require 'fileutils'
 require 'json'
 require 'optparse'
@@ -112,13 +113,31 @@ class Build
     target
   end
 
+  def configure_help
+    @configure_help ||= `./configure --help`
+  end
+
+  def supports_native_comp?
+    @supports_native_comp ||= configure_help.match?(/\s+--with-nativecomp\s+/)
+  end
+
+  def supports_xwidgets?
+    @supports_xwidgets ||= configure_help.match?(/\s+--with-xwidgets\s+/)
+  end
+
   def detect_native_comp
-    return if `./configure --help | grep -- '--with-nativecomp'`.strip != ''
+    print 'Detecting native-comp support: '
+    options[:native_comp] = supports_native_comp?
+    puts options[:native_comp] ? 'Supported' : 'Not supported'
+  end
+
+  def verify_native_comp
+    return if supports_native_comp?
 
     err 'This emacs source tree does not support native-comp'
   end
 
-  def detect_libgccjit
+  def verify_libgccjit
     err 'gcc not installed' unless Dir.exist?(gcc_dir)
 
     return if Dir["#{gcc_dir}/lib/**/libgccjit.so*"].any?
@@ -146,9 +165,11 @@ class Build
         run_cmd './autogen.sh'
       end
 
+      detect_native_comp if options[:native_comp].nil?
       if options[:native_comp]
-        detect_native_comp
-        detect_libgccjit
+        puts 'Compiling with native-comp enabled'
+        verify_native_comp
+        verify_libgccjit
 
         ENV['NATIVE_FAST_BOOT'] = '1' if options[:native_fast_boot]
         ENV['CFLAGS'] = [
@@ -194,14 +215,11 @@ class Build
         '/Library/Application Support/Emacs/${version}/site-lisp:' \
         '/Library/Application Support/Emacs/site-lisp'
       ]
-      configure_flags << '--with-xwidgets' if options[:xwidgets]
+      configure_flags << '--with-xwidgets' if supports_xwidgets?
       configure_flags << '--with-nativecomp' if options[:native_comp]
 
       make_flags = []
-      make_flags += ['-j', options[:parallel]] if options[:parallel]
-      if options[:native_comp]
-        make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
-      end
+      make_flags += ['-j', options[:parallel].to_s] if options[:parallel]
 
       run_cmd './configure', *configure_flags
 
@@ -212,11 +230,23 @@ class Build
         disable_alligned_alloc
       end
 
+      if options[:native_comp]
+        make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
+      end
+
       run_cmd 'make', *make_flags
       run_cmd 'make', 'install'
     end
 
     err 'Build failed.' unless File.exist?(emacs_app)
+
+    if options[:native_comp]
+      FileUtils.cd(File.join(emacs_app, 'Contents')) do
+        FileUtils.ln_s('Resources/lisp', 'lisp')
+        dir = Dir['MacOS/libexec/emacs/**/eln-cache'].first
+        FileUtils.ln_s(dir, 'eln-cache')
+      end
+    end
 
     emacs_app
   end
@@ -299,8 +329,8 @@ class Build
     system(*args) || exit($CHILD_STATUS.exitstatus)
   end
 
-  def patch_version
-    @patch_version ||= begin
+  def effective_version
+    @effective_version ||= begin
       case ref
       when /^emacs-27.*/
         'emacs-27'
@@ -313,21 +343,21 @@ class Build
   def patches(opts = {})
     p = []
 
-    if patch_version
-      if opts[:xwidgets] && patch_version == 'emacs-27'
+    if effective_version
+      if opts[:xwidgets] && effective_version == 'emacs-27'
         p << {
           url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{patch_version}/xwidgets_webkit_in_cocoa.patch"
+               "patches/#{effective_version}/xwidgets_webkit_in_cocoa.patch"
         }
       end
 
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{patch_version}/fix-window-role.patch"
+             "patches/#{effective_version}/fix-window-role.patch"
       }
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{patch_version}/system-appearance.patch"
+             "patches/#{effective_version}/system-appearance.patch"
       }
     end
 
@@ -492,30 +522,42 @@ class LibEmbedder
 end
 
 if __FILE__ == $PROGRAM_NAME
-  cli_options = {}
+  cli_options = {
+    native_fast_boot: true,
+    parallel: Etc.nprocessors,
+    xwidgets: true
+  }
+
   OptionParser.new do |opts|
     opts.banner = <<~DOC
       Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
-      Branch, tag, and SHA are from the mirrors/emacs Github repo,
-      available here: https://github.com/mirrors/emacs
+      Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
+      available here: https://github.com/emacs-mirror/emacs
     DOC
 
-    opts.on('-j', '--parallel PROCS',
-            'Compile in parallel using PROCS processes') do |v|
+    opts.on('-j', '--parallel COUNT',
+            'Compile using COUNT parallel processes ' \
+            "(detected: #{cli_options[:parallel]})") do |v|
       cli_options[:parallel] = v
     end
 
-    opts.on('-x', '--xwidgets', 'Apply XWidgets patch for Emacs 27') do
-      cli_options[:xwidgets] = true
+    opts.on('--[no-]xwidgets',
+            'Enable/disable XWidgets ' \
+            '(default: enabled)') do |v|
+      cli_options[:xwidgets] = v
     end
 
-    opts.on('--native-comp', 'Enable native-comp') do
-      cli_options[:native_comp] = true
+    opts.on('--[no-]native-comp',
+            'Enable/disable native-comp ' \
+            '(default: enabled if supported)') do |v|
+      cli_options[:native_comp] = v
     end
 
-    opts.on('--native-fast-boot', 'Only relevant with --native-comp') do
-      cli_options[:native_fast_boot] = true
+    opts.on('--[no-]native-fast-boot',
+            'Enable/disable NATIVE_FAST_BOOT ' \
+            '(default: enabled if native-comp supported)') do |v|
+      cli_options[:native_fast_boot] = v
     end
   end.parse!
 
