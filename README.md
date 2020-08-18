@@ -1,10 +1,39 @@
 # build-emacs-for-macos
 
-Use this script at your own risk. As of writing (2020-02-02) it works for me on
-my own machine to build the `emacs-27` release branch. My machine is a late-2016
-13-inch Touchbar MacBook Pro runnning macOS 10.15.2 and Xcode 11.3.
+My personal hacked together script for building a completely self-contained
+Emacs.app application on macOS, from any git branch, tag, or ref.
 
-Your luck may vary.
+Use this script at your own risk.
+
+## Why?
+
+- To use new features available from master or branches, which have not made it
+  into a official stable release yet.
+- Homebrew builds of Emacs are not self-contained applications, making it very
+  difficult when doing HEAD builds and you need to rollback to a earlier
+  version.
+- Both Homebrew HEAD builds, and nightly builds from emacsformacosx.com are
+  built from the `master` branch. This script allows you to choose any branch,
+  tag, or git ref you want.
+
+## Status
+
+As of writing (2020-08-18) it works for me on my machine. Your luck may vary.
+
+I have successfully built:
+
+- `emacs-27.1` release git tag
+- `master` branch (Emacs 28.x)
+- `feature/native-comp` branch (Emacs 28.x)
+
+For reference, my machine is:
+
+- 13-inch MacBook Pro (2020)
+- 10th Gen i7, 2.3 GHz 4-core/8-thread CPU
+- macOS 10.15.6 (19G2021)
+- Xcode 11.6
+
+## Limitations
 
 The build produced does have some limitations:
 
@@ -12,21 +41,9 @@ The build produced does have some limitations:
   application will be that of the machine it was built on.
 - The minimum required macOS version of the built application will be the same
   as that of the machine it was built on.
-
-## Why?
-
-- To use new features available from master or pre-release branches, which have
-  not made it into a official stable release yet.
-- Homebrew builds of Emacs are not self-contained applications, making it very
-  difficult when doing HEAD builds and you need to rollback to a earlier
-  version.
-- Builds from [emacsformacosx.com](https://emacsformacosx.com/) has had no new
-  nightly builds for two months right now.
-- Both Homebrew HEAD builds, and nightly builds from emacsformacosx.com are
-  built from the `master` branch. This script allows you to choose any branch
-  you want. I am currently building from the `emacs-27` branch which is the
-  basis of the upcoming Emacs 27 release, meaning it should be more stable than
-  `master` builds.
+- The application is not signed, so running it on machines other than the one
+  that built the application will yield warnings. If you want to make a signed
+  Emacs.app, google is you friend for finding signing instructions.
 
 ## Requirements
 
@@ -40,53 +57,94 @@ The build produced does have some limitations:
 
 ## Usage
 
-Then to download a tarball of the `master` branch, build Emacs.app:
+```
+Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
-    ./build-emacs-for-macos
-
-If you want to build the `emacs-27` git branch, run:
-
-    ./build-emacs-for-macos emacs-27
-
-If you want to build the stable `emacs-26.3` git tag, run:
-
-    ./build-emacs-for-macos emacs-26.3
+Branch, tag, and SHA are from the mirrors/emacs Github repo,
+available here: https://github.com/mirrors/emacs
+    -j, --parallel PROCS             Compile in parallel using PROCS processes
+    -x, --xwidgets                   Apply XWidgets patch for Emacs 27
+        --native-comp                Enable native-comp
+        --native-fast-boot           Only relevant with --native-comp
+```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
 tarball.
 
+I would typically recommend to pass a `-j` value equal to the number of CPU
+threads your machine has to ensure a fast build. In the below examples I'll be
+using `-j 4`.
+
+### Examples
+
+To download a tarball of the `master` branch (Emacs 28.x), build Emacs.app from
+it:
+
+```
+./build-emacs-for-macos -j 4
+```
+
+To build the stable `emacs-27.1` release git tag, with XWidgets support, run:
+
+```
+./build-emacs-for-macos -j 4 --xwidgets emacs-27.1
+```
+
+## Native-Comp
+
+To build a Emacs.app with native-comp support
+([gccemacs](https://akrl.sdf.org/gccemacs.html)) from the `feature/native-comp`
+branch, you will need to install a patched version of Homebrew's `gcc` formula,
+which is included in `Forumlas/gcc.rb`. This can easily be installed by running:
+
+```
+./install-patched-gcc
+```
+
+This requires installing and compiling GCC from source, and take anywhere
+between 30-60 minutes or more depending on your machine.
+
+Then to build a Emacs.app with native compilation enabled, run:
+
+```
+./build-emacs-for-macos -j 4 --native-comp feature/native-comp
+```
+
+On my machine with `-j 8` this takes around 20-25 minutes. The increased build
+time is cause all lisp files in the app are compiled to native `*.eln` files.
+
+The build time can be sped up by using `--native-fast-boot`, which compiles a
+minimal required set of lisp files to native code during build, and will compile
+the rest dynamically in the background as they get loaded while you're using
+Emacs.
+
+## Credits
+
+- I've borrowed some ideas and in general used
+  [David Caldwell](https://github.com/caldwell)'s excellent
+  [build-emacs](https://github.com/caldwell/build-emacs) project, which produces
+  all builds for [emacsformacosx.com](https://emacsformacosx.com).
+- Patches applied are pulled from
+  [emacs-plus](https://github.com/d12frosted/homebrew-emacs-plus), which is an
+  excellent Homebrew formula with lots of options not available elsewhere.
+
 ## Internals
 
-The script downloads the source code as a gzipped tar archive from the [GitHub
-mirror](https://github.com/emacs-mirror/emacs) repository, as it makes it very
-easy to get a tarball of any given git reference.
+The script downloads the source code as a gzipped tar archive from the
+[GitHub mirror](https://github.com/emacs-mirror/emacs) repository, as it makes
+it very easy to get a tarball of any given git reference.
 
-It then runs `./configure` with a various options, partly based on what [David
-Caldwell](https://github.com/caldwell)'s
-[build-emacs](https://github.com/caldwell/build-emacs) scripts do, including
-copying various dynamic libraries into the application itself. So the built
-application should in theory run on a macOS install that does not have homebrew,
-or do no have the relevant brew formula installed.
+It then runs `./configure` with a various options, including copying various
+dynamic libraries into the application itself. So the built application should
+in theory run on a macOS install that does not have Homebrew, or does not have
+the relevant Homebrew formulas installed.
 
-Code quality, is well, non-existent. The build script started life a super-quick
-hack back in 2013, and now it's even more of a dirty hack. I might clean it up
-and add unit tests if I end up relying on this script for a prolonged period of
-time. For now I plan to use it until Emacs 27 is officially released.
+Code quality of the script itself, is well, non-existent. The build script
+started life a super-quick hack back in 2013, and now it's even more of a dirty
+hack. I might clean it up and add unit tests if I end up relying on this script
+for a prolonged period of time. For now I plan to use it at least until
+native-comp lands in a stable Emacs release for macOS.
 
 ## License
 
-```
-        DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
-                    Version 2, December 2004
-
- Copyright (C) 2020 Jim Myhrberg
-
- Everyone is permitted to copy and distribute verbatim or modified
- copies of this license document, and changing it is allowed as long
- as the name is changed.
-
-            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
-   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
-
-  0. You just DO WHAT THE FUCK YOU WANT TO.
-```
+[CC0 1.0 Universal](http://creativecommons.org/publicdomain/zero/1.0/)
