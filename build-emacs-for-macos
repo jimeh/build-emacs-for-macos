@@ -534,6 +534,8 @@ if __FILE__ == $PROGRAM_NAME
 
       Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
       available here: https://github.com/emacs-mirror/emacs
+
+      Options:
     DOC
 
     opts.on('-j', '--parallel COUNT',

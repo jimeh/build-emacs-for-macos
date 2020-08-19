@@ -61,6 +61,8 @@ Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
 Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
 available here: https://github.com/emacs-mirror/emacs
+
+Options:
     -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 8)
         --[no-]xwidgets              Enable/disable XWidgets (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
@@ -75,8 +77,8 @@ value of how many CPU cores you want it to use.
 
 ### Examples
 
-To download a tarball of the `master` branch (Emacs 28.x) and build Emacs.app
-from it:
+To download a tarball of the `master` branch (Emacs 28.x as of writing) and
+build Emacs.app from it:
 
 ```
 ./build-emacs-for-macos
@@ -87,6 +89,11 @@ To build the stable `emacs-27.1` release git tag run:
 ```
 ./build-emacs-for-macos emacs-27.1
 ```
+
+All sources as downloaded as tarballs from the
+[emacs-mirror](https://github.com/emacs-mirror/emacs) GitHub repository. Hence
+to get a list of tags/branches available to install, simply check said
+repository.
 
 ## Native-Comp
 
@@ -153,7 +160,7 @@ configuration directory, you can do something like this:
 After the changes in [Update 11](https://akrl.sdf.org/gccemacs.html#org4b11ea1)
 to gccemacs, the native `*.eln` files are cached with a hash. This hash seems to
 be in part based on the absolute file path of the lisp file in question. As
-Emacs.app is self-contained, the absolute path as build time and will not be the
+Emacs.app is self-contained, the absolute path at build time and will not be the
 same as once it's installed into `/Applications`.
 
 This means that all the natively compiled `*.eln` files bundled into Emacs.app
@@ -162,7 +169,7 @@ cached in the the user cache (`~/.emacs.d/eln-cache/` by default). Native
 compilation status can be viewed in the `*Async-native-compile-log*` buffer.
 
 Because of this, `NATIVE_FAST_BOOT` is enabled by default ensuring as fast a
-build as possible, with as little native compilation as possible on build time.
+build as possible, with as little native compilation as possible at build time.
 
 ## Credits
 
