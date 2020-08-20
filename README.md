@@ -146,30 +146,36 @@ By default natively compiled `*.eln` files will be cached in
 the first element to the `comp-eln-load-path` variable. The path string must end
 with a `/`.
 
-For example, to cache them into `cache/eln-cache` within your Emacs
-configuration directory, you can do something like this:
+Also it seems somewhat common that some `*.eln` files are left behind with a
+zero-byte file size if Emacs is quit while async native compilation is in
+progress. Such empty files causes errors on startup, and needs to be deleted.
+
+Below is an example which stores all compiled `*.eln` files in `cache/eln-cache`
+within your Emacs configuration directory, and also deletes any `*.eln` files in
+said directory which have a file size of zero bytes:
 
 ```elisp
 (when (boundp 'comp-eln-load-path)
-  (add-to-list 'comp-eln-load-path
-               (expand-file-name "cache/eln-cache/" user-emacs-directory)))
+  (let ((eln-cache-dir (expand-file-name "cache/eln-cache/" user-emacs-directory))
+        (find-exec (executable-find "find")))
+    (add-to-list 'comp-eln-load-path eln-cache-dir)
+    ;; Quitting emacs while native compilation in progress can leave zero byte
+    ;; sized *.eln files behind. Hence delete such files during startup.
+    (when find-exec
+      (call-process find-exec nil nil nil eln-cache-dir
+                    "-name" "*.eln" "-size" "0" "-delete"))))
 ```
 
-### Issues (as of 2020-08-19)
+### Issues
 
-After the changes in [Update 11](https://akrl.sdf.org/gccemacs.html#org4b11ea1)
-to gccemacs, the native `*.eln` files are cached with a hash. This hash seems to
-be in part based on the absolute file path of the lisp file in question. As
-Emacs.app is self-contained, the absolute path at build time and will not be the
-same as once it's installed into `/Applications`.
+Please see all issues with the
+[`native-comp`](https://github.com/jimeh/build-emacs-for-macos/issues?q=is%3Aissue+is%3Aopen+label%3Anative-comp)
+label. It's a good idea if you read through them so you're familiar with the
+types of issues and or behavior you can expect.
 
-This means that all the natively compiled `*.eln` files bundled into Emacs.app
-will not be used, and instead all lisp sources will be natively compiled and
-cached in the the user cache (`~/.emacs.d/eln-cache/` by default). Native
-compilation status can be viewed in the `*Async-native-compile-log*` buffer.
 
-Because of this, `NATIVE_FAST_BOOT` is enabled by default ensuring as fast a
-build as possible, with as little native compilation as possible at build time.
+
+
 
 ## Credits
 
