@@ -173,9 +173,10 @@ Please see all issues with the
 label. It's a good idea if you read through them so you're familiar with the
 types of issues and or behavior you can expect.
 
+### Known Good Commits/Builds
 
-
-
+A list of known "good" commits which produce working builds is tracked in:
+[#6 Known good commits of feature/native-comp branch](https://github.com/jimeh/build-emacs-for-macos/issues/6)
 
 ## Credits
 
