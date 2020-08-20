@@ -64,6 +64,7 @@ available here: https://github.com/emacs-mirror/emacs
 
 Options:
     -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 8)
+        --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
         --[no-]xwidgets              Enable/disable XWidgets (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-fast-boot      Enable/disable NATIVE_FAST_BOOT (default: enabled if native-comp supported)
