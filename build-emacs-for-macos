@@ -5,8 +5,10 @@ require 'date'
 require 'etc'
 require 'fileutils'
 require 'json'
+require 'net/http'
 require 'optparse'
 require 'pathname'
+require 'uri'
 
 def err(msg = nil)
   warn("ERROR: #{msg}") if msg
@@ -15,8 +17,7 @@ end
 
 class Build
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
-  LATEST_URL = 'https://api.github.com/repos/' \
-               'emacs-mirror/emacs/commits?sha=%s'
+  LATEST_URL = 'https://api.github.com/repos/emacs-mirror/emacs/commits/%s'
   NATIVE_COMP_REF_REGEXP = %r{^feature/native-comp}.freeze
 
   attr_reader :root_dir
@@ -313,15 +314,19 @@ class Build
   end
 
   def meta
-    @meta ||= begin
-      response = `curl "#{LATEST_URL % ref}" 2>/dev/null`
-      meta = JSON.parse(response).first
+    return @meta if @meta
 
-      {
-        sha: meta['sha'],
-        date: Date.parse(meta['commit']['committer']['date'])
-      }
-    end
+    url = format(LATEST_URL, (options[:git_sha] || ref))
+    commit = JSON.parse(http_get(url))
+
+    @meta = {
+      sha: commit['sha'],
+      date: Date.parse(commit['commit']['committer']['date'])
+    }
+  end
+
+  def http_get(url)
+    Net::HTTP.get(URI.parse(url))
   end
 
   def run_cmd(*args)
@@ -537,6 +542,11 @@ if __FILE__ == $PROGRAM_NAME
 
       Options:
     DOC
+
+    opts.on('--git-sha=SHA', 'Override detected git SHA of specified branch ' \
+                             'allowing builds of old commits') do |v|
+      cli_options[:git_sha] = v
+    end
 
     opts.on('-j', '--parallel COUNT',
             'Compile using COUNT parallel processes ' \
