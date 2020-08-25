@@ -68,6 +68,8 @@ Options:
         --[no-]xwidgets              Enable/disable XWidgets (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-fast-boot      Enable/disable NATIVE_FAST_BOOT (default: enabled if native-comp supported)
+        --[no-]native-comp-macos-fixes
+                                     Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
@@ -143,8 +145,8 @@ Add the following near the top of your `early-init.el` or `init.el`:
 ```
 
 By default natively compiled `*.eln` files will be cached in
-`~/.emacs.d/eln-cache/`. If you want to customize that, simply add a new path as
-the first element to the `comp-eln-load-path` variable. The path string must end
+`~/.emacs.d/eln-cache/`. If you want to customize that, simply set a new path as
+the first element of the `comp-eln-load-path` variable. The path string must end
 with a `/`.
 
 Also it seems somewhat common that some `*.eln` files are left behind with a
@@ -159,7 +161,7 @@ said directory which have a file size of zero bytes:
 (when (boundp 'comp-eln-load-path)
   (let ((eln-cache-dir (expand-file-name "cache/eln-cache/" user-emacs-directory))
         (find-exec (executable-find "find")))
-    (add-to-list 'comp-eln-load-path eln-cache-dir)
+    (setcar comp-eln-load-path eln-cache-dir)
     ;; Quitting emacs while native compilation in progress can leave zero byte
     ;; sized *.eln files behind. Hence delete such files during startup.
     (when find-exec
