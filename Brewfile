@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+brew 'coreutils'
 brew 'curl'
 brew 'expat'
 brew 'gmp'
@@ -14,6 +15,7 @@ brew 'libunistring'
 brew 'libxml2'
 brew 'little-cms2'
 brew 'mailutils'
+brew 'make'
 brew 'ncurses'
 brew 'nettle'
 brew 'pkg-config'

@@ -209,6 +209,8 @@ class Build
       ].compact.join(':')
 
       ENV['PATH'] = [
+        "#{brew_dir}/opt/make/libexec/gnubin",
+        "#{brew_dir}/opt/coreutils/libexec/gnubin",
         "#{brew_dir}/opt/gnu-sed/libexec/gnubin",
         "#{brew_dir}/bin",
         "#{brew_dir}/opt/texinfo/bin",
@@ -225,9 +227,6 @@ class Build
       configure_flags << '--with-xwidgets' if supports_xwidgets?
       configure_flags << '--with-nativecomp' if options[:native_comp]
 
-      make_flags = []
-      make_flags += ['-j', options[:parallel].to_s] if options[:parallel]
-
       run_cmd './configure', *configure_flags
 
       # Disable aligned_alloc on Mojave and below. See issue:
@@ -236,6 +235,9 @@ class Build
         puts 'Force disabling of aligned_alloc on macOS <= Mojave (10.14.x)'
         disable_alligned_alloc
       end
+
+      make_flags = []
+      make_flags += ['-j', options[:parallel].to_s] if options[:parallel]
 
       if options[:native_comp]
         make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
