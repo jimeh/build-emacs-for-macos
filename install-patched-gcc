@@ -9,6 +9,18 @@ if [ ! -f "$formula" ]; then
   exit 1
 fi
 
+gnubins=(
+  "${brewdir}/opt/coreutils/libexec/gnubin"
+  "${brewdir}/opt/make/libexec/gnubin"
+  "${brewdir}/opt/gnu-sed/libexec/gnubin"
+)
+
+for gnubin in "${gnubins[@]}"; do
+  if [ -d "$gnubin" ]; then
+    export PATH="${gnubin}:$PATH"
+  fi
+done
+
 cp "$formula" ./Formula/
 
 patch -f -p1 -i ./Formula/gcc.rb.patch
