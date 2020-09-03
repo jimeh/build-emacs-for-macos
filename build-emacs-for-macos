@@ -13,14 +13,65 @@ require 'uri'
 
 class Error < StandardError; end
 
-def err(msg = nil)
-  raise Error, msg
+module Output
+  def info(msg, newline: true)
+    out "INFO: #{msg}", newline: newline
+  end
+
+  def out(msg, newline: true)
+    if newline
+      puts "==> #{msg}"
+    else
+      print "==> #{msg}"
+    end
+  end
+
+  def err(msg = nil)
+    raise Error, msg
+  end
+end
+
+class OS
+  def self.version
+    @version ||= OSVersion.new
+  end
+
+  def self.arch
+    @arch ||= `uname -m`.strip
+  end
+end
+
+class OSVersion
+  def initialize
+    @version = `sw_vers -productVersion`.match(
+      /(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)/
+    )
+  end
+
+  def to_s
+    @to_s ||= "#{major}.#{minor}"
+  end
+
+  def major
+    @major ||= @version[:major].to_i
+  end
+
+  def minor
+    @minor ||= @version[:minor].to_i
+  end
+
+  def patch
+    @patch ||= @version[:patch].to_i
+  end
 end
 
 class Build
+  include Output
+
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
   LATEST_URL = 'https://api.github.com/repos/emacs-mirror/emacs/commits/%s'
   NATIVE_COMP_REF_REGEXP = %r{^feature/native-comp}.freeze
+  LAUNCHER_TEMPLATE = './launcher.bash.erb'
 
   attr_reader :root_dir
   attr_reader :ref
@@ -41,7 +92,7 @@ class Build
     source = extract_tarball(tarball, patches(options))
     app = compile_source(source)
 
-    LibEmbedder.new(app, brew_dir, os.version, extra_libs).embed
+    LibEmbedder.new(app, brew_dir, extra_libs).embed
 
     archive_app(app)
   end
@@ -84,11 +135,11 @@ class Build
     target   = File.join(tarball_dir, filename)
 
     if File.exist?(target)
-      puts "INFO: #{filename} already exists locally, attempting to use."
+      info "#{filename} already exists locally, attempting to use."
       return target
     end
 
-    puts 'Downloading tarball from GitHub. This could take a while, ' \
+    info 'Downloading tarball from GitHub. This could take a while, ' \
          'please be patient.'
     result = run_cmd('curl', '-L', url, '-o', target)
     err 'Download failed.' unless result
@@ -103,11 +154,11 @@ class Build
     target = File.join(source_dir, dirname)
 
     if File.exist?(target)
-      puts "\nINFO: #{dirname} source tree exists, attempting to use."
+      info "#{dirname} source tree exists, attempting to use."
       return target
     end
 
-    puts 'Extracting tarball...'
+    info 'Extracting tarball...'
     result = run_cmd('tar', '-xzf', filename, '-C', source_dir)
     err 'Tarball extraction failed.' unless result
 
@@ -129,7 +180,7 @@ class Build
   end
 
   def detect_native_comp
-    print 'Detecting native-comp support: '
+    info 'Detecting native-comp support: ', newline: false
     options[:native_comp] = supports_native_comp?
     puts options[:native_comp] ? 'Supported' : 'Not supported'
   end
@@ -154,12 +205,12 @@ class Build
     emacs_app = "#{target}/Emacs.app"
 
     if File.exist?("#{target}/Emacs.app")
-      puts 'INFO: Emacs.app already exists in ' \
+      info 'Emacs.app already exists in ' \
            "\"#{target.gsub(root_dir + '/', '')}\", attempting to use."
       return emacs_app
     end
 
-    puts 'Compiling from source. This will take a while...'
+    info 'Compiling from source. This will take a while...'
 
     FileUtils.cd(source) do
       if File.exist?('autogen/copy_autogen')
@@ -170,7 +221,7 @@ class Build
 
       detect_native_comp if options[:native_comp].nil?
       if options[:native_comp]
-        puts 'Compiling with native-comp enabled'
+        info 'Compiling with native-comp enabled'
         verify_native_comp
         verify_libgccjit
 
@@ -204,7 +255,7 @@ class Build
         "#{brew_dir}/opt/libxml2/lib/pkgconfig",
         "#{brew_dir}/opt/ncurses/lib/pkgconfig",
         "#{brew_dir}/opt/zlib/lib/pkgconfig",
-        "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{os.version}",
+        "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{OS.version}",
         ENV['PKG_CONFIG_PATH']
       ].compact.join(':')
 
@@ -231,8 +282,9 @@ class Build
 
       # Disable aligned_alloc on Mojave and below. See issue:
       # https://github.com/daviderestivo/homebrew-emacs-head/issues/15
-      if os.major <= 10 && os.minor <= 14
-        puts 'Force disabling of aligned_alloc on macOS <= Mojave (10.14.x)'
+      if OS.version.major <= 10 && OS.version.minor <= 14
+        info 'Force disabling of aligned_alloc on macOS Mojave (10.14.x) ' \
+             'and earlier'
         disable_alligned_alloc
       end
 
@@ -267,8 +319,8 @@ class Build
       ref.gsub(/\W/, '-'),
       meta[:date],
       meta[:sha][0..6],
-      "macOS-#{os.version}",
-      arch
+      "macOS-#{OS.version}",
+      OS.arch
     ]
 
     filename = "Emacs.app-[#{metadata.join('][')}].tbz"
@@ -278,32 +330,12 @@ class Build
     app_dir  = File.dirname(app)
 
     if !File.exist?(target)
-      puts "\nCreating #{filename} archive in \"#{build_dir}\"..."
+      info "Creating #{filename} archive in \"#{build_dir}\"..."
       FileUtils.cd(app_dir) { system('tar', '-cjf', target, app_base) }
     else
-      puts "\nINFO: #{filename} archive exists in " \
+      info "#{filename} archive exists in " \
            "#{build_dir.gsub(root_dir + '/', '')}, skipping archving."
     end
-  end
-
-  def os
-    @os ||= begin
-      ver = `sw_vers -productVersion`.chomp
-                                     .sub(/^(\d+\.\d+\.\d)+/, '\1')
-                                     .split('.')
-                                     .map(&:to_i)
-
-      OpenStruct.new(
-        'version' => "#{ver[0]}.#{ver[1]}",
-        'major' => ver[0],
-        'minor' => ver[1],
-        'patch' => ver[2]
-      )
-    end
-  end
-
-  def arch
-    @arch = `uname -m`.strip
   end
 
   def disable_alligned_alloc
@@ -345,15 +377,14 @@ class Build
   end
 
   def run_cmd(*args)
-    puts '==> ' + args.join(' ')
+    out "CMD: #{args.join(' ')}"
     system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
   end
 
   def apply_native_comp_macos_fixes
     filename = 'Makefile.in'
-    content = File.read(filename).gsub(
-      /^src: Makefile\n(.*BIN_DESTDIR.*)\nblessmail: Makefile src\n/m
-    ) do |match|
+    pattern = /^src: Makefile\n(.*BIN_DESTDIR.*)\nblessmail: Makefile src\n/m
+    content = File.read(filename).gsub(pattern) do
       old_src_body = Regexp.last_match(1).strip
 
       # check if already patched
@@ -416,7 +447,7 @@ class Build
     p
   end
 
-  def apply_patch(patch, target, abort_on_failure = true)
+  def apply_patch(patch, target)
     err "\"#{target}\" does not exist." unless File.exist?(target)
 
     if patch[:url]
@@ -430,17 +461,11 @@ class Build
       end
       patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
 
-      begin
-        puts "Downloading patch: #{patch[:url]}"
-        run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
+      info "Downloading patch: #{patch[:url]}"
+      run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
 
-        puts 'Applying patch...'
-        FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch_file) }
-      rescue Error => e
-        raise e if abort_on_failure
-
-        puts "WARN: Failed to apply patch: #{e.message}"
-      end
+      info 'Applying patch...'
+      FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch_file) }
     elsif patch[:replace]
       err 'Patch replace input error' unless patch[:replace].size == 3
 
@@ -460,23 +485,45 @@ class Build
   end
 end
 
-class LibEmbedder
-  attr_reader :app
-  attr_reader :lib_source
-  attr_reader :macos_version
-  attr_reader :extra_libs
+class AbstractEmbedder
+  include Output
 
-  def initialize(app, lib_source, macos_version, extra_libs = [])
+  attr_reader :app
+
+  def initialize(app)
     err "#{app} does not exist" unless File.exist?(app)
 
     @app = app
+  end
+
+  private
+
+  def bin
+    "#{app}/Contents/MacOS/Emacs"
+  end
+
+  def lib_dir
+    "#{app}/Contents/MacOS/#{lib_dir_name}"
+  end
+
+  def lib_dir_name
+    "lib-#{OS.arch}-#{OS.version}"
+  end
+end
+
+class LibEmbedder < AbstractEmbedder
+  attr_reader :lib_source
+  attr_reader :extra_libs
+
+  def initialize(app, lib_source, extra_libs = [])
+    super(app)
+
     @lib_source = lib_source
-    @macos_version = macos_version
     @extra_libs = extra_libs
   end
 
   def embed
-    puts 'Embedding libraries into Emacs.app'
+    info 'Embedding libraries into Emacs.app'
 
     FileUtils.cd(File.dirname(app)) do
       copy_libs(bin)
@@ -486,18 +533,6 @@ class LibEmbedder
   end
 
   private
-
-  def arch
-    @arch = `uname -m`.strip
-  end
-
-  def bin
-    "#{app}/Contents/MacOS/Emacs"
-  end
-
-  def lib_dir
-    "#{app}/Contents/MacOS/lib-#{arch}-#{macos_version}"
-  end
 
   def copy_libs(exe, rel_path = nil)
     exe_file = File.basename(exe)
@@ -550,8 +585,10 @@ class LibEmbedder
   end
 
   def self_ref_libs(exe)
-    rel_path = Pathname.new(lib_dir).relative_path_from(Pathname.new(File.dirname(exe))).to_s
-    lib_paths ||= Dir.glob("#{lib_dir}/*")
+    rel_path = Pathname.new(lib_dir).relative_path_from(
+      Pathname.new(File.dirname(exe))
+    ).to_s
+    lib_paths ||= Dir.glob("#{lib_dir}/*").select { |f| File.file?(f) }
     libs = lib_paths.map { |f| File.basename(f) }
 
     ([exe] + lib_paths).each do |bin_path|
