@@ -76,6 +76,7 @@ Options:
         --[no-]native-fast-boot      Enable/disable NATIVE_FAST_BOOT (default: enabled if native-comp supported)
         --[no-]native-comp-macos-fixes
                                      Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
+        --[no-]launcher              Enable/disable embedded launcher script  (default: enabled if native-comp is enabled)
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed

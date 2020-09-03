@@ -3,6 +3,7 @@
 
 require 'English'
 require 'date'
+require 'erb'
 require 'etc'
 require 'fileutils'
 require 'json'
@@ -74,6 +75,7 @@ class Build
   LAUNCHER_TEMPLATE = './launcher.bash.erb'
 
   attr_reader :root_dir
+  attr_reader :source_dir
   attr_reader :ref
   attr_reader :options
 
@@ -89,26 +91,36 @@ class Build
     end
 
     tarball = download_tarball(meta[:sha])
-    source = extract_tarball(tarball, patches(options))
-    app = compile_source(source)
+    @source_dir = extract_tarball(tarball, patches(options))
+
+    autogen
+    detect_native_comp if options[:native_comp].nil?
+
+    if options[:native_comp] && options[:launcher].nil?
+      options[:launcher] = true
+    end
+
+    app = compile_source(@source_dir)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
+    LibGccJitEmbedder.new(app, gcc_dir).embed if options[:native_comp]
+    LauncherEmbedder.new(app, LAUNCHER_TEMPLATE).embed if options[:launcher]
 
     archive_app(app)
   end
 
   private
 
-  def tarball_dir
-    @tarball_dir ||= File.join(root_dir, 'tarballs')
+  def tarballs_dir
+    @tarballs_dir ||= File.join(root_dir, 'tarballs')
   end
 
-  def source_dir
-    @source_dir ||= File.join(root_dir, 'sources')
+  def sources_dir
+    @sources_dir ||= File.join(root_dir, 'sources')
   end
 
-  def build_dir
-    @build_dir ||= File.join(root_dir, 'builds')
+  def builds_dir
+    @builds_dir ||= File.join(root_dir, 'builds')
   end
 
   def brew_dir
@@ -128,11 +140,11 @@ class Build
   end
 
   def download_tarball(sha)
-    FileUtils.mkdir_p(tarball_dir)
+    FileUtils.mkdir_p(tarballs_dir)
 
     url = (DOWNLOAD_URL % sha)
     filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
-    target   = File.join(tarball_dir, filename)
+    target   = File.join(tarballs_dir, filename)
 
     if File.exist?(target)
       info "#{filename} already exists locally, attempting to use."
@@ -148,10 +160,10 @@ class Build
   end
 
   def extract_tarball(filename, patches = [])
-    FileUtils.mkdir_p(source_dir)
+    FileUtils.mkdir_p(sources_dir)
 
     dirname = File.basename(filename).gsub(/\.\w+$/, '')
-    target = File.join(source_dir, dirname)
+    target = File.join(sources_dir, dirname)
 
     if File.exist?(target)
       info "#{dirname} source tree exists, attempting to use."
@@ -159,7 +171,7 @@ class Build
     end
 
     info 'Extracting tarball...'
-    result = run_cmd('tar', '-xzf', filename, '-C', source_dir)
+    result = run_cmd('tar', '-xzf', filename, '-C', sources_dir)
     err 'Tarball extraction failed.' unless result
 
     patches.each { |patch| apply_patch(patch, target) }
@@ -168,7 +180,11 @@ class Build
   end
 
   def configure_help
-    @configure_help ||= `./configure --help`
+    return @configure_help if @configure_help
+
+    FileUtils.cd(source_dir) { @configure_help = `./configure --help` }
+
+    @configure_help
   end
 
   def supports_native_comp?
@@ -200,6 +216,23 @@ class Build
         'gcc brew formula has been installed via ./install-patched-gcc'
   end
 
+  def gcc_library_paths
+    @gcc_library_paths ||= Dir[
+      "#{gcc_dir}/lib/gcc/*",
+      "#{gcc_dir}/lib/gcc/*/gcc/*apple-darwin*/*"
+    ].sort_by { |p| [p.size, p] }
+  end
+
+  def autogen
+    FileUtils.cd(source_dir) do
+      if File.exist?('autogen/copy_autogen')
+        run_cmd 'autogen/copy_autogen'
+      elsif File.exist?('autogen.sh')
+        run_cmd './autogen.sh'
+      end
+    end
+  end
+
   def compile_source(source)
     target = "#{source}/nextstep"
     emacs_app = "#{target}/Emacs.app"
@@ -213,13 +246,6 @@ class Build
     info 'Compiling from source. This will take a while...'
 
     FileUtils.cd(source) do
-      if File.exist?('autogen/copy_autogen')
-        run_cmd 'autogen/copy_autogen'
-      elsif File.exist?('autogen.sh')
-        run_cmd './autogen.sh'
-      end
-
-      detect_native_comp if options[:native_comp].nil?
       if options[:native_comp]
         info 'Compiling with native-comp enabled'
         verify_native_comp
@@ -237,14 +263,14 @@ class Build
         ].compact.join(' ')
 
         ENV['LDFLAGS'] = [
-          "-L#{gcc_dir}/lib/gcc/10",
+          gcc_library_paths.map { |path| "-L#{path}" },
           "-I#{gcc_dir}/include"
-        ].compact.join(' ')
+        ].flatten.compact.join(' ')
 
         ENV['LIBRARY_PATH'] = [
-          "#{gcc_dir}/lib/gcc/10",
+          gcc_library_paths,
           ENV['LIBRARY_PATH']
-        ].compact.join(':')
+        ].flatten.compact.join(':')
       end
 
       ENV['CC'] = 'clang'
@@ -313,7 +339,7 @@ class Build
   end
 
   def archive_app(app)
-    FileUtils.mkdir_p(build_dir)
+    FileUtils.mkdir_p(builds_dir)
 
     metadata = [
       ref.gsub(/\W/, '-'),
@@ -324,17 +350,17 @@ class Build
     ]
 
     filename = "Emacs.app-[#{metadata.join('][')}].tbz"
-    target   = "#{build_dir}/#{filename}"
+    target   = "#{builds_dir}/#{filename}"
 
     app_base = File.basename(app)
     app_dir  = File.dirname(app)
 
     if !File.exist?(target)
-      info "Creating #{filename} archive in \"#{build_dir}\"..."
+      info "Creating #{filename} archive in \"#{builds_dir}\"..."
       FileUtils.cd(app_dir) { system('tar', '-cjf', target, app_base) }
     else
       info "#{filename} archive exists in " \
-           "#{build_dir.gsub(root_dir + '/', '')}, skipping archving."
+           "#{builds_dir.gsub(root_dir + '/', '')}, skipping archving."
     end
   end
 
@@ -525,10 +551,13 @@ class LibEmbedder < AbstractEmbedder
   def embed
     info 'Embedding libraries into Emacs.app'
 
+    binary = "#{bin}-bin" if File.exist?("#{bin}-bin")
+    binary ||= bin
+
     FileUtils.cd(File.dirname(app)) do
-      copy_libs(bin)
-      copy_extra_libs(extra_libs, bin) if extra_libs.any?
-      self_ref_libs(bin)
+      copy_libs(binary)
+      copy_extra_libs(extra_libs, binary) if extra_libs.any?
+      self_ref_libs(binary)
     end
   end
 
@@ -617,6 +646,115 @@ class LibEmbedder < AbstractEmbedder
   end
 end
 
+class LibGccJitEmbedder < AbstractEmbedder
+  attr_reader :gcc_dir
+
+  def initialize(app, gcc_dir)
+    super(app)
+    @gcc_dir = gcc_dir
+  end
+
+  def embed
+    if embedded?
+      info 'libgccjit already embedded in Emacs.app'
+      return
+    end
+
+    info 'Embedding libgccjit into Emacs.app'
+    if gcc_version.empty?
+      err "No suitable GCC lib with libgccjit found in #{gcc_dir}"
+    end
+
+    FileUtils.mkdir_p(File.dirname(target_dir))
+    FileUtils.cp_r(source_dir, target_dir)
+  end
+
+  private
+
+  def embedded?
+    Dir[File.join(target_dir, 'libgccjit.so*')].any?
+  end
+
+  def target_dir
+    File.join(lib_dir, 'gcc', gcc_version)
+  end
+
+  def gcc_version
+    @gcc_version ||= Dir[File.join(gcc_dir, 'lib', 'gcc', '*', 'libgccjit.so*')]
+                     .map { |path| File.dirname(path) }
+                     .select { |path| path.match(%r{/\d+$}) }
+                     .uniq
+                     .map { |dir| File.basename(dir).to_i }
+                     .max
+                     .to_s
+  end
+
+  def source_dir
+    @source_dir ||= File.join(gcc_dir, 'lib', 'gcc', gcc_version)
+  end
+end
+
+class LauncherEmbedder < AbstractEmbedder
+  attr_reader :template
+
+  def initialize(app, template)
+    super(app)
+
+    @template = template
+  end
+
+  def embed
+    if embedded?
+      info 'Launcher script already embedded in Emacs.app'
+      return
+    end
+
+    info 'Embedding launcher script into Emacs.app'
+
+    unless File.exist?("#{bin}#{bin_suffix}")
+      FileUtils.mv(bin, "#{bin}#{bin_suffix}")
+    end
+
+    unless File.exist?("#{bin}#{bin_suffix}#{dump_ext}")
+      FileUtils.mv("#{bin}#{dump_ext}", "#{bin}#{bin_suffix}#{dump_ext}")
+    end
+
+    unless File.exist?(bin)
+      File.write(bin, launcher)
+      File.chmod(0o775, bin)
+    end
+  end
+
+  private
+
+  def bin_suffix
+    '-bin'
+  end
+
+  def dump_ext
+    '.pdmp'
+  end
+
+  def embedded?
+    File.exist?(bin) &&
+      File.exist?("#{bin}#{bin_suffix}") &&
+      File.exist?("#{bin}#{bin_suffix}#{dump_ext}")
+  end
+
+  def launcher
+    @launcher ||= ERB.new(File.read(template)).result(binding)
+  end
+
+  def library_paths
+    @library_paths ||= Dir[
+      "#{lib_dir}/gcc/*",
+      "#{lib_dir}/gcc/*/gcc/*apple-darwin*/*"
+    ].map do |p|
+      p.gsub(/^#{Regexp.escape(lib_dir + '/')}/, '')
+    end.sort_by { |p| [p.size, p] }
+  end
+end
+
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
     native_fast_boot: true,
@@ -668,6 +806,12 @@ if __FILE__ == $PROGRAM_NAME
             'Enable/disable fix based on feature/native-comp-macos-fixes ' \
             'branch (default: enabled if native-comp supported)') do |v|
       cli_options[:macos_fixes] = v
+    end
+
+    opts.on('--[no-]launcher',
+            'Enable/disable embedded launcher script  ' \
+            '(default: enabled if native-comp is enabled)') do |v|
+      cli_options[:launcher] = v
     end
   end.parse!
 

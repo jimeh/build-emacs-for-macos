@@ -1,2 +1,5 @@
+Style/Documentation:
+  Enabled: false
+
 Style/LineLength:
   Max: 80
