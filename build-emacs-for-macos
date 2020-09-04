@@ -301,7 +301,9 @@ class Build
         '/Library/Application Support/Emacs/${version}/site-lisp:' \
         '/Library/Application Support/Emacs/site-lisp'
       ]
-      configure_flags << '--with-xwidgets' if supports_xwidgets?
+      if options[:xwidgets] && supports_xwidgets?
+        configure_flags << '--with-xwidgets'
+      end
       configure_flags << '--with-nativecomp' if options[:native_comp]
 
       run_cmd './configure', *configure_flags
@@ -441,9 +443,11 @@ class Build
   def effective_version
     @effective_version ||= begin
       case ref
+      when /^emacs-26.*/
+        'emacs-26'
       when /^emacs-27.*/
         'emacs-27'
-      when /^emacs-28.*/, NATIVE_COMP_REF_REGEXP, 'master'
+      else
         'emacs-28'
       end
     end
@@ -452,22 +456,46 @@ class Build
   def patches(opts = {})
     p = []
 
-    if effective_version
-      if opts[:xwidgets] && effective_version == 'emacs-27'
+    if %w[emacs-26 emacs-27 emacs-28].include?(effective_version)
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/fix-window-role.patch"
+      }
+    end
+
+    if %w[emacs-27 emacs-28].include?(effective_version)
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/system-appearance.patch"
+      }
+
+      if options[:no_titlebar]
+        p << {
+          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+               "patches/#{effective_version}/no-titlebar.patch"
+        }
+      end
+
+      if options[:no_frame_refocus]
+        p << {
+          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+               "patches/#{effective_version}/no-frame-refocus-cocoa.patch"
+        }
+      end
+    end
+
+    if effective_version == 'emacs-27'
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/ligatures-freeze-fix.patch"
+      }
+
+      if opts[:xwidgets]
         p << {
           url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
                "patches/#{effective_version}/xwidgets_webkit_in_cocoa.patch"
         }
       end
-
-      p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/fix-window-role.patch"
-      }
-      p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/system-appearance.patch"
-      }
     end
 
     p
@@ -812,6 +840,15 @@ if __FILE__ == $PROGRAM_NAME
             'Enable/disable embedded launcher script  ' \
             '(default: enabled if native-comp is enabled)') do |v|
       cli_options[:launcher] = v
+    end
+
+    opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
+      cli_options[:no_titlebar] = true
+    end
+
+    opts.on('--no-frame-refocus',
+            'Apply no-frame-refocus patch (default: disabled)') do
+      cli_options[:no_frame_refocus] = true
     end
   end.parse!
 

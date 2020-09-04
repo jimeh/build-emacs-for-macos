@@ -77,6 +77,8 @@ Options:
         --[no-]native-comp-macos-fixes
                                      Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
         --[no-]launcher              Enable/disable embedded launcher script  (default: enabled if native-comp is enabled)
+        --no-titlebar                Apply no-titlebar patch (default: disabled)
+        --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
