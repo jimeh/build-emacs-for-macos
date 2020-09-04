@@ -53,6 +53,12 @@ The build produced does have some limitations:
   ```
   brew bundle
   ```
+- Ruby 2.3.0 or later is needed to execute the build script itself. macOS comes
+  with Ruby, check your version with `ruby --version`. If it's too old, you can
+  install a newer version with:
+  ```
+  brew install ruby
+  ```
 
 ## Usage
 

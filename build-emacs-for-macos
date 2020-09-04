@@ -172,11 +172,11 @@ class Build
   end
 
   def supports_native_comp?
-    @supports_native_comp ||= configure_help.match?(/\s+--with-nativecomp\s+/)
+    @supports_native_comp ||= !!configure_help.match(/\s+--with-nativecomp\s+/)
   end
 
   def supports_xwidgets?
-    @supports_xwidgets ||= configure_help.match?(/\s+--with-xwidgets\s+/)
+    @supports_xwidgets ||= !!configure_help.match(/\s+--with-xwidgets\s+/)
   end
 
   def detect_native_comp
