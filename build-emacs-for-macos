@@ -101,6 +101,7 @@ class Build
     end
 
     app = compile_source(@source_dir)
+    symlink_internals(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
     LibGccJitEmbedder.new(app, gcc_dir).embed if options[:native_comp]
@@ -329,15 +330,22 @@ class Build
 
     err 'Build failed.' unless File.exist?(emacs_app)
 
-    if options[:native_comp]
-      FileUtils.cd(File.join(emacs_app, 'Contents')) do
-        FileUtils.ln_s('Resources/lisp', 'lisp')
-        dir = Dir['MacOS/libexec/emacs/**/eln-cache'].first
-        FileUtils.ln_s(dir, 'eln-cache')
-      end
-    end
-
     emacs_app
+  end
+
+  def symlink_internals(app)
+    return unless options[:native_comp]
+
+    info 'Creating symlinks within Emacs.app needed for native-comp'
+
+    FileUtils.cd(File.join(app, 'Contents')) do
+      FileUtils.ln_s('Resources/lisp', 'lisp') unless File.exist?('lisp')
+
+      source = Dir['MacOS/libexec/emacs/**/eln-cache',
+                   'MacOS/lib/emacs/**/native-lisp'].first
+      target = File.basename(source)
+      FileUtils.ln_s(source, target) unless File.exist?(target)
+    end
   end
 
   def archive_app(app)
