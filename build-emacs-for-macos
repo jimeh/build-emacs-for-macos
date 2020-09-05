@@ -502,7 +502,7 @@ class LibEmbedder
   def copy_libs(exe, rel_path = nil)
     exe_file = File.basename(exe)
     rel_path ||= Pathname.new(lib_dir).relative_path_from(
-      File.dirname(exe)
+      Pathname.new(File.dirname(exe))
     ).to_s
 
     `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
@@ -529,7 +529,7 @@ class LibEmbedder
 
   def copy_extra_libs(extra_libs, exe, rel_path = nil)
     rel_path ||= Pathname.new(lib_dir).relative_path_from(
-      File.dirname(exe)
+      Pathname.new(File.dirname(exe))
     ).to_s
 
     extra_libs.each do |lib|
@@ -550,7 +550,7 @@ class LibEmbedder
   end
 
   def self_ref_libs(exe)
-    rel_path = Pathname.new(lib_dir).relative_path_from(File.dirname(exe)).to_s
+    rel_path = Pathname.new(lib_dir).relative_path_from(Pathname.new(File.dirname(exe))).to_s
     lib_paths ||= Dir.glob("#{lib_dir}/*")
     libs = lib_paths.map { |f| File.basename(f) }
 
