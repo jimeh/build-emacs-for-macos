@@ -53,6 +53,12 @@ The build produced does have some limitations:
   ```
   brew bundle
   ```
+- Ruby 2.3.0 or later is needed to execute the build script itself. macOS comes
+  with Ruby, check your version with `ruby --version`. If it's too old, you can
+  install a newer version with:
+  ```
+  brew install ruby
+  ```
 
 ## Usage
 
@@ -70,6 +76,10 @@ Options:
         --[no-]native-fast-boot      Enable/disable NATIVE_FAST_BOOT (default: enabled if native-comp supported)
         --[no-]native-comp-macos-fixes
                                      Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
+        --[no-]launcher              Enable/disable embedded launcher script  (default: enabled if native-comp is enabled)
+        --rsvg                       Enable SVG image support via librsvg, can yield a unstable build (default: disabled)
+        --no-titlebar                Apply no-titlebar patch (default: disabled)
+        --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed

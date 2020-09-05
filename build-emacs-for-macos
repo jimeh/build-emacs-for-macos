@@ -3,6 +3,7 @@
 
 require 'English'
 require 'date'
+require 'erb'
 require 'etc'
 require 'fileutils'
 require 'json'
@@ -13,16 +14,68 @@ require 'uri'
 
 class Error < StandardError; end
 
-def err(msg = nil)
-  raise Error, msg
+module Output
+  def info(msg, newline: true)
+    out "INFO: #{msg}", newline: newline
+  end
+
+  def out(msg, newline: true)
+    if newline
+      puts "==> #{msg}"
+    else
+      print "==> #{msg}"
+    end
+  end
+
+  def err(msg = nil)
+    raise Error, msg
+  end
+end
+
+class OS
+  def self.version
+    @version ||= OSVersion.new
+  end
+
+  def self.arch
+    @arch ||= `uname -m`.strip
+  end
+end
+
+class OSVersion
+  def initialize
+    @version = `sw_vers -productVersion`.match(
+      /(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)/
+    )
+  end
+
+  def to_s
+    @to_s ||= "#{major}.#{minor}"
+  end
+
+  def major
+    @major ||= @version[:major].to_i
+  end
+
+  def minor
+    @minor ||= @version[:minor].to_i
+  end
+
+  def patch
+    @patch ||= @version[:patch].to_i
+  end
 end
 
 class Build
+  include Output
+
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
   LATEST_URL = 'https://api.github.com/repos/emacs-mirror/emacs/commits/%s'
   NATIVE_COMP_REF_REGEXP = %r{^feature/native-comp}.freeze
+  LAUNCHER_TEMPLATE = './launcher.bash.erb'
 
   attr_reader :root_dir
+  attr_reader :source_dir
   attr_reader :ref
   attr_reader :options
 
@@ -38,26 +91,37 @@ class Build
     end
 
     tarball = download_tarball(meta[:sha])
-    source = extract_tarball(tarball, patches(options))
-    app = compile_source(source)
+    @source_dir = extract_tarball(tarball, patches(options))
 
-    LibEmbedder.new(app, brew_dir, os.version, extra_libs).embed
+    autogen
+    detect_native_comp if options[:native_comp].nil?
+
+    if options[:native_comp] && options[:launcher].nil?
+      options[:launcher] = true
+    end
+
+    app = compile_source(@source_dir)
+    symlink_internals(app)
+
+    LibEmbedder.new(app, brew_dir, extra_libs).embed
+    LibGccJitEmbedder.new(app, gcc_dir).embed if options[:native_comp]
+    LauncherEmbedder.new(app, LAUNCHER_TEMPLATE).embed if options[:launcher]
 
     archive_app(app)
   end
 
   private
 
-  def tarball_dir
-    @tarball_dir ||= File.join(root_dir, 'tarballs')
+  def tarballs_dir
+    @tarballs_dir ||= File.join(root_dir, 'tarballs')
   end
 
-  def source_dir
-    @source_dir ||= File.join(root_dir, 'sources')
+  def sources_dir
+    @sources_dir ||= File.join(root_dir, 'sources')
   end
 
-  def build_dir
-    @build_dir ||= File.join(root_dir, 'builds')
+  def builds_dir
+    @builds_dir ||= File.join(root_dir, 'builds')
   end
 
   def brew_dir
@@ -77,18 +141,18 @@ class Build
   end
 
   def download_tarball(sha)
-    FileUtils.mkdir_p(tarball_dir)
+    FileUtils.mkdir_p(tarballs_dir)
 
     url = (DOWNLOAD_URL % sha)
     filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
-    target   = File.join(tarball_dir, filename)
+    target   = File.join(tarballs_dir, filename)
 
     if File.exist?(target)
-      puts "INFO: #{filename} already exists locally, attempting to use."
+      info "#{filename} already exists locally, attempting to use."
       return target
     end
 
-    puts 'Downloading tarball from GitHub. This could take a while, ' \
+    info 'Downloading tarball from GitHub. This could take a while, ' \
          'please be patient.'
     result = run_cmd('curl', '-L', url, '-o', target)
     err 'Download failed.' unless result
@@ -97,18 +161,18 @@ class Build
   end
 
   def extract_tarball(filename, patches = [])
-    FileUtils.mkdir_p(source_dir)
+    FileUtils.mkdir_p(sources_dir)
 
     dirname = File.basename(filename).gsub(/\.\w+$/, '')
-    target = File.join(source_dir, dirname)
+    target = File.join(sources_dir, dirname)
 
     if File.exist?(target)
-      puts "\nINFO: #{dirname} source tree exists, attempting to use."
+      info "#{dirname} source tree exists, attempting to use."
       return target
     end
 
-    puts 'Extracting tarball...'
-    result = run_cmd('tar', '-xzf', filename, '-C', source_dir)
+    info 'Extracting tarball...'
+    result = run_cmd('tar', '-xzf', filename, '-C', sources_dir)
     err 'Tarball extraction failed.' unless result
 
     patches.each { |patch| apply_patch(patch, target) }
@@ -117,19 +181,23 @@ class Build
   end
 
   def configure_help
-    @configure_help ||= `./configure --help`
+    return @configure_help if @configure_help
+
+    FileUtils.cd(source_dir) { @configure_help = `./configure --help` }
+
+    @configure_help
   end
 
   def supports_native_comp?
-    @supports_native_comp ||= configure_help.match?(/\s+--with-nativecomp\s+/)
+    @supports_native_comp ||= !!configure_help.match(/\s+--with-nativecomp\s+/)
   end
 
   def supports_xwidgets?
-    @supports_xwidgets ||= configure_help.match?(/\s+--with-xwidgets\s+/)
+    @supports_xwidgets ||= !!configure_help.match(/\s+--with-xwidgets\s+/)
   end
 
   def detect_native_comp
-    print 'Detecting native-comp support: '
+    info 'Detecting native-comp support: ', newline: false
     options[:native_comp] = supports_native_comp?
     puts options[:native_comp] ? 'Supported' : 'Not supported'
   end
@@ -149,28 +217,38 @@ class Build
         'gcc brew formula has been installed via ./install-patched-gcc'
   end
 
-  def compile_source(source)
-    target = "#{source}/nextstep"
-    emacs_app = "#{target}/Emacs.app"
+  def gcc_library_paths
+    @gcc_library_paths ||= Dir[
+      "#{gcc_dir}/lib/gcc/*",
+      "#{gcc_dir}/lib/gcc/*/gcc/*apple-darwin*/*"
+    ].sort_by { |p| [p.size, p] }
+  end
 
-    if File.exist?("#{target}/Emacs.app")
-      puts 'INFO: Emacs.app already exists in ' \
-           "\"#{target.gsub(root_dir + '/', '')}\", attempting to use."
-      return emacs_app
-    end
-
-    puts 'Compiling from source. This will take a while...'
-
-    FileUtils.cd(source) do
+  def autogen
+    FileUtils.cd(source_dir) do
       if File.exist?('autogen/copy_autogen')
         run_cmd 'autogen/copy_autogen'
       elsif File.exist?('autogen.sh')
         run_cmd './autogen.sh'
       end
+    end
+  end
 
-      detect_native_comp if options[:native_comp].nil?
+  def compile_source(source)
+    target = "#{source}/nextstep"
+    emacs_app = "#{target}/Emacs.app"
+
+    if File.exist?("#{target}/Emacs.app")
+      info 'Emacs.app already exists in ' \
+           "\"#{target.gsub(root_dir + '/', '')}\", attempting to use."
+      return emacs_app
+    end
+
+    info 'Compiling from source. This will take a while...'
+
+    FileUtils.cd(source) do
       if options[:native_comp]
-        puts 'Compiling with native-comp enabled'
+        info 'Compiling with native-comp enabled'
         verify_native_comp
         verify_libgccjit
 
@@ -186,14 +264,14 @@ class Build
         ].compact.join(' ')
 
         ENV['LDFLAGS'] = [
-          "-L#{gcc_dir}/lib/gcc/10",
+          gcc_library_paths.map { |path| "-L#{path}" },
           "-I#{gcc_dir}/include"
-        ].compact.join(' ')
+        ].flatten.compact.join(' ')
 
         ENV['LIBRARY_PATH'] = [
-          "#{gcc_dir}/lib/gcc/10",
+          gcc_library_paths,
           ENV['LIBRARY_PATH']
-        ].compact.join(':')
+        ].flatten.compact.join(':')
       end
 
       ENV['CC'] = 'clang'
@@ -204,7 +282,7 @@ class Build
         "#{brew_dir}/opt/libxml2/lib/pkgconfig",
         "#{brew_dir}/opt/ncurses/lib/pkgconfig",
         "#{brew_dir}/opt/zlib/lib/pkgconfig",
-        "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{os.version}",
+        "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{OS.version}",
         ENV['PKG_CONFIG_PATH']
       ].compact.join(':')
 
@@ -224,15 +302,19 @@ class Build
         '/Library/Application Support/Emacs/${version}/site-lisp:' \
         '/Library/Application Support/Emacs/site-lisp'
       ]
-      configure_flags << '--with-xwidgets' if supports_xwidgets?
+      if options[:xwidgets] && supports_xwidgets?
+        configure_flags << '--with-xwidgets'
+      end
       configure_flags << '--with-nativecomp' if options[:native_comp]
+      configure_flags << '--without-rsvg' unless options[:rsvg]
 
       run_cmd './configure', *configure_flags
 
       # Disable aligned_alloc on Mojave and below. See issue:
       # https://github.com/daviderestivo/homebrew-emacs-head/issues/15
-      if os.major <= 10 && os.minor <= 14
-        puts 'Force disabling of aligned_alloc on macOS <= Mojave (10.14.x)'
+      if OS.version.major <= 10 && OS.version.minor <= 14
+        info 'Force disabling of aligned_alloc on macOS Mojave (10.14.x) ' \
+             'and earlier'
         disable_alligned_alloc
       end
 
@@ -249,61 +331,48 @@ class Build
 
     err 'Build failed.' unless File.exist?(emacs_app)
 
-    if options[:native_comp]
-      FileUtils.cd(File.join(emacs_app, 'Contents')) do
-        FileUtils.ln_s('Resources/lisp', 'lisp')
-        dir = Dir['MacOS/libexec/emacs/**/eln-cache'].first
-        FileUtils.ln_s(dir, 'eln-cache')
-      end
-    end
-
     emacs_app
   end
 
+  def symlink_internals(app)
+    return unless options[:native_comp]
+
+    info 'Creating symlinks within Emacs.app needed for native-comp'
+
+    FileUtils.cd(File.join(app, 'Contents')) do
+      FileUtils.ln_s('Resources/lisp', 'lisp') unless File.exist?('lisp')
+
+      source = Dir['MacOS/libexec/emacs/**/eln-cache',
+                   'MacOS/lib/emacs/**/native-lisp'].first
+      target = File.basename(source)
+      FileUtils.ln_s(source, target) unless File.exist?(target)
+    end
+  end
+
   def archive_app(app)
-    FileUtils.mkdir_p(build_dir)
+    FileUtils.mkdir_p(builds_dir)
 
     metadata = [
       ref.gsub(/\W/, '-'),
       meta[:date],
       meta[:sha][0..6],
-      "macOS-#{os.version}",
-      arch
+      "macOS-#{OS.version}",
+      OS.arch
     ]
 
     filename = "Emacs.app-[#{metadata.join('][')}].tbz"
-    target   = "#{build_dir}/#{filename}"
+    target   = "#{builds_dir}/#{filename}"
 
     app_base = File.basename(app)
     app_dir  = File.dirname(app)
 
     if !File.exist?(target)
-      puts "\nCreating #{filename} archive in \"#{build_dir}\"..."
+      info "Creating #{filename} archive in \"#{builds_dir}\"..."
       FileUtils.cd(app_dir) { system('tar', '-cjf', target, app_base) }
     else
-      puts "\nINFO: #{filename} archive exists in " \
-           "#{build_dir.gsub(root_dir + '/', '')}, skipping archving."
+      info "#{filename} archive exists in " \
+           "#{builds_dir.gsub(root_dir + '/', '')}, skipping archving."
     end
-  end
-
-  def os
-    @os ||= begin
-      ver = `sw_vers -productVersion`.chomp
-                                     .sub(/^(\d+\.\d+\.\d)+/, '\1')
-                                     .split('.')
-                                     .map(&:to_i)
-
-      OpenStruct.new(
-        'version' => "#{ver[0]}.#{ver[1]}",
-        'major' => ver[0],
-        'minor' => ver[1],
-        'patch' => ver[2]
-      )
-    end
-  end
-
-  def arch
-    @arch = `uname -m`.strip
   end
 
   def disable_alligned_alloc
@@ -345,15 +414,14 @@ class Build
   end
 
   def run_cmd(*args)
-    puts '==> ' + args.join(' ')
+    out "CMD: #{args.join(' ')}"
     system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
   end
 
   def apply_native_comp_macos_fixes
     filename = 'Makefile.in'
-    content = File.read(filename).gsub(
-      /^src: Makefile\n(.*BIN_DESTDIR.*)\nblessmail: Makefile src\n/m
-    ) do |match|
+    pattern = /^src: Makefile\n(.*BIN_DESTDIR.*)\nblessmail: Makefile src\n/m
+    content = File.read(filename).gsub(pattern) do
       old_src_body = Regexp.last_match(1).strip
 
       # check if already patched
@@ -384,9 +452,11 @@ class Build
   def effective_version
     @effective_version ||= begin
       case ref
+      when /^emacs-26.*/
+        'emacs-26'
       when /^emacs-27.*/
         'emacs-27'
-      when /^emacs-28.*/, NATIVE_COMP_REF_REGEXP, 'master'
+      else
         'emacs-28'
       end
     end
@@ -395,28 +465,52 @@ class Build
   def patches(opts = {})
     p = []
 
-    if effective_version
-      if opts[:xwidgets] && effective_version == 'emacs-27'
+    if %w[emacs-26 emacs-27 emacs-28].include?(effective_version)
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/fix-window-role.patch"
+      }
+    end
+
+    if %w[emacs-27 emacs-28].include?(effective_version)
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/system-appearance.patch"
+      }
+
+      if options[:no_titlebar]
+        p << {
+          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+               "patches/#{effective_version}/no-titlebar.patch"
+        }
+      end
+
+      if options[:no_frame_refocus]
+        p << {
+          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+               "patches/#{effective_version}/no-frame-refocus-cocoa.patch"
+        }
+      end
+    end
+
+    if effective_version == 'emacs-27'
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/ligatures-freeze-fix.patch"
+      }
+
+      if opts[:xwidgets]
         p << {
           url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
                "patches/#{effective_version}/xwidgets_webkit_in_cocoa.patch"
         }
       end
-
-      p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/fix-window-role.patch"
-      }
-      p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/system-appearance.patch"
-      }
     end
 
     p
   end
 
-  def apply_patch(patch, target, abort_on_failure = true)
+  def apply_patch(patch, target)
     err "\"#{target}\" does not exist." unless File.exist?(target)
 
     if patch[:url]
@@ -430,17 +524,11 @@ class Build
       end
       patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
 
-      begin
-        puts "Downloading patch: #{patch[:url]}"
-        run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
+      info "Downloading patch: #{patch[:url]}"
+      run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
 
-        puts 'Applying patch...'
-        FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch_file) }
-      rescue Error => e
-        raise e if abort_on_failure
-
-        puts "WARN: Failed to apply patch: #{e.message}"
-      end
+      info 'Applying patch...'
+      FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch_file) }
     elsif patch[:replace]
       err 'Patch replace input error' unless patch[:replace].size == 3
 
@@ -460,44 +548,57 @@ class Build
   end
 end
 
-class LibEmbedder
-  attr_reader :app
-  attr_reader :lib_source
-  attr_reader :macos_version
-  attr_reader :extra_libs
+class AbstractEmbedder
+  include Output
 
-  def initialize(app, lib_source, macos_version, extra_libs = [])
+  attr_reader :app
+
+  def initialize(app)
     err "#{app} does not exist" unless File.exist?(app)
 
     @app = app
-    @lib_source = lib_source
-    @macos_version = macos_version
-    @extra_libs = extra_libs
-  end
-
-  def embed
-    puts 'Embedding libraries into Emacs.app'
-
-    FileUtils.cd(File.dirname(app)) do
-      copy_libs(bin)
-      copy_extra_libs(extra_libs, bin) if extra_libs.any?
-      self_ref_libs(bin)
-    end
   end
 
   private
-
-  def arch
-    @arch = `uname -m`.strip
-  end
 
   def bin
     "#{app}/Contents/MacOS/Emacs"
   end
 
   def lib_dir
-    "#{app}/Contents/MacOS/lib-#{arch}-#{macos_version}"
+    "#{app}/Contents/MacOS/#{lib_dir_name}"
   end
+
+  def lib_dir_name
+    "lib-#{OS.arch}-#{OS.version}"
+  end
+end
+
+class LibEmbedder < AbstractEmbedder
+  attr_reader :lib_source
+  attr_reader :extra_libs
+
+  def initialize(app, lib_source, extra_libs = [])
+    super(app)
+
+    @lib_source = lib_source
+    @extra_libs = extra_libs
+  end
+
+  def embed
+    info 'Embedding libraries into Emacs.app'
+
+    binary = "#{bin}-bin" if File.exist?("#{bin}-bin")
+    binary ||= bin
+
+    FileUtils.cd(File.dirname(app)) do
+      copy_libs(binary)
+      copy_extra_libs(extra_libs, binary) if extra_libs.any?
+      self_ref_libs(binary)
+    end
+  end
+
+  private
 
   def copy_libs(exe, rel_path = nil)
     exe_file = File.basename(exe)
@@ -550,8 +651,10 @@ class LibEmbedder
   end
 
   def self_ref_libs(exe)
-    rel_path = Pathname.new(lib_dir).relative_path_from(Pathname.new(File.dirname(exe))).to_s
-    lib_paths ||= Dir.glob("#{lib_dir}/*")
+    rel_path = Pathname.new(lib_dir).relative_path_from(
+      Pathname.new(File.dirname(exe))
+    ).to_s
+    lib_paths ||= Dir.glob("#{lib_dir}/*").select { |f| File.file?(f) }
     libs = lib_paths.map { |f| File.basename(f) }
 
     ([exe] + lib_paths).each do |bin_path|
@@ -580,12 +683,122 @@ class LibEmbedder
   end
 end
 
+class LibGccJitEmbedder < AbstractEmbedder
+  attr_reader :gcc_dir
+
+  def initialize(app, gcc_dir)
+    super(app)
+    @gcc_dir = gcc_dir
+  end
+
+  def embed
+    if embedded?
+      info 'libgccjit already embedded in Emacs.app'
+      return
+    end
+
+    info 'Embedding libgccjit into Emacs.app'
+    if gcc_version.empty?
+      err "No suitable GCC lib with libgccjit found in #{gcc_dir}"
+    end
+
+    FileUtils.mkdir_p(File.dirname(target_dir))
+    FileUtils.cp_r(source_dir, target_dir)
+  end
+
+  private
+
+  def embedded?
+    Dir[File.join(target_dir, 'libgccjit.so*')].any?
+  end
+
+  def target_dir
+    File.join(lib_dir, 'gcc', gcc_version)
+  end
+
+  def gcc_version
+    @gcc_version ||= Dir[File.join(gcc_dir, 'lib', 'gcc', '*', 'libgccjit.so*')]
+                     .map { |path| File.dirname(path) }
+                     .select { |path| path.match(%r{/\d+$}) }
+                     .uniq
+                     .map { |dir| File.basename(dir).to_i }
+                     .max
+                     .to_s
+  end
+
+  def source_dir
+    @source_dir ||= File.join(gcc_dir, 'lib', 'gcc', gcc_version)
+  end
+end
+
+class LauncherEmbedder < AbstractEmbedder
+  attr_reader :template
+
+  def initialize(app, template)
+    super(app)
+
+    @template = template
+  end
+
+  def embed
+    if embedded?
+      info 'Launcher script already embedded in Emacs.app'
+      return
+    end
+
+    info 'Embedding launcher script into Emacs.app'
+
+    unless File.exist?("#{bin}#{bin_suffix}")
+      FileUtils.mv(bin, "#{bin}#{bin_suffix}")
+    end
+
+    unless File.exist?("#{bin}#{bin_suffix}#{dump_ext}")
+      FileUtils.mv("#{bin}#{dump_ext}", "#{bin}#{bin_suffix}#{dump_ext}")
+    end
+
+    unless File.exist?(bin)
+      File.write(bin, launcher)
+      File.chmod(0o775, bin)
+    end
+  end
+
+  private
+
+  def bin_suffix
+    '-bin'
+  end
+
+  def dump_ext
+    '.pdmp'
+  end
+
+  def embedded?
+    File.exist?(bin) &&
+      File.exist?("#{bin}#{bin_suffix}") &&
+      File.exist?("#{bin}#{bin_suffix}#{dump_ext}")
+  end
+
+  def launcher
+    @launcher ||= ERB.new(File.read(template)).result(binding)
+  end
+
+  def library_paths
+    @library_paths ||= Dir[
+      "#{lib_dir}/gcc/*",
+      "#{lib_dir}/gcc/*/gcc/*apple-darwin*/*"
+    ].map do |p|
+      p.gsub(/^#{Regexp.escape(lib_dir + '/')}/, '')
+    end.sort_by { |p| [p.size, p] }
+  end
+end
+
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
+    macos_fixes: true,
     native_fast_boot: true,
     parallel: Etc.nprocessors,
-    xwidgets: true,
-    macos_fixes: true
+    rsvg: false,
+    xwidgets: true
   }
 
   OptionParser.new do |opts|
@@ -631,6 +844,26 @@ if __FILE__ == $PROGRAM_NAME
             'Enable/disable fix based on feature/native-comp-macos-fixes ' \
             'branch (default: enabled if native-comp supported)') do |v|
       cli_options[:macos_fixes] = v
+    end
+
+    opts.on('--[no-]launcher',
+            'Enable/disable embedded launcher script  ' \
+            '(default: enabled if native-comp is enabled)') do |v|
+      cli_options[:launcher] = v
+    end
+
+    opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
+                      'can yield a unstable build (default: disabled)') do
+      cli_options[:rsvg] = true
+    end
+
+    opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
+      cli_options[:no_titlebar] = true
+    end
+
+    opts.on('--no-frame-refocus',
+            'Apply no-frame-refocus patch (default: disabled)') do
+      cli_options[:no_frame_refocus] = true
     end
   end.parse!
 
