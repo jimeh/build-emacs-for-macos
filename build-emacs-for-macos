@@ -306,6 +306,7 @@ class Build
         configure_flags << '--with-xwidgets'
       end
       configure_flags << '--with-nativecomp' if options[:native_comp]
+      configure_flags << '--without-rsvg' unless options[:rsvg]
 
       run_cmd './configure', *configure_flags
 
@@ -793,10 +794,11 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
+    macos_fixes: true,
     native_fast_boot: true,
     parallel: Etc.nprocessors,
-    xwidgets: true,
-    macos_fixes: true
+    rsvg: false,
+    xwidgets: true
   }
 
   OptionParser.new do |opts|
@@ -848,6 +850,11 @@ if __FILE__ == $PROGRAM_NAME
             'Enable/disable embedded launcher script  ' \
             '(default: enabled if native-comp is enabled)') do |v|
       cli_options[:launcher] = v
+    end
+
+    opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
+                      'can yield a unstable build (default: disabled)') do
+      cli_options[:rsvg] = true
     end
 
     opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do

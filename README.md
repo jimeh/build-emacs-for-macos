@@ -77,6 +77,7 @@ Options:
         --[no-]native-comp-macos-fixes
                                      Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
         --[no-]launcher              Enable/disable embedded launcher script  (default: enabled if native-comp is enabled)
+        --rsvg                       Enable SVG image support via librsvg, can yield a unstable build (default: disabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
 ```
