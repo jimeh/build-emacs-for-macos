@@ -45,7 +45,7 @@ end
 class OSVersion
   def initialize
     @version = `sw_vers -productVersion`.match(
-      /(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)/
+      /(?<major>\d+)(?:\.(?<minor>\d+)(:?\.(?<patch>\d+))?)?/
     )
   end
 
@@ -54,15 +54,15 @@ class OSVersion
   end
 
   def major
-    @major ||= @version[:major].to_i
+    @major ||= @version[:major]&.to_i
   end
 
   def minor
-    @minor ||= @version[:minor].to_i
+    @minor ||= @version[:minor]&.to_i
   end
 
   def patch
-    @patch ||= @version[:patch].to_i
+    @patch ||= @version[:patch]&.to_i
   end
 end
 
