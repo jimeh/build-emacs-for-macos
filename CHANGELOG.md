@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.1](https://github.com/jimeh/build-emacs-for-macos/compare/0.1.0...0.1.1) (2020-09-19)
+
+
+### Bug Fixes
+
+* **internal:** improve macOS version detection ([c89d0a0](https://github.com/jimeh/build-emacs-for-macos/commit/c89d0a0b73dfc82d918c326d89b141f8a2fc4de4)), closes [#13](https://github.com/jimeh/build-emacs-for-macos/issues/13)
+
 ## 0.1.0 (2020-09-05)
 
 
