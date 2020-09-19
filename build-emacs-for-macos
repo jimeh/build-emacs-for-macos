@@ -570,7 +570,7 @@ class AbstractEmbedder
   end
 
   def lib_dir_name
-    "lib-#{OS.arch}-#{OS.version}"
+    "lib-#{OS.arch}-#{OS.version.to_s.tr('.', '_')}"
   end
 end
 
