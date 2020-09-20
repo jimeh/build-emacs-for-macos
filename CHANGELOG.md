@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.2.0](https://github.com/jimeh/build-emacs-for-macos/compare/0.1.1...0.2.0) (2020-09-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **native_comp:** Deprecate `--[no-]native-fast-boot` option in favor of `--[no-]native-full-aot`
+
+### Features
+
+* **native_comp:** add support for NATIVE_FULL_AOT, replacing NATIVE_FAST_BOOT ([0ab94da](https://github.com/jimeh/build-emacs-for-macos/commit/0ab94da15309b04978982369bdfa17e03e9b6329))
+
 ### [0.1.1](https://github.com/jimeh/build-emacs-for-macos/compare/0.1.0...0.1.1) (2020-09-19)
 
 
