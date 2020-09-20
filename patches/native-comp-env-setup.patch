@@ -1,0 +1,41 @@
+diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
+index 25e2de9..14ee6dc 100644
+--- a/lisp/emacs-lisp/comp.el
++++ b/lisp/emacs-lisp/comp.el
+@@ -2801,6 +2801,36 @@ queued with LOAD %"
+       (comp-run-async-workers)
+       (message "Compilation started."))))
+ 
++;;;###autoload
++(defun native-compile-setup-environment-variables (&rest _args)
++  "Ensure LIBRARY_PATH is set correctly when libgccjit is bundled."
++  (when (and (eq system-type 'darwin)
++             (string-match-p "\.app\/Contents\/MacOS\/?$"
++                             invocation-directory))
++    (let* ((library-path-env (getenv "LIBRARY_PATH"))
++           (gcc-dir (car (file-expand-wildcards
++                          (concat invocation-directory "lib-*/gcc/*"))))
++           (gcc-darwin-dir (car (file-expand-wildcards
++                                 (concat gcc-dir "/gcc/*apple-darwin*/*"))))
++           (lib-paths (append
++                       (list gcc-dir gcc-darwin-dir)
++                       (if library-path-env (list library-path-env) (list)))))
++
++      (when (and gcc-dir gcc-darwin-dir)
++        (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":")))))
++
++  ;; Remove advice, as it only needs to run once.
++  (advice-remove 'native-compile
++                 'native-compile-setup-environment-variables)
++  (advice-remove 'native-compile-async
++                 'native-compile-setup-environment-variables))
++
++;; Ensure environment setup runs before any native compilation.
++(advice-add 'native-compile :before
++            'native-compile-setup-environment-variables)
++(advice-add 'native-compile-async :before
++            'native-compile-setup-environment-variables)
++
+ (provide 'comp)
+ 
+ ;;; comp.el ends here
