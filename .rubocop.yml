@@ -1,5 +1,9 @@
+AllCops:
+  TargetRubyVersion: 2.3
+  NewCops: enable
+
+Layout/LineLength:
+  Max: 80
+
 Style/Documentation:
   Enabled: false
-
-Style/LineLength:
-  Max: 80
