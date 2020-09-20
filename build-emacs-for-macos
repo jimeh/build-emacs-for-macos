@@ -256,7 +256,6 @@ class Build
           apply_native_comp_macos_fixes
         end
 
-        ENV['NATIVE_FAST_BOOT'] = '1' if options[:native_fast_boot]
         ENV['CFLAGS'] = [
           "-I#{gcc_dir}/include",
           '-O2',
@@ -320,6 +319,15 @@ class Build
 
       make_flags = []
       make_flags += ['-j', options[:parallel].to_s] if options[:parallel]
+
+      if options[:native_full_aot]
+        info 'Using NATIVE_FULL_AOT=1'
+        make_flags << 'NATIVE_FULL_AOT=1'
+        ENV.delete('NATIVE_FAST_BOOT')
+      else
+        ENV.delete('NATIVE_FULL_AOT')
+        ENV['NATIVE_FAST_BOOT'] = '1'
+      end
 
       if options[:native_comp]
         make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
@@ -795,79 +803,90 @@ end
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
     macos_fixes: true,
-    native_fast_boot: true,
+    native_full_aot: false,
     parallel: Etc.nprocessors,
     rsvg: false,
     xwidgets: true
   }
 
-  OptionParser.new do |opts|
-    opts.banner = <<~DOC
-      Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
-
-      Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
-      available here: https://github.com/emacs-mirror/emacs
-
-      Options:
-    DOC
-
-    opts.on('-j', '--parallel COUNT',
-            'Compile using COUNT parallel processes ' \
-            "(detected: #{cli_options[:parallel]})") do |v|
-      cli_options[:parallel] = v
-    end
-
-    opts.on('--git-sha SHA', 'Override detected git SHA of specified branch ' \
-                             'allowing builds of old commits') do |v|
-      cli_options[:git_sha] = v
-    end
-
-    opts.on('--[no-]xwidgets',
-            'Enable/disable XWidgets ' \
-            '(default: enabled)') do |v|
-      cli_options[:xwidgets] = v
-    end
-
-    opts.on('--[no-]native-comp',
-            'Enable/disable native-comp ' \
-            '(default: enabled if supported)') do |v|
-      cli_options[:native_comp] = v
-    end
-
-    opts.on('--[no-]native-fast-boot',
-            'Enable/disable NATIVE_FAST_BOOT ' \
-            '(default: enabled if native-comp supported)') do |v|
-      cli_options[:native_fast_boot] = v
-    end
-
-    opts.on('--[no-]native-comp-macos-fixes',
-            'Enable/disable fix based on feature/native-comp-macos-fixes ' \
-            'branch (default: enabled if native-comp supported)') do |v|
-      cli_options[:macos_fixes] = v
-    end
-
-    opts.on('--[no-]launcher',
-            'Enable/disable embedded launcher script  ' \
-            '(default: enabled if native-comp is enabled)') do |v|
-      cli_options[:launcher] = v
-    end
-
-    opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
-                      'can yield a unstable build (default: disabled)') do
-      cli_options[:rsvg] = true
-    end
-
-    opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
-      cli_options[:no_titlebar] = true
-    end
-
-    opts.on('--no-frame-refocus',
-            'Apply no-frame-refocus patch (default: disabled)') do
-      cli_options[:no_frame_refocus] = true
-    end
-  end.parse!
-
   begin
+    OptionParser.new do |opts|
+      opts.banner = <<~DOC
+        Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
+
+        Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
+        available here: https://github.com/emacs-mirror/emacs
+
+        Options:
+      DOC
+
+      opts.on('-j', '--parallel COUNT',
+              'Compile using COUNT parallel processes ' \
+              "(detected: #{cli_options[:parallel]})") do |v|
+        cli_options[:parallel] = v
+      end
+
+      opts.on('--git-sha SHA', 'Override detected git SHA of specified ' \
+                               'branch allowing builds of old commits') do |v|
+        cli_options[:git_sha] = v
+      end
+
+      opts.on('--[no-]xwidgets',
+              'Enable/disable XWidgets ' \
+              '(default: enabled if supported)') do |v|
+        cli_options[:xwidgets] = v
+      end
+
+      opts.on('--[no-]native-comp',
+              'Enable/disable native-comp ' \
+              '(default: enabled if supported)') do |v|
+        cli_options[:native_comp] = v
+      end
+
+      opts.on('--[no-]native-full-aot',
+              'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
+              '(default: disabled)') do |v|
+        cli_options[:native_full_aot] = v
+      end
+
+      opts.on('--[no-]native-comp-macos-fixes',
+              'Enable/disable fix based on feature/native-comp-macos-fixes ' \
+              'branch (default: enabled if native-comp supported)') do |v|
+        cli_options[:macos_fixes] = v
+      end
+
+      opts.on('--[no-]launcher',
+              'Enable/disable embedded launcher script  ' \
+              '(default: enabled if native-comp is enabled)') do |v|
+        cli_options[:launcher] = v
+      end
+
+      opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
+                        'can yield a unstable build (default: disabled)') do
+        cli_options[:rsvg] = true
+      end
+
+      opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
+        cli_options[:no_titlebar] = true
+      end
+
+      opts.on('--no-frame-refocus',
+              'Apply no-frame-refocus patch (default: disabled)') do
+        cli_options[:no_frame_refocus] = true
+      end
+
+      opts.on('--[no-]native-fast-boot',
+              'DEPRECATED: use --[no-]native-full-aot instead') do |v|
+        if v
+          raise Error, '--native-fast-boot option is deprecated, ' \
+                       'use --no-native-full-aot instead'
+        else
+          raise Error, '--no-native-fast-boot option is deprecated, ' \
+                       'use --native-full-aot instead'
+        end
+      end
+    end.parse!
+
     Build.new(File.expand_path(__dir__), ARGV.shift, cli_options).build
   rescue Error => e
     warn "ERROR: #{e.message}"

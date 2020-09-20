@@ -30,7 +30,7 @@ For reference, my machine is:
 
 - 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
 - macOS 10.15.6 (19G2021)
-- Xcode 11.6
+- Xcode 11.7
 
 ## Limitations
 
@@ -71,15 +71,16 @@ available here: https://github.com/emacs-mirror/emacs
 Options:
     -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 8)
         --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
-        --[no-]xwidgets              Enable/disable XWidgets (default: enabled)
+        --[no-]xwidgets              Enable/disable XWidgets (default: enabled if supported)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
-        --[no-]native-fast-boot      Enable/disable NATIVE_FAST_BOOT (default: enabled if native-comp supported)
+        --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
         --[no-]native-comp-macos-fixes
                                      Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
         --[no-]launcher              Enable/disable embedded launcher script  (default: enabled if native-comp is enabled)
         --rsvg                       Enable SVG image support via librsvg, can yield a unstable build (default: disabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
+        --[no-]native-fast-boot      DEPRECATED: use --[no-]native-full-aot instead
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
@@ -138,13 +139,13 @@ And finally to build a Emacs.app with native compilation enabled, run:
 ./build-emacs-for-macos feature/native-comp
 ```
 
-By default `NATIVE_FAST_BOOT` is enabled which ensures a fast build by native
+By default `NATIVE_FULL_AOT` is disabled which ensures a fast build by native
 compiling as few lisp source files as possible to build the app. Any remaining
 lisp files will be dynamically compiled in the background the first time you use
 them.
 
-On my machine it takes around 10-15 minutes to build Emacs.app with
-`NATIVE_FAST_BOOT` enabled. With it disabled it takes around 25 minutes.
+On my machine it takes around 10 minutes to build Emacs.app with
+`NATIVE_FULL_AOT` disabled. With it enabled it takes around 20-25 minutes.
 
 ### Configuration
 
@@ -169,14 +170,16 @@ said directory which have a file size of zero bytes:
 
 ```elisp
 (when (boundp 'comp-eln-load-path)
-  (let ((eln-cache-dir (expand-file-name "cache/eln-cache/" user-emacs-directory))
+  (let ((eln-cache-dir (expand-file-name "cache/eln-cache/"
+                                         user-emacs-directory))
         (find-exec (executable-find "find")))
     (setcar comp-eln-load-path eln-cache-dir)
     ;; Quitting emacs while native compilation in progress can leave zero byte
     ;; sized *.eln files behind. Hence delete such files during startup.
     (when find-exec
       (call-process find-exec nil nil nil eln-cache-dir
-                    "-name" "*.eln" "-size" "0" "-delete"))))
+                    "-name" "*.eln" "-size" "0" "-delete" "-or"
+                    "-name" "*.eln.tmp" "-size" "0" "-delete"))))
 ```
 
 ### Issues
