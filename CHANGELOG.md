@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.3.0](https://github.com/jimeh/build-emacs-for-macos/compare/0.2.0...0.3.0) (2020-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **native_comp:** `--[no-]launcher` option is deprecated, as launcher script is no longer used.
+
+### Features
+
+* **native_comp:** use elisp patch instead of launcher script to set LIBRARY_PATH ([111cb64](https://github.com/jimeh/build-emacs-for-macos/commit/111cb6499368d14853a5927d38a43fc5e2f759f4)), closes [#14](https://github.com/jimeh/build-emacs-for-macos/issues/14)
+
 ## [0.2.0](https://github.com/jimeh/build-emacs-for-macos/compare/0.1.1...0.2.0) (2020-09-20)
 
 
