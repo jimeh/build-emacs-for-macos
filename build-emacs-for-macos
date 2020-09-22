@@ -72,7 +72,6 @@ class Build
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
   LATEST_URL = 'https://api.github.com/repos/emacs-mirror/emacs/commits/%s'
   NATIVE_COMP_REF_REGEXP = %r{^feature/native-comp}.freeze
-  LAUNCHER_TEMPLATE = './launcher.bash.erb'
 
   attr_reader :root_dir
   attr_reader :source_dir
@@ -96,16 +95,11 @@ class Build
     autogen
     detect_native_comp if options[:native_comp].nil?
 
-    if options[:native_comp] && options[:launcher].nil?
-      options[:launcher] = true
-    end
-
     app = compile_source(@source_dir)
     symlink_internals(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
     LibGccJitEmbedder.new(app, gcc_dir).embed if options[:native_comp]
-    LauncherEmbedder.new(app, LAUNCHER_TEMPLATE).embed if options[:launcher]
 
     archive_app(app)
   end
@@ -255,6 +249,8 @@ class Build
         if options[:macos_fixes] && ref != 'feature/native-comp-macos-fixes'
           apply_native_comp_macos_fixes
         end
+
+        apply_native_comp_env_setup_patch(source)
 
         ENV['CFLAGS'] = [
           "-I#{gcc_dir}/include",
@@ -426,6 +422,17 @@ class Build
     system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
   end
 
+  def apply_native_comp_env_setup_patch(source)
+    term = 'native-compile-setup-environment-variables'
+    file = 'lisp/emacs-lisp/comp.el'
+    return if `grep '#{term}' '#{file}'`.strip.size.positive?
+
+    apply_patch(
+      { file: "#{__dir__}/patches/native-comp-env-setup.patch" },
+      source
+    )
+  end
+
   def apply_native_comp_macos_fixes
     filename = 'Makefile.in'
     pattern = /^src: Makefile\n(.*BIN_DESTDIR.*)\nblessmail: Makefile src\n/m
@@ -521,7 +528,10 @@ class Build
   def apply_patch(patch, target)
     err "\"#{target}\" does not exist." unless File.exist?(target)
 
-    if patch[:url]
+    if patch[:file]
+      info 'Applying patch...'
+      FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch[:file]) }
+    elsif patch[:url]
       patch_dir = "#{target}/macos_patches"
       run_cmd('mkdir', '-p', patch_dir)
 
@@ -535,8 +545,7 @@ class Build
       info "Downloading patch: #{patch[:url]}"
       run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
 
-      info 'Applying patch...'
-      FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch_file) }
+      apply_patch({ file: patch_file }, target)
     elsif patch[:replace]
       err 'Patch replace input error' unless patch[:replace].size == 3
 
@@ -739,67 +748,6 @@ class LibGccJitEmbedder < AbstractEmbedder
   end
 end
 
-class LauncherEmbedder < AbstractEmbedder
-  attr_reader :template
-
-  def initialize(app, template)
-    super(app)
-
-    @template = template
-  end
-
-  def embed
-    if embedded?
-      info 'Launcher script already embedded in Emacs.app'
-      return
-    end
-
-    info 'Embedding launcher script into Emacs.app'
-
-    unless File.exist?("#{bin}#{bin_suffix}")
-      FileUtils.mv(bin, "#{bin}#{bin_suffix}")
-    end
-
-    unless File.exist?("#{bin}#{bin_suffix}#{dump_ext}")
-      FileUtils.mv("#{bin}#{dump_ext}", "#{bin}#{bin_suffix}#{dump_ext}")
-    end
-
-    unless File.exist?(bin)
-      File.write(bin, launcher)
-      File.chmod(0o775, bin)
-    end
-  end
-
-  private
-
-  def bin_suffix
-    '-bin'
-  end
-
-  def dump_ext
-    '.pdmp'
-  end
-
-  def embedded?
-    File.exist?(bin) &&
-      File.exist?("#{bin}#{bin_suffix}") &&
-      File.exist?("#{bin}#{bin_suffix}#{dump_ext}")
-  end
-
-  def launcher
-    @launcher ||= ERB.new(File.read(template)).result(binding)
-  end
-
-  def library_paths
-    @library_paths ||= Dir[
-      "#{lib_dir}/gcc/*",
-      "#{lib_dir}/gcc/*/gcc/*apple-darwin*/*"
-    ].map do |p|
-      p.gsub(/^#{Regexp.escape(lib_dir + '/')}/, '')
-    end.sort_by { |p| [p.size, p] }
-  end
-end
-
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
     macos_fixes: true,
@@ -855,12 +803,6 @@ if __FILE__ == $PROGRAM_NAME
         cli_options[:macos_fixes] = v
       end
 
-      opts.on('--[no-]launcher',
-              'Enable/disable embedded launcher script  ' \
-              '(default: enabled if native-comp is enabled)') do |v|
-        cli_options[:launcher] = v
-      end
-
       opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
                         'can yield a unstable build (default: disabled)') do
         cli_options[:rsvg] = true
@@ -884,6 +826,12 @@ if __FILE__ == $PROGRAM_NAME
           raise Error, '--no-native-fast-boot option is deprecated, ' \
                        'use --native-full-aot instead'
         end
+      end
+
+      opts.on('--[no-]launcher',
+              'DEPRECATED: Launcher script is no longer used.') do |_|
+        raise Error, '--[no-]launcher option is deprecated, launcher ' \
+                     'script is no longer used.'
       end
     end.parse!
 
