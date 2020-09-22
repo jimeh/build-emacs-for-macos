@@ -160,26 +160,13 @@ By default natively compiled `*.eln` files will be cached in
 the first element of the `comp-eln-load-path` variable. The path string must end
 with a `/`.
 
-Also it seems somewhat common that some `*.eln` files are left behind with a
-zero-byte file size if Emacs is quit while async native compilation is in
-progress. Such empty files causes errors on startup, and needs to be deleted.
-
 Below is an example which stores all compiled `*.eln` files in `cache/eln-cache`
-within your Emacs configuration directory, and also deletes any `*.eln` files in
-said directory which have a file size of zero bytes:
+within your Emacs configuration directory:
 
 ```elisp
 (when (boundp 'comp-eln-load-path)
-  (let ((eln-cache-dir (expand-file-name "cache/eln-cache/"
-                                         user-emacs-directory))
-        (find-exec (executable-find "find")))
-    (setcar comp-eln-load-path eln-cache-dir)
-    ;; Quitting emacs while native compilation in progress can leave zero byte
-    ;; sized *.eln files behind. Hence delete such files during startup.
-    (when find-exec
-      (call-process find-exec nil nil nil eln-cache-dir
-                    "-name" "*.eln" "-size" "0" "-delete" "-or"
-                    "-name" "*.eln.tmp" "-size" "0" "-delete"))))
+  (setcar comp-eln-load-path
+          (expand-file-name "cache/eln-cache/" user-emacs-directory)))
 ```
 
 ### Issues
