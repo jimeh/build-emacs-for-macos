@@ -99,7 +99,7 @@ class Build
     symlink_internals(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
-    LibGccJitEmbedder.new(app, gcc_dir).embed if options[:native_comp]
+    GccLibEmbedder.new(app, gcc_dir).embed if options[:native_comp]
 
     archive_app(app)
   end
@@ -126,6 +126,10 @@ class Build
     @gcc_dir ||= `brew --prefix gcc`.chomp
   end
 
+  def libgccjit_dir
+    @libgccjit_dir ||= `brew --prefix libgccjit`.chomp
+  end
+
   def extra_libs
     @extra_libs ||= [
       "#{brew_dir}/opt/expat/lib/libexpat.1.dylib",
@@ -139,7 +143,7 @@ class Build
 
     url = (DOWNLOAD_URL % sha)
     filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
-    target   = File.join(tarballs_dir, filename)
+    target = File.join(tarballs_dir, filename)
 
     if File.exist?(target)
       info "#{filename} already exists locally, attempting to use."
@@ -204,17 +208,25 @@ class Build
 
   def verify_libgccjit
     err 'gcc not installed' unless Dir.exist?(gcc_dir)
+    err 'libgccjit not installed' unless Dir.exist?(libgccjit_dir)
 
-    return if Dir["#{gcc_dir}/lib/**/libgccjit.so*"].any?
+    if Dir["#{libgccjit_dir}/lib/**/libgccjit.so*"].empty?
+      err "Detected libgccjit (#{libgccjit_dir}) does not have any " \
+          'libgccjit.so* files. Please try reinstalling libgccjit: ' \
+          'brew reinstall libgccjit'
+    end
 
-    err "Detected GCC (#{gcc_dir}) does not have libgccjit. Ensure patched " \
-        'gcc brew formula has been installed via ./install-patched-gcc'
+    dirs = Dir["{#{gcc_dir},#{libgccjit_dir}}/lib/gcc/*"]
+    return if dirs.map { |dir| File.basename(dir) }.uniq == %w[10]
+
+    err 'Detected gcc and libgccjit library paths do not belong to the ' \
+        "same major version. Detected paths:\n  - #{dirs.join('  - ')}"
   end
 
   def gcc_library_paths
     @gcc_library_paths ||= Dir[
-      "#{gcc_dir}/lib/gcc/*",
-      "#{gcc_dir}/lib/gcc/*/gcc/*apple-darwin*/*"
+      "{#{gcc_dir},#{libgccjit_dir}}/lib/gcc/*",
+      "{#{gcc_dir},#{libgccjit_dir}}/lib/gcc/*/gcc/*apple-darwin*/*"
     ].sort_by { |p| [p.size, p] }
   end
 
@@ -260,7 +272,8 @@ class Build
 
         ENV['LDFLAGS'] = [
           gcc_library_paths.map { |path| "-L#{path}" },
-          "-I#{gcc_dir}/include"
+          "-I#{gcc_dir}/include",
+          "-I#{libgccjit_dir}/include"
         ].flatten.compact.join(' ')
 
         ENV['LIBRARY_PATH'] = [
@@ -365,10 +378,10 @@ class Build
     ]
 
     filename = "Emacs.app-[#{metadata.join('][')}].tbz"
-    target   = "#{builds_dir}/#{filename}"
+    target = "#{builds_dir}/#{filename}"
 
     app_base = File.basename(app)
-    app_dir  = File.dirname(app)
+    app_dir = File.dirname(app)
 
     if !File.exist?(target)
       info "Creating #{filename} archive in \"#{builds_dir}\"..."
@@ -587,7 +600,7 @@ class AbstractEmbedder
   end
 
   def lib_dir_name
-    "lib-#{OS.arch}-#{OS.version.to_s.tr('.', '_')}"
+    'lib'
   end
 end
 
@@ -700,7 +713,7 @@ class LibEmbedder < AbstractEmbedder
   end
 end
 
-class LibGccJitEmbedder < AbstractEmbedder
+class GccLibEmbedder < AbstractEmbedder
   attr_reader :gcc_dir
 
   def initialize(app, gcc_dir)
@@ -721,6 +734,7 @@ class LibGccJitEmbedder < AbstractEmbedder
 
     FileUtils.mkdir_p(File.dirname(target_dir))
     FileUtils.cp_r(source_dir, target_dir)
+    FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
   end
 
   private
@@ -734,13 +748,10 @@ class LibGccJitEmbedder < AbstractEmbedder
   end
 
   def gcc_version
-    @gcc_version ||= Dir[File.join(gcc_dir, 'lib', 'gcc', '*', 'libgccjit.so*')]
-                     .map { |path| File.dirname(path) }
-                     .select { |path| path.match(%r{/\d+$}) }
-                     .uniq
-                     .map { |dir| File.basename(dir).to_i }
-                     .max
-                     .to_s
+    @gcc_version ||= Dir[File.join(gcc_dir, 'lib', 'gcc', '*', 'libgcc*')]
+                     .map { |path| File.basename(File.dirname(path)) }
+                     .select { |path| path.match(/^\d+$/) }
+                     .uniq.map(&:to_i).max.to_s
   end
 
   def source_dir

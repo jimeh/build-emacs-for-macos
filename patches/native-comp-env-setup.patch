@@ -1,8 +1,8 @@
 diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
-index 25e2de9..14ee6dc 100644
+index 25e2de9..bcedd31 100644
 --- a/lisp/emacs-lisp/comp.el
 +++ b/lisp/emacs-lisp/comp.el
-@@ -2801,6 +2801,36 @@ queued with LOAD %"
+@@ -2801,6 +2801,45 @@ queued with LOAD %"
        (comp-run-async-workers)
        (message "Compilation started."))))
  
@@ -13,15 +13,24 @@ index 25e2de9..14ee6dc 100644
 +             (string-match-p "\.app\/Contents\/MacOS\/?$"
 +                             invocation-directory))
 +    (let* ((library-path-env (getenv "LIBRARY_PATH"))
-+           (gcc-dir (car (file-expand-wildcards
-+                          (concat invocation-directory "lib-*/gcc/*"))))
-+           (gcc-darwin-dir (car (file-expand-wildcards
-+                                 (concat gcc-dir "/gcc/*apple-darwin*/*"))))
++           (gcc-base-dir (concat invocation-directory "lib/gcc"))
++           (gcc-version (car (seq-filter
++                              (lambda (dir) (string-match-p "^[0-9]+$" dir))
++                              (directory-files gcc-base-dir))))
++           (gcc-dir (concat gcc-base-dir "/" gcc-version))
++           (darwin-base-dir (car (file-expand-wildcards
++                                      (concat gcc-dir "/gcc/*apple-darwin*"))))
++           (darwin-version (car (seq-filter
++                                 (lambda (dir)
++                                   (string-match-p
++                                    "^[0-9]+\\(\.[0-9]+\\(\.[0-9]+\\)?\\)?$" dir))
++                                 (directory-files darwin-base-dir))))
++           (darwin-dir (concat darwin-base-dir "/" darwin-version))
 +           (lib-paths (append
-+                       (list gcc-dir gcc-darwin-dir)
++                       (list gcc-dir darwin-dir)
 +                       (if library-path-env (list library-path-env) (list)))))
 +
-+      (when (and gcc-dir gcc-darwin-dir)
++      (when (and gcc-dir darwin-dir)
 +        (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":")))))
 +
 +  ;; Remove advice, as it only needs to run once.

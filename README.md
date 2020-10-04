@@ -18,7 +18,7 @@ Use this script at your own risk.
 
 ## Status
 
-As of writing (2020-08-19) it works for me on my machine. Your luck may vary.
+As of writing (2020-10-04) it works for me on my machine. Your luck may vary.
 
 I have successfully built:
 
@@ -30,7 +30,7 @@ For reference, my machine is:
 
 - 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
 - macOS 10.15.6 (19G2021)
-- Xcode 11.7
+- Xcode 12.0
 
 ## Limitations
 
@@ -89,6 +89,9 @@ tarball.
 If you don't want the build process to eat all your CPU cores, pass in a `-j`
 value of how many CPU cores you want it to use.
 
+Re-building the same Git SHA again can yield weird results unless you first
+trash the corresponding directory from the `sources` directory.
+
 ### Examples
 
 To download a tarball of the `master` branch (Emacs 28.x as of writing) and
@@ -111,29 +114,16 @@ repository.
 
 ## Native-Comp
 
-To build a Emacs.app with native-comp support
+Building a Emacs.app with native-comp support
 ([gccemacs](https://akrl.sdf.org/gccemacs.html)) from the `feature/native-comp`
-branch, you will need to install a patched version of Homebrew's `gcc` formula
-that includes libgccjit.
+branch is now supported without much hassle thanks to the newly released
+`libgccjit` Homebrew formula.
 
-The patch itself is in `./Formula/gcc.rb.patch`, and comes from
-[this](https://gist.github.com/mikroskeem/0a5c909c1880408adf732ceba6d3f9ab#1-gcc-with-libgccjit-enabled)
-gist.
+Changes from the `feature/native-comp-macos-fixes` branch are also applied
+through a custom patch process which should be more future-proof compared to a
+regular git diff patch.
 
-You can install the patched formula by running the helper script:
-
-```
-./install-patched-gcc
-```
-
-The helper script will copy your local `gcc.rb` Forumla from Homebrew to
-`./Formula`, and apply the `./Formula/gcc.rb.patch` to it. After which it then
-proceed to install the patched gcc formula which includes libgccjit.
-
-As it requires installing and compiling GCC from source, it can take anywhere
-between 30-60 minutes or more depending on your machine.
-
-And finally to build a Emacs.app with native compilation enabled, run:
+To build a Emacs.app with native compilation enabled, simply run:
 
 ```
 ./build-emacs-for-macos feature/native-comp
@@ -142,7 +132,7 @@ And finally to build a Emacs.app with native compilation enabled, run:
 By default `NATIVE_FULL_AOT` is disabled which ensures a fast build by native
 compiling as few lisp source files as possible to build the app. Any remaining
 lisp files will be dynamically compiled in the background the first time you use
-them.
+them. To enable native full AoT, pass in the `--native-full-aot` option.
 
 On my machine it takes around 10 minutes to build Emacs.app with
 `NATIVE_FULL_AOT` disabled. With it enabled it takes around 20-25 minutes.
