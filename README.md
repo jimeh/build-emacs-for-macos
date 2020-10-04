@@ -112,6 +112,30 @@ All sources as downloaded as tarballs from the
 to get a list of tags/branches available to install, simply check said
 repository.
 
+## Use Self-Contained Emacs.app as `emacs` CLI Tool
+
+As the application bundle is self-contained, the main executable needs to be run
+from within the application bundle. This means a simple symlink to
+`Emacs.app/Contents/MacOS/Emacs` will not work. Instead the best approach is to
+create a shell alias called `emacs` pointing to the right place.
+
+Personally I use something similar to this:
+
+```bash
+if [ -f "/Applications/Emacs.app/Contents/MacOS/Emacs" ]; then
+  export EMACS="/Applications/Emacs.app/Contents/MacOS/Emacs"
+  alias emacs="$EMACS -nw"
+fi
+
+if [ -f "/Applications/Emacs.app/Contents/MacOS/bin/emacsclient" ]; then
+  alias emacsclient="/Applications/Emacs.app/Contents/MacOS/bin/emacsclient"
+fi
+```
+
+Setting the `EMACS` variable to the binary path seems to be a good idea, as some
+tools seems to use it to figure out the path to Emacs' executable, including
+[doom-emacs](https://github.com/hlissner/doom-emacs)' `doom` CLI tool.
+
 ## Native-Comp
 
 Building a Emacs.app with native-comp support
