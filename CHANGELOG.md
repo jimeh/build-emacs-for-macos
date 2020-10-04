@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.4.0](https://github.com/jimeh/build-emacs-for-macos/compare/0.3.0...0.4.0) (2020-10-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **native_comp:** Standard Homewbrew `gcc` and `libgccjit` formula are now required for native-comp, instead of the custom patched gcc formula.
+
+### Features
+
+* **native_comp:** use new libgccjit Homebrew formula ([d8bbcb7](https://github.com/jimeh/build-emacs-for-macos/commit/d8bbcb72b33f6bde8678c9d37548217ffdf3d641))
+
 ## [0.3.0](https://github.com/jimeh/build-emacs-for-macos/compare/0.2.0...0.3.0) (2020-09-22)
 
 
