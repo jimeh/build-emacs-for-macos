@@ -137,7 +137,7 @@ tools seems to use it to figure out the path to Emacs' executable, including
 [doom-emacs](https://github.com/hlissner/doom-emacs)' `doom` CLI tool.
 
 Alternatively, you can add the corresponding directories to your path, so that
-the corresponding binaries are found directly. For example:
+the binaries are found directly. For example:
 
 ``` bash
 if [ -d "/Applications/Emacs.app/Contents/MacOS" ]; then
