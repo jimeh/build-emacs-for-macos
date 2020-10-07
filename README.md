@@ -136,6 +136,25 @@ Setting the `EMACS` variable to the binary path seems to be a good idea, as some
 tools seems to use it to figure out the path to Emacs' executable, including
 [doom-emacs](https://github.com/hlissner/doom-emacs)' `doom` CLI tool.
 
+Alternatively, you can add the corresponding directories to your path, so that
+the corresponding binaries are found directly. For example:
+
+``` bash
+if [ -d "/Applications/Emacs.app/Contents/MacOS" ]; then
+    EMACS_APPDIR=/Applications/Emacs.app/Contents/MacOS
+    export PATH=$EMACS_APPDIR:$EMACS_APPDIR/bin:$PATH
+fi
+```
+
+In the default macOS case-insensitive filesystem, the `Emacs` binary will be
+found when you run `emacs`, but if you use a case-sensitive filesystem, you may
+need to create a symlink within the `MacOS` directory:
+
+``` bash
+cd $EMACS_APPDIR
+ln -s Emacs emacs
+```
+
 ## Native-Comp
 
 Building a Emacs.app with native-comp support
