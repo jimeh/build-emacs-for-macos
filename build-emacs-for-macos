@@ -258,10 +258,6 @@ class Build
         verify_native_comp
         verify_libgccjit
 
-        if options[:macos_fixes] && ref != 'feature/native-comp-macos-fixes'
-          apply_native_comp_macos_fixes
-        end
-
         apply_native_comp_env_setup_patch(source)
 
         ENV['CFLAGS'] = [
@@ -444,37 +440,6 @@ class Build
       { file: "#{__dir__}/patches/native-comp-env-setup.patch" },
       source
     )
-  end
-
-  def apply_native_comp_macos_fixes
-    filename = 'Makefile.in'
-    pattern = /^src: Makefile\n(.*BIN_DESTDIR.*)\nblessmail: Makefile src\n/m
-    content = File.read(filename).gsub(pattern) do
-      old_src_body = Regexp.last_match(1).strip
-
-      # check if already patched
-      if old_src_body.include?('BIN_DESTDIR=\'${ns_appbindir}/\'')
-        return old_src_body
-      end
-
-      self_contained = old_src_body.gsub(
-        'BIN_DESTDIR=\'$(DESTDIR)${bindir}/\'',
-        'BIN_DESTDIR=\'${ns_appbindir}/\''
-      )
-
-      <<~REPLACEMENT
-        src: Makefile
-        ifeq (${ns_self_contained},no)
-        \t#{old_src_body}
-        else
-        \t#{self_contained}
-        endif
-
-        blessmail: Makefile src
-      REPLACEMENT
-    end
-
-    File.open(filename, 'w') { |f| f.write(content) }
   end
 
   def effective_version
