@@ -2,7 +2,7 @@ diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
 index 25e2de9..bcedd31 100644
 --- a/lisp/emacs-lisp/comp.el
 +++ b/lisp/emacs-lisp/comp.el
-@@ -2801,6 +2801,45 @@ queued with LOAD %"
+@@ -2801,6 +2801,53 @@ queued with LOAD %"
        (comp-run-async-workers)
        (message "Compilation started."))))
  
@@ -36,13 +36,21 @@ index 25e2de9..bcedd31 100644
 +  ;; Remove advice, as it only needs to run once.
 +  (advice-remove 'native-compile
 +                 'native-compile-setup-environment-variables)
++  (advice-remove 'comp--native-compile
++                 'native-compile-setup-environment-variables)
 +  (advice-remove 'native-compile-async
++                 'native-compile-setup-environment-variables)
++  (advice-remove 'native--compile-async
 +                 'native-compile-setup-environment-variables))
 +
 +;; Ensure environment setup runs before any native compilation.
 +(advice-add 'native-compile :before
 +            'native-compile-setup-environment-variables)
++(advice-add 'comp--native-compile :before
++            'native-compile-setup-environment-variables)
 +(advice-add 'native-compile-async :before
++            'native-compile-setup-environment-variables)
++(advice-add 'native--compile-async :before
 +            'native-compile-setup-environment-variables)
 +
  (provide 'comp)
