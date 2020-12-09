@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.2](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.1...0.4.2) (2020-12-09)
+
+
+### Bug Fixes
+
+* **cli:** avoid error if --git-sha is used without a branch/tag/sha argument ([884f160](https://github.com/jimeh/build-emacs-for-macos/commit/884f1607f6707ca187b1abfb0ce562757d872230)), closes [#21](https://github.com/jimeh/build-emacs-for-macos/issues/21)
+* **native_comp:** update env setup patch for recent changes to comp.el ([c7daa13](https://github.com/jimeh/build-emacs-for-macos/commit/c7daa1350bd69df172ce6484c54189d2cee8d97e))
+
 ### [0.4.1](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.0...0.4.1) (2020-10-29)
 
 
