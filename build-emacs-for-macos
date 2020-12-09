@@ -78,7 +78,7 @@ class Build
   attr_reader :ref
   attr_reader :options
 
-  def initialize(root_dir, ref = 'master', options = {})
+  def initialize(root_dir, ref = nil, options = {})
     @root_dir = root_dir
     @ref = ref
     @options = options
@@ -366,12 +366,12 @@ class Build
     FileUtils.mkdir_p(builds_dir)
 
     metadata = [
-      ref.gsub(/\W/, '-'),
+      meta[:ref]&.gsub(/\W/, '-'),
       meta[:date],
       meta[:sha][0..6],
       "macOS-#{OS.version}",
       OS.arch
-    ]
+    ].compact
 
     filename = "Emacs.app-[#{metadata.join('][')}].tbz"
     target = "#{builds_dir}/#{filename}"
@@ -412,11 +412,13 @@ class Build
     err "Failed to get commit info about: #{ref_sha}" if commit_json.nil?
 
     commit = JSON.parse(commit_json)
-
-    @meta = {
+    meta = {
       sha: commit['sha'],
       date: Date.parse(commit['commit']['committer']['date'])
     }
+    meta[:ref] = ref if ref && ref[0..6] != meta[:sha][0..6]
+
+    @meta = meta
   end
 
   def http_get(url)
