@@ -2,7 +2,7 @@ diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
 index 25e2de9..bcedd31 100644
 --- a/lisp/emacs-lisp/comp.el
 +++ b/lisp/emacs-lisp/comp.el
-@@ -2801,6 +2801,53 @@ queued with LOAD %"
+@@ -2801,6 +2801,57 @@ queued with LOAD %"
        (comp-run-async-workers)
        (message "Compilation started."))))
  
@@ -13,6 +13,8 @@ index 25e2de9..bcedd31 100644
 +             (string-match-p "\.app\/Contents\/MacOS\/?$"
 +                             invocation-directory))
 +    (let* ((library-path-env (getenv "LIBRARY_PATH"))
++           (devtools-dir
++            "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
 +           (gcc-base-dir (concat invocation-directory "lib/gcc"))
 +           (gcc-version (car (seq-filter
 +                              (lambda (dir) (string-match-p "^[0-9]+$" dir))
@@ -28,6 +30,8 @@ index 25e2de9..bcedd31 100644
 +           (darwin-dir (concat darwin-base-dir "/" darwin-version))
 +           (lib-paths (append
 +                       (list gcc-dir darwin-dir)
++                       (if (file-directory-p devtools-dir)
++                           (list devtools-dir) (list))
 +                       (if library-path-env (list library-path-env) (list)))))
 +
 +      (when (and gcc-dir darwin-dir)
