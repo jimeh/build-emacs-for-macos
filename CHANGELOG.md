@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.3](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.2...0.4.3) (2020-12-28)
+
+
+### Bug Fixes
+
+* **big-sur:** add Xcode CLI tools lib directory to runtime LIBRARY_PATH ([946856e](https://github.com/jimeh/build-emacs-for-macos/commit/946856e9c242d4a6fb5f839d8cae0acfafecdfc6))
+* **big-sur:** added support for building on Big Sur ([2247158](https://github.com/jimeh/build-emacs-for-macos/commit/2247158051d0f59933569b6974b2b5269f13c79e))
+
 ### [0.4.2](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.1...0.4.2) (2020-12-09)
 
 
