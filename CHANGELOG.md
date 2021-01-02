@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.4](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.3...0.4.4) (2021-01-02)
+
+
+### Bug Fixes
+
+* **deps:** add autoconf to Brewfile ([a47d3e0](https://github.com/jimeh/build-emacs-for-macos/commit/a47d3e0c6a8ea8161a3bad0eafdac2401cf53129))
+
 ### [0.4.3](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.2...0.4.3) (2020-12-28)
 
 
