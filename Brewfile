@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+brew 'autoconf'
 brew 'coreutils'
 brew 'curl'
 brew 'expat'
