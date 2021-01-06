@@ -74,8 +74,6 @@ Options:
         --[no-]xwidgets              Enable/disable XWidgets (default: enabled if supported)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
-        --[no-]native-comp-macos-fixes
-                                     Enable/disable fix based on feature/native-comp-macos-fixes branch (default: enabled if native-comp supported)
         --rsvg                       Enable SVG image support via librsvg, can yield a unstable build (default: disabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
@@ -142,10 +140,6 @@ Building a Emacs.app with native-comp support
 ([gccemacs](https://akrl.sdf.org/gccemacs.html)) from the `feature/native-comp`
 branch is now supported without much hassle thanks to the newly released
 `libgccjit` Homebrew formula.
-
-Changes from the `feature/native-comp-macos-fixes` branch are also applied
-through a custom patch process which should be more future-proof compared to a
-regular git diff patch.
 
 To build a Emacs.app with native compilation enabled, simply run:
 

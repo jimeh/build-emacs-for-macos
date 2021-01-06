@@ -298,7 +298,7 @@ class Build
         "#{brew_dir}/opt/texinfo/bin",
         ENV['PATH']
       ].compact.join(':')
-      
+
       ENV['LIBRARY_PATH'] = [
          ENV['LIBRARY_PATH'],
          "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
@@ -733,7 +733,6 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
-    macos_fixes: true,
     native_full_aot: false,
     parallel: Etc.nprocessors,
     rsvg: false,
@@ -778,12 +777,6 @@ if __FILE__ == $PROGRAM_NAME
               'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
               '(default: disabled)') do |v|
         cli_options[:native_full_aot] = v
-      end
-
-      opts.on('--[no-]native-comp-macos-fixes',
-              'Enable/disable fix based on feature/native-comp-macos-fixes ' \
-              'branch (default: enabled if native-comp supported)') do |v|
-        cli_options[:macos_fixes] = v
       end
 
       opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
