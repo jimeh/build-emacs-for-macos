@@ -18,7 +18,7 @@ Use this script at your own risk.
 
 ## Status
 
-As of writing (2020-10-04) it works for me on my machine. Your luck may vary.
+As of writing (2021-01-15) it works for me on my machine. Your luck may vary.
 
 I have successfully built:
 
@@ -29,8 +29,8 @@ I have successfully built:
 For reference, my machine is:
 
 - 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
-- macOS 10.15.6 (19G2021)
-- Xcode 12.0
+- macOS Big Sur 11.1 (20C69)
+- Xcode 12.3 (12C33)
 
 ## Limitations
 
