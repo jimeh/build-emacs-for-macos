@@ -77,11 +77,13 @@ class Build
   attr_reader :source_dir
   attr_reader :ref
   attr_reader :options
+  attr_reader :gcc_info
 
   def initialize(root_dir, ref = nil, options = {})
     @root_dir = root_dir
     @ref = ref
     @options = options
+    @gcc_info = GccInfo.new
   end
 
   def build
@@ -99,7 +101,7 @@ class Build
     symlink_internals(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
-    GccLibEmbedder.new(app, gcc_dir).embed if options[:native_comp]
+    GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
 
     archive_app(app)
   end
@@ -120,14 +122,6 @@ class Build
 
   def brew_dir
     @brew_dir ||= `brew --prefix`.chomp
-  end
-
-  def gcc_dir
-    @gcc_dir ||= `brew --prefix gcc`.chomp
-  end
-
-  def libgccjit_dir
-    @libgccjit_dir ||= `brew --prefix libgccjit`.chomp
   end
 
   def extra_libs
@@ -206,28 +200,12 @@ class Build
     err 'This emacs source tree does not support native-comp'
   end
 
-  def verify_libgccjit
-    err 'gcc not installed' unless Dir.exist?(gcc_dir)
-    err 'libgccjit not installed' unless Dir.exist?(libgccjit_dir)
-
-    if Dir["#{libgccjit_dir}/lib/**/libgccjit.so*"].empty?
-      err "Detected libgccjit (#{libgccjit_dir}) does not have any " \
-          'libgccjit.so* files. Please try reinstalling libgccjit: ' \
-          'brew reinstall libgccjit'
-    end
-
-    dirs = Dir["{#{gcc_dir},#{libgccjit_dir}}/lib/gcc/*"]
-    return if dirs.map { |dir| File.basename(dir) }.uniq == %w[10]
-
-    err 'Detected gcc and libgccjit library paths do not belong to the ' \
-        "same major version. Detected paths:\n  - #{dirs.join('  - ')}"
-  end
-
   def gcc_library_paths
-    @gcc_library_paths ||= Dir[
-      "{#{gcc_dir},#{libgccjit_dir}}/lib/gcc/*",
-      "{#{gcc_dir},#{libgccjit_dir}}/lib/gcc/*/gcc/*apple-darwin*/*"
-    ].sort_by { |p| [p.size, p] }
+    @gcc_library_paths ||= [
+      gcc_info.lib_dir,
+      gcc_info.darwin_lib_dir,
+      gcc_info.libgccjit_lib_dir
+    ]
   end
 
   def autogen
@@ -256,20 +234,20 @@ class Build
       if options[:native_comp]
         info 'Compiling with native-comp enabled'
         verify_native_comp
-        verify_libgccjit
+        gcc_info.verify_libgccjit
 
         apply_native_comp_env_setup_patch(source)
 
         ENV['CFLAGS'] = [
-          "-I#{gcc_dir}/include",
+          "-I#{File.join(gcc_info.root_dir, 'include')}",
           '-O2',
           '-march=native'
         ].compact.join(' ')
 
         ENV['LDFLAGS'] = [
           gcc_library_paths.map { |path| "-L#{path}" },
-          "-I#{gcc_dir}/include",
-          "-I#{libgccjit_dir}/include"
+          "-I#{File.join(gcc_info.root_dir, 'include')}",
+          "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}"
         ].flatten.compact.join(' ')
 
         ENV['LIBRARY_PATH'] = [
@@ -300,9 +278,9 @@ class Build
       ].compact.join(':')
 
       ENV['LIBRARY_PATH'] = [
-         ENV['LIBRARY_PATH'],
-         "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"
-        ].compact.join(':')
+        ENV['LIBRARY_PATH'],
+        '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
+      ].compact.join(':')
 
       configure_flags = [
         '--with-ns',
@@ -443,10 +421,14 @@ class Build
     file = 'lisp/emacs-lisp/comp.el'
     return if `grep '#{term}' '#{file}'`.strip.size.positive?
 
-    apply_patch(
-      { file: "#{__dir__}/patches/native-comp-env-setup.patch" },
-      source
+    template = File.read(
+      File.join(__dir__, 'patches/native-comp-env-setup.diff.erb')
     )
+    patch = ERB.new(template).result(gcc_info.get_binding)
+    patch_file = File.join(source, 'macos_patches/native-comp-env-setup.diff')
+
+    File.write(patch_file, patch)
+    apply_patch({ file: patch_file }, source)
   end
 
   def effective_version
@@ -563,16 +545,16 @@ class AbstractEmbedder
 
   private
 
+  def invocation_dir
+    File.join(app, 'Contents/MacOS')
+  end
+
   def bin
-    "#{app}/Contents/MacOS/Emacs"
+    File.join(invocation_dir, 'Emacs')
   end
 
   def lib_dir
-    "#{app}/Contents/MacOS/#{lib_dir_name}"
-  end
-
-  def lib_dir_name
-    'lib'
+    File.join(invocation_dir, 'lib')
   end
 end
 
@@ -686,11 +668,11 @@ class LibEmbedder < AbstractEmbedder
 end
 
 class GccLibEmbedder < AbstractEmbedder
-  attr_reader :gcc_dir
+  attr_reader :gcc_info
 
-  def initialize(app, gcc_dir)
+  def initialize(app, gcc_info)
     super(app)
-    @gcc_dir = gcc_dir
+    @gcc_info = gcc_info
   end
 
   def embed
@@ -700,34 +682,116 @@ class GccLibEmbedder < AbstractEmbedder
     end
 
     info 'Embedding libgccjit into Emacs.app'
-    if gcc_version.empty?
-      err "No suitable GCC lib with libgccjit found in #{gcc_dir}"
+
+    if gcc_info.lib_dir.empty?
+      err "No suitable GCC lib dir found in #{gcc_info.root_dir}"
     end
 
     FileUtils.mkdir_p(File.dirname(target_dir))
     FileUtils.cp_r(source_dir, target_dir)
-    FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
+    FileUtils.rm(Dir[File.join(target_dir, '**/.DS_Store')], force: true)
   end
 
   private
 
   def embedded?
-    Dir[File.join(target_dir, 'libgccjit.so*')].any?
+    Dir[File.join(target_dir, 'libgcc*')].any?
   end
 
   def target_dir
-    File.join(lib_dir, 'gcc', gcc_version)
-  end
-
-  def gcc_version
-    @gcc_version ||= Dir[File.join(gcc_dir, 'lib', 'gcc', '*', 'libgcc*')]
-                     .map { |path| File.basename(File.dirname(path)) }
-                     .select { |path| path.match(/^\d+$/) }
-                     .uniq.map(&:to_i).max.to_s
+    File.join(invocation_dir, gcc_info.relative_lib_dir)
   end
 
   def source_dir
-    @source_dir ||= File.join(gcc_dir, 'lib', 'gcc', gcc_version)
+    gcc_info.lib_dir
+  end
+end
+
+class GccInfo
+  include Output
+
+  def root_dir
+    @root_dir ||= `brew --prefix gcc`.chomp
+  end
+
+  def major_version
+    @major_version ||= File.basename(lib_dir)
+  end
+
+  def lib_dir
+    @lib_dir ||= Dir[File.join(root_dir, 'lib/gcc/*/libgcc*')]
+                 .map { |path| File.dirname(path) }
+                 .select { |path| File.basename(path).match(/^\d+$/) }
+                 .max_by { |path| File.basename(path).to_i }
+  end
+
+  def relative_lib_dir
+    @relative_lib_dir ||= relative_dir(lib_dir, root_dir)
+  end
+
+  def darwin_lib_dir
+    @darwin_lib_dir ||= Dir[
+      File.join(lib_dir, 'gcc/*apple-darwin*/*')
+    ].max_by do |path|
+      [
+        File.basename(File.dirname(path)).match(/darwin(\d+)$/)[1].to_i,
+        File.basename(path).split('.').map(&:to_i)
+      ]
+    end
+  end
+
+  def relative_darwin_lib_dir
+    @relative_darwin_lib_dir ||= relative_dir(darwin_lib_dir, root_dir)
+  end
+
+  def libgccjit_root_dir
+    @libgccjit_root_dir ||= `brew --prefix libgccjit`.chomp
+  end
+
+  def libgccjit_major_version
+    @libgccjit_major_version ||= File.basename(libgccjit_lib_dir.to_s)
+  end
+
+  def libgccjit_lib_dir
+    @libgccjit_lib_dir ||= Dir[
+      File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*')
+    ]
+                           .map { |path| File.dirname(path) }
+                           .select { |path| File.basename(path).match(/^\d+$/) }
+                           .max_by { |path| File.basename(path).to_i }
+  end
+
+  def verify_libgccjit
+    err 'gcc not installed' unless Dir.exist?(root_dir)
+    err 'libgccjit not installed' unless Dir.exist?(libgccjit_root_dir)
+
+    if libgccjit_lib_dir&.empty?
+      err "Detected libgccjit (#{libgccjit_root_dir}) does not have any " \
+          'libgccjit.so* files. Please try reinstalling libgccjit: ' \
+          'brew reinstall libgccjit'
+    end
+
+    return if major_version == libgccjit_major_version
+
+    err <<~TEXT
+      Detected GCC and libgccjit library paths do not belong to the same major
+      version of GCC. Detected paths:
+        - #{lib_dir}
+        - #{libgccjit_lib_dir}
+    TEXT
+  end
+
+  def get_binding
+    binding
+  end
+
+  private
+
+  def relative_dir(path, root)
+    root += '/' unless root[-1] == '/'
+    return if path[0..root.size - 1] != root
+
+    path[root.size..-1]
   end
 end
 
