@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.6](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.5...0.4.6) (2021-02-15)
+
+
+### Bug Fixes
+
+* **native_comp:** improve env setup patch fixing potential issues ([dca023d](https://github.com/jimeh/build-emacs-for-macos/commit/dca023daecd8704f197cbc391380aa194bc47d62))
+
 ### [0.4.5](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.4...0.4.5) (2021-01-06)
 
 
