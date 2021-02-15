@@ -126,9 +126,9 @@ class Build
 
   def extra_libs
     @extra_libs ||= [
-      "#{brew_dir}/opt/expat/lib/libexpat.1.dylib",
-      "#{brew_dir}/opt/libiconv/lib/libiconv.2.dylib",
-      "#{brew_dir}/opt/zlib/lib/libz.1.dylib"
+      File.join(brew_dir, 'opt/expat/lib/libexpat.1.dylib'),
+      File.join(brew_dir, 'opt/libiconv/lib/libiconv.2.dylib'),
+      File.join(brew_dir, 'opt/zlib/lib/libz.1.dylib')
     ]
   end
 
@@ -258,22 +258,23 @@ class Build
 
       ENV['CC'] = 'clang'
       ENV['PKG_CONFIG_PATH'] = [
-        "#{brew_dir}/lib/pkgconfig",
-        "#{brew_dir}/share/pkgconfig",
-        "#{brew_dir}/opt/expat/lib/pkgconfig",
-        "#{brew_dir}/opt/libxml2/lib/pkgconfig",
-        "#{brew_dir}/opt/ncurses/lib/pkgconfig",
-        "#{brew_dir}/opt/zlib/lib/pkgconfig",
-        "#{brew_dir}/Homebrew/Library/Homebrew/os/mac/pkgconfig/#{OS.version}",
+        File.join(brew_dir, 'lib/pkgconfig'),
+        File.join(brew_dir, 'share/pkgconfig'),
+        File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
+        File.join(brew_dir, 'opt/libxml2/lib/pkgconfig'),
+        File.join(brew_dir, 'opt/ncurses/lib/pkgconfig'),
+        File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
+        File.join(brew_dir, 'Homebrew/Library/Homebrew/os/mac/pkgconfig',
+                  OS.version.to_s),
         ENV['PKG_CONFIG_PATH']
       ].compact.join(':')
 
       ENV['PATH'] = [
-        "#{brew_dir}/opt/make/libexec/gnubin",
-        "#{brew_dir}/opt/coreutils/libexec/gnubin",
-        "#{brew_dir}/opt/gnu-sed/libexec/gnubin",
-        "#{brew_dir}/bin",
-        "#{brew_dir}/opt/texinfo/bin",
+        File.join(brew_dir, 'opt/make/libexec/gnubin'),
+        File.join(brew_dir, 'opt/coreutils/libexec/gnubin'),
+        File.join(brew_dir, 'opt/gnu-sed/libexec/gnubin'),
+        File.join(brew_dir, 'bin'),
+        File.join(brew_dir, 'opt/texinfo/bin'),
         ENV['PATH']
       ].compact.join(':')
 
@@ -502,7 +503,7 @@ class Build
       patch_dir = "#{target}/macos_patches"
       run_cmd('mkdir', '-p', patch_dir)
 
-      patch_file = "#{patch_dir}/patch-{num}.diff"
+      patch_file = File.join(patch_dir, 'patch-{num}.diff')
       num = 1
       while File.exist?(patch_file.gsub('{num}', num.to_s.rjust(3, '0')))
         num += 1
@@ -597,18 +598,18 @@ class LibEmbedder < AbstractEmbedder
       while_writable(exe) do
         if match[2] == exe_file
           system('install_name_tool', '-id',
-                 "@executable_path/#{rel_path}/#{match[2]}", exe)
+                 File.join('@executable_path', rel_path, match[2].to_s), exe)
         else
           system('install_name_tool', '-change', match[1],
-                 "@executable_path/#{rel_path}/#{match[2]}", exe)
+                 File.join('@executable_path', rel_path, match[2].to_s), exe)
         end
       end
 
-      next if match[2] == exe_file || File.exist?("#{lib_dir}/#{match[2]}")
+      next if match[2] == exe_file || File.exist?(File.join(lib_dir, match[2]))
 
       FileUtils.mkdir_p(lib_dir)
       FileUtils.cp(match[1], lib_dir)
-      copy_libs("#{lib_dir}/#{match[2]}", rel_path)
+      copy_libs(File.join(lib_dir, match[2].to_s), rel_path)
     end
   end
 
@@ -627,7 +628,7 @@ class LibEmbedder < AbstractEmbedder
 
       while_writable(target) do
         system('install_name_tool', '-id',
-               "@executable_path/#{rel_path}/#{lib_file}", target)
+               File.join('@executable_path', rel_path, lib_file), target)
       end
 
       copy_libs(target, rel_path)
@@ -651,7 +652,7 @@ class LibEmbedder < AbstractEmbedder
         while_writable(bin_path) do
           system(
             'install_name_tool', '-change', match[1],
-            "@executable_path/#{rel_path}/#{match[2]}",
+            File.join('@executable_path', rel_path, match[2].to_s),
             bin_path
           )
         end
