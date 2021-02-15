@@ -1,10 +1,10 @@
 diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
-index 25e2de9..bcedd31 100644
+index 4036080976..2ff8dbd74c 100644
 --- a/lisp/emacs-lisp/comp.el
 +++ b/lisp/emacs-lisp/comp.el
-@@ -2801,6 +2801,57 @@ queued with LOAD %"
-       (comp-run-async-workers)
-       (message "Compilation started."))))
+@@ -4079,6 +4079,52 @@ of (commands) to run simultaneously."
+   (let ((load (not (not load))))
+     (native--compile-async paths recursively load selector)))
  
 +;;;###autoload
 +(defun native-compile-setup-environment-variables (&rest _args)
@@ -15,27 +15,22 @@ index 25e2de9..bcedd31 100644
 +    (let* ((library-path-env (getenv "LIBRARY_PATH"))
 +           (devtools-dir
 +            "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
-+           (gcc-base-dir (concat invocation-directory "lib/gcc"))
-+           (gcc-version (car (seq-filter
-+                              (lambda (dir) (string-match-p "^[0-9]+$" dir))
-+                              (directory-files gcc-base-dir))))
-+           (gcc-dir (concat gcc-base-dir "/" gcc-version))
-+           (darwin-base-dir (car (file-expand-wildcards
-+                                      (concat gcc-dir "/gcc/*apple-darwin*"))))
-+           (darwin-version (car (seq-filter
-+                                 (lambda (dir)
-+                                   (string-match-p
-+                                    "^[0-9]+\\(\.[0-9]+\\(\.[0-9]+\\)?\\)?$" dir))
-+                                 (directory-files darwin-base-dir))))
-+           (darwin-dir (concat darwin-base-dir "/" darwin-version))
-+           (lib-paths (append
-+                       (list gcc-dir darwin-dir)
-+                       (if (file-directory-p devtools-dir)
-+                           (list devtools-dir) (list))
-+                       (if library-path-env (list library-path-env) (list)))))
++           (gcc-dir (expand-file-name
++                     "<%= relative_lib_dir %>"
++                     invocation-directory))
++           (darwin-dir (expand-file-name
++                        "<%= relative_darwin_lib_dir %>"
++                        invocation-directory))
++           (lib-paths (list)))
 +
-+      (when (and gcc-dir darwin-dir)
-+        (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":")))))
++      (if library-path-env
++          (push library-path-env lib-paths))
++      (if (file-directory-p devtools-dir)
++          (push devtools-dir lib-paths))
++      (push darwin-dir lib-paths)
++      (push gcc-dir lib-paths)
++
++      (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":"))))
 +
 +  ;; Remove advice, as it only needs to run once.
 +  (advice-remove 'native-compile
