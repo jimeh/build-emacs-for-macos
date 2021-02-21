@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.7](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.6...0.4.7) (2021-02-21)
+
+
+### Bug Fixes
+
+* **native_comp:** add libgccjit include dir during build stage ([e25ceaa](https://github.com/jimeh/build-emacs-for-macos/commit/e25ceaa7e25b0e1b9947401597845b5ba43e6cd1)), closes [#20](https://github.com/jimeh/build-emacs-for-macos/issues/20)
+
 ### [0.4.6](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.5...0.4.6) (2021-02-15)
 
 
