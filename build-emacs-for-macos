@@ -200,14 +200,6 @@ class Build
     err 'This emacs source tree does not support native-comp'
   end
 
-  def gcc_library_paths
-    @gcc_library_paths ||= [
-      gcc_info.lib_dir,
-      gcc_info.darwin_lib_dir,
-      gcc_info.libgccjit_lib_dir
-    ]
-  end
-
   def autogen
     FileUtils.cd(source_dir) do
       if File.exist?('autogen/copy_autogen')
@@ -219,10 +211,10 @@ class Build
   end
 
   def compile_source(source)
-    target = "#{source}/nextstep"
-    emacs_app = "#{target}/Emacs.app"
+    target = File.join(source, 'nextstep')
+    emacs_app = File.join(target, 'Emacs.app')
 
-    if File.exist?("#{target}/Emacs.app")
+    if File.exist?(emacs_app)
       info 'Emacs.app already exists in ' \
            "\"#{target.gsub(root_dir + '/', '')}\", attempting to use."
       return emacs_app
@@ -240,20 +232,27 @@ class Build
 
         ENV['CFLAGS'] = [
           "-I#{File.join(gcc_info.root_dir, 'include')}",
+          "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
           '-O2',
-          '-march=native'
+          '-march=native',
+          ENV['CFLAGS']
         ].compact.join(' ')
 
         ENV['LDFLAGS'] = [
-          gcc_library_paths.map { |path| "-L#{path}" },
+          "-L#{gcc_info.lib_dir}",
+          "-L#{gcc_info.darwin_lib_dir}",
+          "-L#{gcc_info.libgccjit_lib_dir}",
           "-I#{File.join(gcc_info.root_dir, 'include')}",
-          "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}"
-        ].flatten.compact.join(' ')
+          "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
+          ENV['LDFLAGS']
+        ].compact.join(' ')
 
         ENV['LIBRARY_PATH'] = [
-          gcc_library_paths,
+          gcc_info.lib_dir,
+          gcc_info.darwin_lib_dir,
+          gcc_info.libgccjit_lib_dir,
           ENV['LIBRARY_PATH']
-        ].flatten.compact.join(':')
+        ].compact.join(':')
       end
 
       ENV['CC'] = 'clang'
