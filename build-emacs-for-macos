@@ -180,12 +180,18 @@ class Build
     @configure_help
   end
 
-  def supports_native_comp?
-    @supports_native_comp ||= !!configure_help.match(/\s+--with-nativecomp\s+/)
-  end
-
   def supports_xwidgets?
     @supports_xwidgets ||= !!configure_help.match(/\s+--with-xwidgets\s+/)
+  end
+
+  def supports_native_comp?
+    @supports_native_comp ||= !native_comp_configure_flag.nil?
+  end
+
+  def native_comp_configure_flag
+    @native_comp_configure_flag ||= configure_help.match(
+      /\s+(--with-native(?:comp|-compilation))\s+/
+    )&.[](1)
   end
 
   def detect_native_comp
@@ -292,7 +298,7 @@ class Build
       if options[:xwidgets] && supports_xwidgets?
         configure_flags << '--with-xwidgets'
       end
-      configure_flags << '--with-nativecomp' if options[:native_comp]
+      configure_flags << native_comp_configure_flag if options[:native_comp]
       configure_flags << '--without-rsvg' unless options[:rsvg]
 
       run_cmd './configure', *configure_flags
