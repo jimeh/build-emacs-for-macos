@@ -314,17 +314,17 @@ class Build
       make_flags = []
       make_flags += ['-j', options[:parallel].to_s] if options[:parallel]
 
-      if options[:native_full_aot]
-        info 'Using NATIVE_FULL_AOT=1'
-        make_flags << 'NATIVE_FULL_AOT=1'
-        ENV.delete('NATIVE_FAST_BOOT')
-      else
-        ENV.delete('NATIVE_FULL_AOT')
-        ENV['NATIVE_FAST_BOOT'] = '1'
-      end
-
       if options[:native_comp]
         make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
+
+        if options[:native_full_aot]
+          info 'Using NATIVE_FULL_AOT=1'
+          make_flags << 'NATIVE_FULL_AOT=1'
+          ENV.delete('NATIVE_FAST_BOOT')
+        else
+          ENV.delete('NATIVE_FULL_AOT')
+          ENV['NATIVE_FAST_BOOT'] = '1'
+        end
       end
 
       run_cmd 'make', *make_flags
