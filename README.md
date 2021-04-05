@@ -144,7 +144,7 @@ branch is now supported without much hassle thanks to the newly released
 To build a Emacs.app with native compilation enabled, simply run:
 
 ```
-./build-emacs-for-macos feature/native-comp
+./build-emacs-for-macos feature/native-compilation
 ```
 
 By default `NATIVE_FULL_AOT` is disabled which ensures a fast build by native
