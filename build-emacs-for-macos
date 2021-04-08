@@ -339,13 +339,20 @@ class Build
   def symlink_internals(app)
     return unless options[:native_comp]
 
-    info 'Creating symlinks within Emacs.app needed for native-comp'
-
     FileUtils.cd(File.join(app, 'Contents')) do
+      # Skip creation of symlinks if *.eln files are located under
+      # Resources/native-lisp. Emacs is capable of finding lisp sources and
+      # *.eln cache files without symlinks.
+      return if Dir['Resources/native-lisp/**/*.eln'].any?
+
+      info 'Creating symlinks within Emacs.app needed for native-comp'
+
       FileUtils.ln_s('Resources/lisp', 'lisp') unless File.exist?('lisp')
 
       source = Dir['MacOS/libexec/emacs/**/eln-cache',
                    'MacOS/lib/emacs/**/native-lisp'].first
+      err 'Failed to find native-lisp cache directory for symlink creation.'
+
       target = File.basename(source)
       FileUtils.ln_s(source, target) unless File.exist?(target)
     end
