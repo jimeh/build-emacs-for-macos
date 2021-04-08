@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'optparse'
+
+require_relative '../lib/download_tarball'
+require_relative '../lib/errors'
+
+options = {
+  repo: 'emacs-mirror/emacs',
+  output: File.expand_path('../tarballs', __dir__),
+  log_level: :info
+}
+
+OptionParser.new do |opts|
+  opts.banner = <<~TXT
+    Usage: ./download-tarball [options] <branch/tag/sha>
+
+    Download a tarball of given GitHub repository branch, tag, or SHA.
+
+    Options:
+  TXT
+
+  opts.on('-r', '--repo STRING',
+          "GitHub repository (default: #{options[:repo]})") do |v|
+    options[:repo] = v
+  end
+
+  opts.on('-o', '--output DIR', 'Directory to save tarball in ' \
+          "(default: #{options[:output]})") do |v|
+    options[:output] = v
+  end
+
+  opts.on('-l', '--log-level LEVEL', 'Log level ' \
+          "(default: #{options[:log_level]})") do |v|
+    options[:log_level] = v.to_sym
+  end
+end.parse!
+
+begin
+  tarball = DownloadTarball.new(ref: ARGV[0], **options).perform
+
+  puts tarball.to_yaml
+rescue Error => e
+  handle_error(e)
+end
