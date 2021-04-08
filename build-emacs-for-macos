@@ -402,7 +402,8 @@ class Build
   def meta
     return @meta if @meta
 
-    ref_sha = options[:git_sha] || ref
+    ref_sha = options[:git_sha] || ref || 'master'
+    info "Fetching info for git ref: #{ref_sha}"
     url = format(LATEST_URL, ref_sha)
     commit_json = http_get(url)
     err "Failed to get commit info about: #{ref_sha}" if commit_json.nil?
