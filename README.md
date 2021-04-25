@@ -1,7 +1,8 @@
 # build-emacs-for-macos
 
 My personal hacked together script for building a completely self-contained
-Emacs.app application on macOS, from any git branch, tag, or ref.
+Emacs.app application on macOS, from any git branch, tag, or ref. With support
+for native-compilation.
 
 Use this script at your own risk.
 
@@ -18,7 +19,7 @@ Use this script at your own risk.
 
 ## Status
 
-As of writing (2021-01-15) it works for me on my machine. Your luck may vary.
+As of writing (2021-04-25) it works for me on my machine. Your luck may vary.
 
 I have successfully built:
 
@@ -29,8 +30,8 @@ I have successfully built:
 For reference, my machine is:
 
 - 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
-- macOS Big Sur 11.1 (20C69)
-- Xcode 12.3 (12C33)
+- macOS Big Sur 11.2.3 (20D91)
+- Xcode 12.4 (12D4e)
 
 ## Limitations
 
@@ -92,8 +93,8 @@ trash the corresponding directory from the `sources` directory.
 
 ### Examples
 
-To download a tarball of the `master` branch (Emacs 28.x as of writing) and
-build Emacs.app from it:
+To download a tarball of the `master` branch (Emacs 28.x with native-compilation
+as of writing) and build Emacs.app from it:
 
 ```
 ./build-emacs-for-macos
@@ -136,24 +137,24 @@ tools seems to use it to figure out the path to Emacs' executable, including
 
 ## Native-Comp
 
-Building a Emacs.app with native-comp support
-([gccemacs](https://akrl.sdf.org/gccemacs.html)) from the `feature/native-comp`
-branch is now supported without much hassle thanks to the newly released
-`libgccjit` Homebrew formula.
+_Note: On 2021-04-25 the `feature/native-comp` branch was
+[merged](http://git.savannah.gnu.org/cgit/emacs.git/commit/?id=289000eee729689b0cf362a21baa40ac7f9506f6)
+into `master`._
 
-To build a Emacs.app with native compilation enabled, simply run:
-
-```
-./build-emacs-for-macos feature/native-comp
-```
+The build script will automatically detect if the source tree being built
+supports native-compilation, and enable it if available. You can override this
+to force it on/off by passing `--native-comp` or `--no-native-comp`
+respectfully.
 
 By default `NATIVE_FULL_AOT` is disabled which ensures a fast build by native
-compiling as few lisp source files as possible to build the app. Any remaining
-lisp files will be dynamically compiled in the background the first time you use
-them. To enable native full AoT, pass in the `--native-full-aot` option.
+compiling as few elisp source files as possible to build Emacs itself. Any
+remaining elisp files will be dynamically compiled in the background the first
+time they are used.
 
-On my machine it takes around 10 minutes to build Emacs.app with
-`NATIVE_FULL_AOT` disabled. With it enabled it takes around 20-25 minutes.
+To enable native full Ahead-of-Time compilation, pass in the `--native-full-aot`
+option, which will native-compile all of Emacs' elisp as built-time. On my
+machine it takes around 10 minutes to build Emacs.app with `NATIVE_FULL_AOT`
+disabled, and around 20-25 minutes with it enabled.
 
 ### Configuration
 
