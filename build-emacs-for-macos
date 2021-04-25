@@ -677,6 +677,7 @@ class LibEmbedder < AbstractEmbedder
     mode = File.stat(file).mode
     File.chmod(0o775, file)
     yield
+  ensure
     File.chmod(mode, file)
   end
 end
