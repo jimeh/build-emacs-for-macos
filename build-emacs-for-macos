@@ -81,7 +81,7 @@ class Build
 
   def initialize(root_dir, ref = nil, options = {})
     @root_dir = root_dir
-    @ref = ref
+    @ref = ref || 'master'
     @options = options
     @gcc_info = GccInfo.new
   end
@@ -402,7 +402,7 @@ class Build
   def meta
     return @meta if @meta
 
-    ref_sha = options[:git_sha] || ref || 'master'
+    ref_sha = options[:git_sha] || ref
     info "Fetching info for git ref: #{ref_sha}"
     url = format(LATEST_URL, ref_sha)
     commit_json = http_get(url)
