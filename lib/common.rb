@@ -5,6 +5,10 @@ require 'net/http'
 module Common
   private
 
+  def self.included(base)
+    base.extend(self)
+  end
+
   def run_cmd(*args)
     info "executing: #{args.join(' ')}"
     system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")

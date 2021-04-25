@@ -6,3 +6,7 @@ def handle_error(err)
 end
 
 class Error < StandardError; end
+
+class CommitNotFound < Error; end
+class NoCommitSHA < Error; end
+class NoCommitTime < Error; end

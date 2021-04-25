@@ -25,25 +25,4 @@ module Output
   def err(msg = nil)
     raise Error, msg
   end
-
-  private
-
-  # override to set custom log level
-  def log_level
-    :info
-  end
-
-  def logger
-    @logger ||= Logger.new($stderr).tap do |l|
-      l.progname = self.class.logger_name
-      l.level = log_level
-      l.formatter = log_formatter
-    end
-  end
-
-  def log_formatter
-    proc do |severity, _datetime, progname, msg|
-      "==> [#{progname}] #{severity}: #{msg}\n"
-    end
-  end
 end

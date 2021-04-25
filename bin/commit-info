@@ -3,7 +3,7 @@
 
 require 'optparse'
 
-require_relative '../lib/download_tarball'
+require_relative '../lib/commit_info'
 require_relative '../lib/errors'
 require_relative '../lib/log'
 
@@ -15,9 +15,9 @@ options = {
 
 OptionParser.new do |opts|
   opts.banner = <<~TXT
-    Usage: ./download-tarball [options] <branch/tag/sha>
+    Usage: ./commit-info [options] <branch/tag/sha>
 
-    Download a tarball of given GitHub repository branch, tag, or SHA.
+    Fetch commit info of given GitHub repository branch, tag, or SHA.
 
     Options:
   TXT
@@ -39,15 +39,14 @@ OptionParser.new do |opts|
 end.parse!
 
 begin
-  logger = Log.new('download-tarball', options[:log_level])
-  tarball = DownloadTarball.new(
+  logger = Log.new('commit-info', options[:log_level])
+  commit = CommitInfo.new(
     ref: ARGV[0],
     repo: options[:repo],
-    output: options[:output],
     logger: logger
   ).perform
 
-  puts tarball.to_yaml
+  puts commit.to_yaml
 rescue Error => e
   handle_error(e)
 end

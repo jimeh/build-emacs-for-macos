@@ -4,30 +4,24 @@ require 'fileutils'
 require 'json'
 require 'time'
 
-require_relative './common'
-require_relative './commit'
-require_relative './output'
+require_relative './base_action'
+
+require_relative './commit_info'
 require_relative './tarball'
 
-class DownloadTarball
-  include Common
-  include Output
-
-  logger_name 'download-tarball'
-
+class DownloadTarball < BaseAction
   TARBALL_URL = 'https://github.com/%s/tarball/%s'
-  COMMIT_URL = 'https://api.github.com/repos/%s/commits/%s'
 
   attr_reader :ref
   attr_reader :repo
   attr_reader :output
-  attr_reader :log_level
+  attr_reader :logger
 
-  def initialize(ref:, repo:, output:, log_level:)
+  def initialize(ref:, repo:, output:, logger:)
     @ref = ref
     @repo = repo
     @output = output
-    @log_level = log_level
+    @logger = logger
 
     err 'branch/tag/sha argument cannot be empty' if ref.nil? || ref.empty?
   end
@@ -62,22 +56,6 @@ class DownloadTarball
   end
 
   def commit
-    return @commit if @commit
-
-    info "Fetching info for git ref: #{ref}"
-    url = format(COMMIT_URL, repo, ref)
-    commit_json = http_get(url)
-    err "Failed to get commit info about: #{ref}" if commit_json.nil?
-
-    parsed = JSON.parse(commit_json)
-    commit = Commit.new(
-      sha: parsed&.dig('sha'),
-      time: Time.parse(parsed&.dig('commit', 'committer', 'date'))
-    )
-
-    err 'Failed to get commit SHA' if commit.sha.nil? || commit.sha.empty?
-    err 'Failed to get commit time' if commit.time.nil?
-
-    @commit = commit
+    @commit ||= CommitInfo.new(ref: ref, repo: repo, logger: logger).perform
   end
 end
