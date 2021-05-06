@@ -9,7 +9,7 @@ on:
         default: "master"
       prerelease:
         Description: "Pre-release?"
-        require: true
+        required: true
         default: "true"
 
 jobs:
