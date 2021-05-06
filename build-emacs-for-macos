@@ -11,6 +11,7 @@ require 'net/http'
 require 'optparse'
 require 'pathname'
 require 'uri'
+require 'yaml'
 
 class Error < StandardError; end
 
@@ -21,9 +22,9 @@ module Output
 
   def out(msg, newline: true)
     if newline
-      puts "==> #{msg}"
+      warn "==> #{msg}"
     else
-      print "==> #{msg}"
+      STDERR.print "==> #{msg}"
     end
   end
 
@@ -87,8 +88,22 @@ class Build
   end
 
   def build
+    if !options[:plan] && options[:plan_file]
+      given_plan = YAML.safe_load(File.read(options[:plan_file]))
+      @meta = {
+        sha: given_plan['sha'],
+        ref: given_plan['ref'],
+        date: Date.parse(given_plan['date'])
+      }
+    end
+
     unless meta[:sha] && meta[:date]
       err 'Failed to get commit info from GitHub API.'
+    end
+
+    if options[:plan]
+      plan
+      return
     end
 
     tarball = download_tarball(meta[:sha])
@@ -107,6 +122,21 @@ class Build
   end
 
   private
+
+  def plan
+    plan_yml = YAML.dump(
+      'ref' => meta[:ref],
+      'sha' => meta[:sha],
+      'date' => meta[:date].to_s,
+      'archive' => File.join(builds_dir, archive_filename)
+    )
+
+    if options[:plan_file]
+      File.write(options[:plan_file], plan_yml)
+    else
+      puts plan_yml
+    end
+  end
 
   def tarballs_dir
     @tarballs_dir ||= File.join(root_dir, 'tarballs')
@@ -358,8 +388,8 @@ class Build
     end
   end
 
-  def archive_app(app)
-    FileUtils.mkdir_p(builds_dir)
+  def archive_filename
+    return @archive_filename if @archive_filename
 
     metadata = [
       meta[:ref]&.gsub(/\W/, '-'),
@@ -369,8 +399,14 @@ class Build
       OS.arch
     ].compact
 
-    filename = "Emacs.app-[#{metadata.join('][')}].tbz"
-    target = "#{builds_dir}/#{filename}"
+    @archive_filename = "Emacs.app-[#{metadata.join('][')}].tbz"
+  end
+
+  def archive_app(app)
+    FileUtils.mkdir_p(builds_dir)
+
+    filename = archive_filename
+    target = File.join(builds_dir, filename)
 
     app_base = File.basename(app)
     app_dir = File.dirname(app)
@@ -870,6 +906,19 @@ if __FILE__ == $PROGRAM_NAME
       opts.on('--no-frame-refocus',
               'Apply no-frame-refocus patch (default: disabled)') do
         cli_options[:no_frame_refocus] = true
+      end
+
+      opts.on('--plan',
+              'Print/write details of what is planned to be built') do
+        cli_options[:plan] = true
+      end
+
+      opts.on(
+        '--plan-file STRING',
+        'Read/write plan file, when --plan is passed, will read file ' \
+        'and ignore both branch/tag/sha argument and --git-sha option'
+      ) do |v|
+        cli_options[:plan_file] = v
       end
 
       opts.on('--[no-]native-fast-boot',
