@@ -46,7 +46,7 @@ jobs:
       - name: Download and build Emacs
         if: steps.check.outcome == 'failure'
         run: >-
-          ./build-emacs-for-macos --plan-file=plan.yml
+          ./build-emacs-for-macos --plan-file=plan.yml --native-full-aot
       - name: Publish release
         if: steps.check.outcome == 'failure'
         run: >-
