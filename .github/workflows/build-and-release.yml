@@ -25,17 +25,20 @@ jobs:
           go-version: 1.16
       - name: Generate plan.yml
         run: >-
-          ./build-emacs-for-macos --plan --plan-file=plan.yml
+          go run ./cmd/github-release --plan plan.yml plan
           ${{ github.event.inputs.gitRef }}
-      - name: Phow plan
-        run: cat plan.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Show plan
+        run: >-
+          cat plan.yml
       - name: Check if release and asset already exist for given plan
         id: check
         continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-
           go run ./cmd/github-release --plan plan.yml check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install dependencies
         if: steps.check.outcome == 'failure'
         run: >-
@@ -46,8 +49,8 @@ jobs:
           ./build-emacs-for-macos --plan-file=plan.yml
       - name: Publish release
         if: steps.check.outcome == 'failure'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-
           go run ./cmd/github-release --plan plan.yml publish
           --prerelease=${{ github.event.inputs.prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

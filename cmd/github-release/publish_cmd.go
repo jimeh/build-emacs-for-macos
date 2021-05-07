@@ -33,7 +33,10 @@ var publishCmd = &cli.Command{
 func publishAction(c *cli.Context, opts *globalOptions) error {
 	gh := opts.gh
 	repo := opts.repo
-	plan := opts.plan
+	plan, err := LoadPlan(opts.plan)
+	if err != nil {
+		return err
+	}
 
 	releaseName := plan.ReleaseName()
 	githubSHA := c.String("github-sha")

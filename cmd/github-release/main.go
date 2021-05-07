@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/go-github/v35/github"
 	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v3"
 )
 
 var app = &cli.App{
@@ -37,30 +36,20 @@ var app = &cli.App{
 	Commands: []*cli.Command{
 		checkCmd,
 		publishCmd,
+		planCmd,
 	},
 }
 
 type globalOptions struct {
 	gh   *github.Client
 	repo *Repo
-	plan *Plan
+	plan string
 }
 
 func actionHandler(
 	f func(*cli.Context, *globalOptions) error,
 ) func(*cli.Context) error {
 	return func(c *cli.Context) error {
-		b, err := os.ReadFile(c.Path("plan"))
-		if err != nil {
-			return err
-		}
-
-		plan := &Plan{}
-		err = yaml.Unmarshal(b, plan)
-		if err != nil {
-			return err
-		}
-
 		token := c.String("github-token")
 		if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 			token = t
@@ -69,7 +58,7 @@ func actionHandler(
 		opts := &globalOptions{
 			gh:   NewGitHubClient(c.Context, token),
 			repo: NewRepo(c.String("repo")),
-			plan: plan,
+			plan: c.String("plan"),
 		}
 
 		return f(c, opts)

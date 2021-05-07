@@ -95,6 +95,7 @@ class Build
         ref: given_plan['ref'],
         date: Date.parse(given_plan['date'])
       }
+      @archive_filename = given_plan['archive']
     end
 
     unless meta[:sha] && meta[:date]
@@ -102,7 +103,7 @@ class Build
     end
 
     if options[:plan]
-      plan
+      save_plan
       return
     end
 
@@ -123,7 +124,7 @@ class Build
 
   private
 
-  def plan
+  def save_plan
     plan_yml = YAML.dump(
       'ref' => meta[:ref],
       'sha' => meta[:sha],
@@ -399,24 +400,28 @@ class Build
       OS.arch
     ].compact
 
-    @archive_filename = "Emacs.app-[#{metadata.join('][')}].tbz"
+    filename = "Emacs.app-[#{metadata.join('][')}].tbz"
+    @archive_filename = File.join(builds_dir, filename)
   end
 
   def archive_app(app)
-    FileUtils.mkdir_p(builds_dir)
+    filename = File.basename(archive_filename)
+    target_dir = File.dirname(archive_filename)
+    relative_target_dir = target_dir.gsub(root_dir + '/', '')
 
-    filename = archive_filename
-    target = File.join(builds_dir, filename)
+    FileUtils.mkdir_p(target_dir)
 
     app_base = File.basename(app)
     app_dir = File.dirname(app)
 
-    if !File.exist?(target)
-      info "Creating #{filename} archive in \"#{builds_dir}\"..."
-      FileUtils.cd(app_dir) { system('tar', '-cjf', target, app_base) }
+    if !File.exist?(archive_filename)
+      info "Creating #{filename} archive in \"#{relative_target_dir}\"..."
+      FileUtils.cd(app_dir) do
+        system('tar', '-cjf', archive_filename, app_base)
+      end
     else
       info "#{filename} archive exists in " \
-           "#{builds_dir.gsub(root_dir + '/', '')}, skipping archving."
+           "#{relative_target_dir}, skipping archving."
     end
   end
 

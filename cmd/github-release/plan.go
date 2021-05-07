@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Plan struct {
@@ -12,6 +15,18 @@ type Plan struct {
 	SHA     string `yaml:"sha"`
 	Date    string `yaml:"date"`
 	Archive string `yaml:"archive"`
+}
+
+func LoadPlan(filename string) (*Plan, error) {
+	b, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	plan := &Plan{}
+	err = yaml.Unmarshal(b, plan)
+
+	return plan, err
 }
 
 func (s *Plan) ReleaseName() string {
