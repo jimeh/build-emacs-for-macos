@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.11](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.10...0.4.11) (2021-05-08)
+
+
+### Features
+
+* **builds:** update build script for new plan.yml format ([1df39fa](https://github.com/jimeh/build-emacs-for-macos/commit/1df39fafe62ada385aa1d92e6b7f591c16c0a80c))
+* **release:** initial attempt at providing automatic builds ([6328921](https://github.com/jimeh/build-emacs-for-macos/commit/63289216d70e496d664a7e3078dea5a82eb8f65d))
+
+
+### Bug Fixes
+
+* **release:** attempt to fix issue with talking to GitHub API ([272a300](https://github.com/jimeh/build-emacs-for-macos/commit/272a3000a1f96d8f131e684736127b923513a205))
+
 ### [0.4.10](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.9...0.4.10) (2021-04-25)
 
 
