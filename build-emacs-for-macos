@@ -10,6 +10,7 @@ require 'json'
 require 'net/http'
 require 'optparse'
 require 'pathname'
+require 'time'
 require 'uri'
 require 'yaml'
 
@@ -88,23 +89,10 @@ class Build
   end
 
   def build
-    if !options[:plan] && options[:plan_file]
-      given_plan = YAML.safe_load(File.read(options[:plan_file]))
-      @meta = {
-        sha: given_plan['sha'],
-        ref: given_plan['ref'],
-        date: Date.parse(given_plan['date'])
-      }
-      @archive_filename = given_plan['archive']
-    end
+    load_plan(options[:plan]) if options[:plan]
 
     unless meta[:sha] && meta[:date]
-      err 'Failed to get commit info from GitHub API.'
-    end
-
-    if options[:plan]
-      save_plan
-      return
+      err 'Failed to get commit info from GitHub.'
     end
 
     tarball = download_tarball(meta[:sha])
@@ -124,19 +112,15 @@ class Build
 
   private
 
-  def save_plan
-    plan_yml = YAML.dump(
-      'ref' => meta[:ref],
-      'sha' => meta[:sha],
-      'date' => meta[:date].to_s,
-      'archive' => File.join(builds_dir, archive_filename)
-    )
+  def load_plan(filename)
+    plan = YAML.safe_load(File.read(filename), [:Time])
 
-    if options[:plan_file]
-      File.write(options[:plan_file], plan_yml)
-    else
-      puts plan_yml
-    end
+    @meta = {
+      sha: plan.dig('commit', 'sha'),
+      ref: plan.dig('commit', 'ref'),
+      date: plan.dig('commit', 'date')
+    }
+    @archive_filename = plan['archive']
   end
 
   def tarballs_dir
@@ -394,7 +378,7 @@ class Build
 
     metadata = [
       meta[:ref]&.gsub(/\W/, '-'),
-      meta[:date],
+      meta[:date]&.strftime('%Y-%m-%d'),
       meta[:sha][0..6],
       "macOS-#{OS.version}",
       OS.arch
@@ -452,7 +436,7 @@ class Build
     commit = JSON.parse(commit_json)
     meta = {
       sha: commit['sha'],
-      date: Date.parse(commit['commit']['committer']['date'])
+      date: Time.parse(commit['commit']['committer']['date'])
     }
     meta[:ref] = ref if ref && ref[0..6] != meta[:sha][0..6]
 
@@ -853,6 +837,7 @@ end
 
 if __FILE__ == $PROGRAM_NAME
   cli_options = {
+    work_dir: File.expand_path(__dir__),
     native_full_aot: false,
     parallel: Etc.nprocessors,
     rsvg: false,
@@ -913,17 +898,17 @@ if __FILE__ == $PROGRAM_NAME
         cli_options[:no_frame_refocus] = true
       end
 
-      opts.on('--plan',
-              'Print/write details of what is planned to be built') do
-        cli_options[:plan] = true
+      opts.on('--work-dir DIR',
+              'Specify a working directory where tarballs, sources, and ' \
+              'builds will be stored and worked with') do |v|
+        cli_options[:work_dir] = v
       end
 
       opts.on(
-        '--plan-file STRING',
-        'Read/write plan file, when --plan is passed, will read file ' \
-        'and ignore both branch/tag/sha argument and --git-sha option'
+        '--plan FILE',
+        'Follow given plan file, instead of using given git ref/sha'
       ) do |v|
-        cli_options[:plan_file] = v
+        cli_options[:plan] = v
       end
 
       opts.on('--[no-]native-fast-boot',
@@ -944,7 +929,8 @@ if __FILE__ == $PROGRAM_NAME
       end
     end.parse!
 
-    Build.new(File.expand_path(__dir__), ARGV.shift, cli_options).build
+    work_dir = cli_options.delete(:work_dir)
+    Build.new(work_dir, ARGV.shift, cli_options).build
   rescue Error => e
     warn "ERROR: #{e.message}"
     exit 1
