@@ -836,18 +836,19 @@ if __FILE__ == $PROGRAM_NAME
 
       opts.on('-j', '--parallel COUNT',
               'Compile using COUNT parallel processes ' \
-              "(detected: #{cli_options[:parallel]})") do |v|
+              "(default: #{cli_options[:parallel]})") do |v|
         cli_options[:parallel] = v
       end
 
-      opts.on('--git-sha SHA', 'Override detected git SHA of specified ' \
-                               'branch allowing builds of old commits') do |v|
+      opts.on('--git-sha SHA',
+              'Override detected git SHA of specified ' \
+              'branch allowing builds of old commits') do |v|
         cli_options[:git_sha] = v
       end
 
       opts.on('--[no-]xwidgets',
-              'Enable/disable XWidgets ' \
-              '(default: enabled if supported)') do |v|
+              'Enable/disable XWidgets if supported ' \
+              '(default: enabled)') do |v|
         cli_options[:xwidgets] = v
       end
 
