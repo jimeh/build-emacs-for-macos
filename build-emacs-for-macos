@@ -617,7 +617,6 @@ class LibEmbedder < AbstractEmbedder
     FileUtils.cd(File.dirname(app)) do
       copy_libs(binary)
       copy_extra_libs(extra_libs, binary) if extra_libs.any?
-      self_ref_libs(binary)
     end
   end
 
@@ -670,31 +669,6 @@ class LibEmbedder < AbstractEmbedder
       end
 
       copy_libs(target, rel_path)
-    end
-  end
-
-  def self_ref_libs(exe)
-    rel_path = Pathname.new(lib_dir).relative_path_from(
-      Pathname.new(File.dirname(exe))
-    ).to_s
-    lib_paths ||= Dir.glob("#{lib_dir}/*").select { |f| File.file?(f) }
-    libs = lib_paths.map { |f| File.basename(f) }
-
-    ([exe] + lib_paths).each do |bin_path|
-      `otool -L "#{bin_path}"`.split("\n")[1..-1].each do |line|
-        match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
-        next unless match
-        next if match[1].start_with?('@executable_path/')
-        next unless libs.include?(match[2])
-
-        while_writable(bin_path) do
-          system(
-            'install_name_tool', '-change', match[1],
-            File.join('@executable_path', rel_path, match[2].to_s),
-            bin_path
-          )
-        end
-      end
     end
   end
 
