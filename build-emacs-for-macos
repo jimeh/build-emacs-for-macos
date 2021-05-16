@@ -628,6 +628,11 @@ class LibEmbedder < AbstractEmbedder
       Pathname.new(File.dirname(exe))
     ).to_s
 
+    while_writable(exe) do
+      system('install_name_tool', '-add_rpath',
+             File.join('@executable_path', rel_path), exe)
+    end
+
     `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
       match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
       next unless match && match[1].start_with?(lib_source)
