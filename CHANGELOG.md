@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.12](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.11...0.4.12) (2021-05-17)
+
+
+### Bug Fixes
+
+* **shared-libraries:** stop aggressive dylib re-linking ([0a22d83](https://github.com/jimeh/build-emacs-for-macos/commit/0a22d8393c53305354c4c6d8e784e7d59caa039a)), closes [#12](https://github.com/jimeh/build-emacs-for-macos/issues/12)
+* **svg:** enable SVG by default via librsvg ([bf7c4d5](https://github.com/jimeh/build-emacs-for-macos/commit/bf7c4d5debf32980dbbabc1ea99b58b266390011))
+
 ### [0.4.11](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.10...0.4.11) (2021-05-08)
 
 
