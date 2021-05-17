@@ -314,7 +314,7 @@ class Build
         configure_flags << '--with-xwidgets'
       end
       configure_flags << native_comp_configure_flag if options[:native_comp]
-      configure_flags << '--without-rsvg' unless options[:rsvg]
+      configure_flags << '--without-rsvg' if options[:rsvg] == false
 
       run_cmd './configure', *configure_flags
 
@@ -617,7 +617,6 @@ class LibEmbedder < AbstractEmbedder
     FileUtils.cd(File.dirname(app)) do
       copy_libs(binary)
       copy_extra_libs(extra_libs, binary) if extra_libs.any?
-      self_ref_libs(binary)
     end
   end
 
@@ -628,6 +627,11 @@ class LibEmbedder < AbstractEmbedder
     rel_path ||= Pathname.new(lib_dir).relative_path_from(
       Pathname.new(File.dirname(exe))
     ).to_s
+
+    while_writable(exe) do
+      system('install_name_tool', '-add_rpath',
+             File.join('@executable_path', rel_path), exe)
+    end
 
     `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
       match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
@@ -670,31 +674,6 @@ class LibEmbedder < AbstractEmbedder
       end
 
       copy_libs(target, rel_path)
-    end
-  end
-
-  def self_ref_libs(exe)
-    rel_path = Pathname.new(lib_dir).relative_path_from(
-      Pathname.new(File.dirname(exe))
-    ).to_s
-    lib_paths ||= Dir.glob("#{lib_dir}/*").select { |f| File.file?(f) }
-    libs = lib_paths.map { |f| File.basename(f) }
-
-    ([exe] + lib_paths).each do |bin_path|
-      `otool -L "#{bin_path}"`.split("\n")[1..-1].each do |line|
-        match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
-        next unless match
-        next if match[1].start_with?('@executable_path/')
-        next unless libs.include?(match[2])
-
-        while_writable(bin_path) do
-          system(
-            'install_name_tool', '-change', match[1],
-            File.join('@executable_path', rel_path, match[2].to_s),
-            bin_path
-          )
-        end
-      end
     end
   end
 
@@ -840,7 +819,7 @@ if __FILE__ == $PROGRAM_NAME
     work_dir: File.expand_path(__dir__),
     native_full_aot: false,
     parallel: Etc.nprocessors,
-    rsvg: false,
+    rsvg: true,
     xwidgets: true
   }
 
@@ -857,18 +836,19 @@ if __FILE__ == $PROGRAM_NAME
 
       opts.on('-j', '--parallel COUNT',
               'Compile using COUNT parallel processes ' \
-              "(detected: #{cli_options[:parallel]})") do |v|
+              "(default: #{cli_options[:parallel]})") do |v|
         cli_options[:parallel] = v
       end
 
-      opts.on('--git-sha SHA', 'Override detected git SHA of specified ' \
-                               'branch allowing builds of old commits') do |v|
+      opts.on('--git-sha SHA',
+              'Override detected git SHA of specified ' \
+              'branch allowing builds of old commits') do |v|
         cli_options[:git_sha] = v
       end
 
       opts.on('--[no-]xwidgets',
-              'Enable/disable XWidgets ' \
-              '(default: enabled if supported)') do |v|
+              'Enable/disable XWidgets if supported ' \
+              '(default: enabled)') do |v|
         cli_options[:xwidgets] = v
       end
 
@@ -884,9 +864,10 @@ if __FILE__ == $PROGRAM_NAME
         cli_options[:native_full_aot] = v
       end
 
-      opts.on('--rsvg', 'Enable SVG image support via librsvg, ' \
-                        'can yield a unstable build (default: disabled)') do
-        cli_options[:rsvg] = true
+      opts.on('--[no-]rsvg',
+              'Enable/disable SVG image support via librsvg ' \
+              '(default: enabled)') do |v|
+        cli_options[:rsvg] = v
       end
 
       opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
