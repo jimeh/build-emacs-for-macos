@@ -628,9 +628,14 @@ class LibEmbedder < AbstractEmbedder
       Pathname.new(File.dirname(exe))
     ).to_s
 
-    while_writable(exe) do
-      system('install_name_tool', '-add_rpath',
-             File.join('@executable_path', rel_path), exe)
+    rpath = File.join('@executable_path', rel_path)
+    rpaths = `otool -l "#{exe}" | grep -A 2 'cmd LC_RPATH' | grep 'path'`
+
+    unless rpaths.include?(rpath)
+      while_writable(exe) do
+        system('install_name_tool', '-add_rpath',
+               File.join('@executable_path', rel_path), exe)
+      end
     end
 
     `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
