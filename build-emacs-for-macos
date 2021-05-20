@@ -585,7 +585,7 @@ class AbstractEmbedder
   private
 
   def invocation_dir
-    File.join(app, 'Contents/MacOS')
+    File.join(app, 'Contents', 'MacOS')
   end
 
   def bin
