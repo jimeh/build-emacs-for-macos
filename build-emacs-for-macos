@@ -713,7 +713,9 @@ class GccLibEmbedder < AbstractEmbedder
 
     FileUtils.mkdir_p(File.dirname(target_dir))
     FileUtils.cp_r(source_dir, target_dir)
-    FileUtils.rm(Dir[File.join(target_dir, '**/.DS_Store')], force: true)
+    FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
+    FileUtils.chmod_R('u+w', target_dir)
+    FileUtils.mv(source_darwin_dir, target_darwin_dir)
   end
 
   private
@@ -726,8 +728,20 @@ class GccLibEmbedder < AbstractEmbedder
     File.join(invocation_dir, gcc_info.relative_lib_dir)
   end
 
+  def source_darwin_dir
+    File.join(invocation_dir, gcc_info.relative_darwin_lib_dir)
+  end
+
+  def target_darwin_dir
+    File.join(invocation_dir, gcc_info.sanitized_relative_darwin_lib_dir)
+  end
+
   def source_dir
     gcc_info.lib_dir
+  end
+
+  def relative_dir(path, root)
+    Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
   end
 end
 
@@ -766,6 +780,17 @@ class GccInfo
 
   def relative_darwin_lib_dir
     @relative_darwin_lib_dir ||= relative_dir(darwin_lib_dir, root_dir)
+  end
+
+  # Sanitize folder name with full "MAJOR.MINOR.PATCH" version number to just
+  # the MAJOR version. Apple's codesign CLI tool throws a "bundle format
+  # unrecognized" error if there are any folders with two dots in their name
+  # within the Emacs.app application bundle.
+  def sanitized_relative_darwin_lib_dir
+    @sanitized_relative_darwin_lib_dir ||= File.join(
+      File.dirname(relative_darwin_lib_dir),
+      File.basename(relative_darwin_lib_dir).split('.').first
+    )
   end
 
   def libgccjit_root_dir
@@ -812,10 +837,7 @@ class GccInfo
   private
 
   def relative_dir(path, root)
-    root += '/' unless root[-1] == '/'
-    return if path[0..root.size - 1] != root
-
-    path[root.size..-1]
+    Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
   end
 end
 
