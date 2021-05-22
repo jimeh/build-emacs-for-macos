@@ -101,13 +101,15 @@ class Build
     detect_native_comp if options[:native_comp].nil?
 
     app = compile_source(@source_dir)
+    build_dir, app = create_build_dir(app)
+
     symlink_internals(app)
     add_cli_helper(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
 
-    archive_app(app)
+    archive_build(build_dir) if options[:archive]
   end
 
   private
@@ -120,7 +122,16 @@ class Build
       ref: plan.dig('commit', 'ref'),
       date: plan.dig('commit', 'date')
     }
-    @archive_filename = plan['archive']
+
+    if plan.dig('output', 'directory')
+      @output_dir = plan.dig('output', 'directory')
+    end
+
+    if plan.dig('output', 'archive')
+      @archive_filename = plan.dig('output', 'archive')
+    end
+
+    @build_name = plan['build_name'] if plan['build_name']
   end
 
   def tarballs_dir
@@ -131,8 +142,8 @@ class Build
     @sources_dir ||= File.join(root_dir, 'sources')
   end
 
-  def builds_dir
-    @builds_dir ||= File.join(root_dir, 'builds')
+  def output_dir
+    @output_dir ||= (options[:output] || File.join(root_dir, 'builds'))
   end
 
   def brew_dir
@@ -363,6 +374,33 @@ class Build
     emacs_app
   end
 
+  def create_build_dir(app)
+    app_name = File.basename(app)
+    target_dir = File.join(output_dir, build_name)
+
+    if File.exist?(target_dir)
+      err "Output directory #{target_dir} already exists, " \
+          'please delete it and try again'
+    end
+
+    info "Copying \"#{app_name}\" to: #{target_dir}"
+
+    FileUtils.mkdir_p(target_dir)
+    FileUtils.cp_r(app, target_dir)
+
+    options[:dist_include]&.each do |filename|
+      src = File.join(source_dir, filename)
+      if File.exist?(src)
+        info "Copying \"#{filename}\" to: #{target_dir}"
+        FileUtils.cp_r(src, target_dir)
+      else
+        info "Warning: #{filename} does not exist in #{source_dir}"
+      end
+    end
+
+    [target_dir, File.join(target_dir, File.basename(app))]
+  end
+
   def symlink_internals(app)
     return unless options[:native_comp]
 
@@ -397,39 +435,47 @@ class Build
     FileUtils.chmod('+w', target)
   end
 
-  def archive_filename
-    return @archive_filename if @archive_filename
+  def build_name
+    return @build_name if @build_name
+    return @build_name = options[:build_name] if options[:build_name]
 
     metadata = [
-      meta[:ref]&.gsub(/\W/, '-'),
       meta[:date]&.strftime('%Y-%m-%d'),
       meta[:sha][0..6],
+      meta[:ref],
       "macOS-#{OS.version}",
       OS.arch
-    ].compact
+    ].compact.map { |v| v.gsub(/[^\w_-]+/, '-') }
 
-    filename = "Emacs.app-[#{metadata.join('][')}].tbz"
-    @archive_filename = File.join(builds_dir, filename)
+    @build_name = "Emacs.#{metadata.join('.')}"
   end
 
-  def archive_app(app)
+  def archive_filename
+    @archive_filename ||= File.join(output_dir, "#{build_name}.tbz")
+  end
+
+  def archive_build(build_dir)
     filename = File.basename(archive_filename)
     target_dir = File.dirname(archive_filename)
-    relative_target_dir = target_dir.gsub(root_dir + '/', '')
 
     FileUtils.mkdir_p(target_dir)
 
-    app_base = File.basename(app)
-    app_dir = File.dirname(app)
+    build = File.basename(build_dir)
+    parent_dir = File.dirname(build_dir)
 
     if !File.exist?(archive_filename)
-      info "Creating #{filename} archive in \"#{relative_target_dir}\"..."
-      FileUtils.cd(app_dir) do
-        system('tar', '-cjf', archive_filename, app_base)
+      info "Creating #{filename} archive in \"#{target_dir}\"..."
+      FileUtils.cd(parent_dir) do
+        system('tar', '-cjf', archive_filename, build)
+
+        if options[:archive_keep] == false
+          info "Removeing \"#{build}\" directory from #{parent_dir}"
+          FileUtils.rm_rf(build_dir)
+        end
       end
     else
       info "#{filename} archive exists in " \
-           "#{relative_target_dir}, skipping archving."
+           "#{target_dir}, skipping archving."
     end
   end
 
@@ -908,7 +954,10 @@ if __FILE__ == $PROGRAM_NAME
     parallel: Etc.nprocessors,
     rsvg: true,
     xwidgets: true,
-    github_auth: true
+    github_auth: true,
+    dist_include: ['COPYING'],
+    archive: true,
+    archive_keep: false
   }
 
   begin
@@ -984,6 +1033,33 @@ if __FILE__ == $PROGRAM_NAME
               'Specify a working directory where tarballs, sources, and ' \
               'builds will be stored and worked with') do |v|
         cli_options[:work_dir] = v
+      end
+
+      opts.on('-o DIR', '--output DIR',
+              'Output directory for finished builds ' \
+              '(default: <work-dir>/builds)') do |v|
+        cli_options[:output] = v
+      end
+
+      opts.on('--build-name NAME', 'Override generated build name') do |v|
+        cli_options[:build_name] = v
+      end
+
+      opts.on('--dist-include x,y,z',
+              'List of extra files to copy from Emacs source into build ' \
+              'folder/archive (default: COPYING)') do |v|
+        cli_options[:dist_include] = v
+      end
+
+      opts.on('--[no-]archive',
+              'Enable/disable creating *.tbz archive (default: enabled)') do |v|
+        cli_options[:archive] = v
+      end
+
+      opts.on('--[no-]archive-keep-build-dir',
+              'Enable/disable keeping source folder for archive ' \
+              '(default: disabled)') do |v|
+        cli_options[:archive_keep] = v
       end
 
       opts.on(
