@@ -142,9 +142,9 @@ _Note: On 2021-04-25 the `feature/native-comp` branch was
 into `master`._
 
 The build script will automatically detect if the source tree being built
-supports native-compilation, and enable it if available. You can override this
-to force it on/off by passing `--native-comp` or `--no-native-comp`
-respectfully.
+supports native-compilation, and enable it if available. You can override the
+auto-detection logic to force enable or force disable native-compilation by
+passing `--native-comp` or `--no-native-comp` respectfully.
 
 By default `NATIVE_FULL_AOT` is disabled which ensures a fast build by native
 compiling as few elisp source files as possible to build Emacs itself. Any
@@ -152,30 +152,37 @@ remaining elisp files will be dynamically compiled in the background the first
 time they are used.
 
 To enable native full Ahead-of-Time compilation, pass in the `--native-full-aot`
-option, which will native-compile all of Emacs' elisp as built-time. On my
+option, which will native-compile all of Emacs' elisp at built-time. On my
 machine it takes around 10 minutes to build Emacs.app with `NATIVE_FULL_AOT`
 disabled, and around 20-25 minutes with it enabled.
 
 ### Configuration
 
-Add the following near the top of your `early-init.el` or `init.el`:
-
-```elisp
-(setq comp-speed 2)
-```
+#### Native-Lisp Cache Directory
 
 By default natively compiled `*.eln` files will be cached in
 `~/.emacs.d/eln-cache/`. If you want to customize that, simply set a new path as
-the first element of the `comp-eln-load-path` variable. The path string must end
-with a `/`.
+the first element of the `native-comp-eln-load-path` variable. The path string
+must end with a `/`.
 
 Below is an example which stores all compiled `*.eln` files in `cache/eln-cache`
 within your Emacs configuration directory:
 
 ```elisp
-(when (boundp 'comp-eln-load-path)
-  (setcar comp-eln-load-path
+(when (boundp 'native-comp-eln-load-path)
+  (setcar native-comp-eln-load-path
           (expand-file-name "cache/eln-cache/" user-emacs-directory)))
+```
+
+#### Compilation Warnings
+
+By default any warnings encountered during async native compilation will pop up
+a warnings buffer. As this tends to happen rather frequently with a lot of
+packages, it can get annoying. You can disable showing these warnings by setting
+`native-comp-async-report-warnings-errors` to `nil`:
+
+```elisp
+(setq native-comp-async-report-warnings-errors nil)
 ```
 
 ### Issues
@@ -188,7 +195,7 @@ types of issues and or behavior you can expect.
 ### Known Good Commits/Builds
 
 A list of known "good" commits which produce working builds is tracked in:
-[#6 Known good commits of feature/native-comp branch](https://github.com/jimeh/build-emacs-for-macos/issues/6)
+[#6 Known good commits for native-comp](https://github.com/jimeh/build-emacs-for-macos/issues/6)
 
 ## Credits
 
