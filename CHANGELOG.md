@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.14](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.13...0.4.14) (2021-05-22)
+
+
+### Features
+
+* **cli:** add "emacs" CLI launcher script to Emacs.app/Conents/MacOS/bin ([8237aa9](https://github.com/jimeh/build-emacs-for-macos/commit/8237aa9272ce1d13a412b2495cbaa90df38d928b)), closes [#41](https://github.com/jimeh/build-emacs-for-macos/issues/41)
+
 ### [0.4.13](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.12...0.4.13) (2021-05-22)
 
 
