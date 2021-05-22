@@ -1,10 +1,10 @@
 diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
-index 4036080976..2ff8dbd74c 100644
+index 8c638312b0..87af889ef4 100644
 --- a/lisp/emacs-lisp/comp.el
 +++ b/lisp/emacs-lisp/comp.el
-@@ -4079,6 +4079,52 @@ of (commands) to run simultaneously."
+@@ -4215,6 +4215,52 @@ native-compile-async
    (let ((load (not (not load))))
-     (native--compile-async paths recursively load selector)))
+     (native--compile-async files recursively load selector)))
  
 +;;;###autoload
 +(defun native-compile-setup-environment-variables (&rest _args)
@@ -19,7 +19,7 @@ index 4036080976..2ff8dbd74c 100644
 +                     "<%= relative_lib_dir %>"
 +                     invocation-directory))
 +           (darwin-dir (expand-file-name
-+                        "<%= relative_darwin_lib_dir %>"
++                        "<%= sanitized_relative_darwin_lib_dir %>"
 +                        invocation-directory))
 +           (lib-paths (list)))
 +
@@ -54,4 +54,4 @@ index 4036080976..2ff8dbd74c 100644
 +
  (provide 'comp)
  
- ;;; comp.el ends here
+ ;; LocalWords: limplified limplified limplification limplify Limple LIMPLE libgccjit elc eln

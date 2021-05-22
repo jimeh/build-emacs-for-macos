@@ -72,14 +72,14 @@ available here: https://github.com/emacs-mirror/emacs
 Options:
     -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 8)
         --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
-        --[no-]xwidgets              Enable/disable XWidgets (default: enabled if supported)
+        --[no-]xwidgets              Enable/disable XWidgets if supported (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
-        --rsvg                       Enable SVG image support via librsvg, can yield a unstable build (default: disabled)
+        --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
-        --[no-]native-fast-boot      DEPRECATED: use --[no-]native-full-aot instead
-        --[no-]launcher              DEPRECATED: Launcher script is no longer used.
+        --work-dir DIR               Specify a working directory where tarballs, sources, and builds will be stored and worked with
+        --plan FILE                  Follow given plan file, instead of using given git ref/sha
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
