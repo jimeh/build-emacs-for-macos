@@ -111,29 +111,25 @@ All sources as downloaded as tarballs from the
 to get a list of tags/branches available to install, simply check said
 repository.
 
-## Use Self-Contained Emacs.app as `emacs` CLI Tool
+## Use Emacs.app as `emacs` CLI Tool
 
-As the application bundle is self-contained, the main executable needs to be run
-from within the application bundle. This means a simple symlink to
-`Emacs.app/Contents/MacOS/Emacs` will not work. Instead the best approach is to
-create a shell alias called `emacs` pointing to the right place.
+Builds come with a custom `emacs` shell script launcher for use from the command
+line. It makes sure to use the main `Emacs.app/Contents/MacOS/Emacs` executable
+from the correct path, ensuring it finds all the relevant dependencies within
+the Emacs.app bundle.
 
-Personally I use something similar to this:
+To use it, simply add `Emacs.app/Contents/MacOS/bin` to your `PATH`. For
+example, if you place Emacs.app in `/Applications`:
 
 ```bash
-if [ -f "/Applications/Emacs.app/Contents/MacOS/Emacs" ]; then
-  export EMACS="/Applications/Emacs.app/Contents/MacOS/Emacs"
-  alias emacs="$EMACS -nw"
-fi
-
-if [ -f "/Applications/Emacs.app/Contents/MacOS/bin/emacsclient" ]; then
-  alias emacsclient="/Applications/Emacs.app/Contents/MacOS/bin/emacsclient"
+if [ -d "/Applications/Emacs.app/Contents/MacOS/bin" ]; then
+  export PATH="/Applications/Emacs.app/Contents/MacOS/bin:$PATH"
+  alias emacs="emacs -nw" # Always launch "emacs" in terminal mode.
 fi
 ```
 
-Setting the `EMACS` variable to the binary path seems to be a good idea, as some
-tools seems to use it to figure out the path to Emacs' executable, including
-[doom-emacs](https://github.com/hlissner/doom-emacs)' `doom` CLI tool.
+If you want `emacs` in your terminal to launch a GUI instance of Emacs, don't
+use the alias from the above example.
 
 ## Native-Comp
 
