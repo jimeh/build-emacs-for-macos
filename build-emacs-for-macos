@@ -863,7 +863,7 @@ if __FILE__ == $PROGRAM_NAME
 
       opts.on('-j', '--parallel COUNT',
               'Compile using COUNT parallel processes ' \
-              "(default: #{cli_options[:parallel]})") do |v|
+              "(detected: #{cli_options[:parallel]})") do |v|
         cli_options[:parallel] = v
       end
 
@@ -917,23 +917,6 @@ if __FILE__ == $PROGRAM_NAME
         'Follow given plan file, instead of using given git ref/sha'
       ) do |v|
         cli_options[:plan] = v
-      end
-
-      opts.on('--[no-]native-fast-boot',
-              'DEPRECATED: use --[no-]native-full-aot instead') do |v|
-        if v
-          raise Error, '--native-fast-boot option is deprecated, ' \
-                       'use --no-native-full-aot instead'
-        else
-          raise Error, '--no-native-fast-boot option is deprecated, ' \
-                       'use --native-full-aot instead'
-        end
-      end
-
-      opts.on('--[no-]launcher',
-              'DEPRECATED: Launcher script is no longer used.') do |_|
-        raise Error, '--[no-]launcher option is deprecated, launcher ' \
-                     'script is no longer used.'
       end
     end.parse!
 
