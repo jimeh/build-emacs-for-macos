@@ -103,6 +103,7 @@ class Build
 
     app = compile_source(@source_dir)
     symlink_internals(app)
+    add_cli_helper(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
@@ -371,6 +372,18 @@ class Build
       target = File.basename(source)
       FileUtils.ln_s(source, target) unless File.exist?(target)
     end
+  end
+
+  def add_cli_helper(app)
+    source = File.join(__dir__, 'helper', 'emacs-cli.bash')
+    target = File.join(app, 'Contents', 'MacOS', 'bin', 'emacs')
+    dir = File.dirname(target)
+
+    info "Adding \"emacs\" CLI helper to #{dir}"
+
+    FileUtils.mkdir_p(dir)
+    FileUtils.cp(source, target)
+    FileUtils.chmod('+w', target)
   end
 
   def archive_filename
