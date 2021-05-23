@@ -1,0 +1,86 @@
+linters-settings:
+  funlen:
+    lines: 100
+    statements: 150
+  goconst:
+    min-occurrences: 5
+  gocyclo:
+    min-complexity: 20
+  govet:
+    check-shadowing: true
+    enable-all: true
+    disable:
+      - fieldalignment
+  lll:
+    line-length: 80
+    tab-width: 4
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: US
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - deadcode
+    - depguard
+    - dupl
+    - errcheck
+    - exportloopref
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofumpt
+    - goimports
+    - goprintffuncname
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - nlreturn
+    - noctx
+    - nolintlint
+    - revive
+    - sqlclosecheck
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unconvert
+    - unused
+    - varcheck
+    - whitespace
+
+issues:
+  include:
+  # - EXC0002 # disable excluding of issues about comments from golint
+  exclude:
+    - Using the variable on range scope `tt` in function literal
+    - Using the variable on range scope `tc` in function literal
+  exclude-rules:
+    - path: "_test\\.go"
+      linters:
+        - funlen
+        - dupl
+        - goconst
+    - source: "^//go:generate "
+      linters:
+        - lll
+    - source: "`json:"
+      linters:
+        - lll
+
+run:
+  skip-dirs:
+    - builds
+    - sources
+    - tarballs
+  timeout: 2m
+  allow-parallel-runners: true
+  modules-download-mode: readonly
