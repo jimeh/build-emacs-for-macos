@@ -45,6 +45,7 @@ func New(version, commit, date string) *CLI {
 			},
 			Commands: []*cli2.Command{
 				planCmd(),
+				signCmd(),
 				{
 					Name:    "version",
 					Usage:   "print the version",
