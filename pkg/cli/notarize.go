@@ -16,7 +16,7 @@ func notarizeCmd() *cli2.Command {
 		Flags: []cli2.Flag{
 			&cli2.StringFlag{
 				Name:  "bundle-id",
-				Usage: "Bundle",
+				Usage: "bundle identifier",
 				Value: "org.gnu.Emacs",
 			},
 			&cli2.StringFlag{
@@ -36,7 +36,7 @@ func notarizeCmd() *cli2.Command {
 			},
 			&cli2.BoolFlag{
 				Name:  "staple",
-				Usage: "stable file after notarization",
+				Usage: "staple file after notarization",
 				Value: true,
 			},
 			&cli2.StringFlag{

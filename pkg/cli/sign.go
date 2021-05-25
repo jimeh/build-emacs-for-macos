@@ -18,7 +18,7 @@ func signCmd() *cli2.Command {
 			&cli2.StringFlag{
 				Name:     "sign",
 				Aliases:  []string{"s"},
-				Usage:    "signing identity passed to codeside",
+				Usage:    "signing identity passed to codesign",
 				EnvVars:  []string{"AC_SIGN_IDENTITY"},
 				Required: true,
 			},

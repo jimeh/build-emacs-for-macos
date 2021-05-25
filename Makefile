@@ -93,7 +93,7 @@ $(BINS): $(BINDIR)/%: $(SOURCES)
 # Development
 #
 
-TEST ?= $$(go list ./... | grep -v 'sources/')
+TEST ?= $$(go list ./... | grep -v 'sources/' | grep -v 'builds/')
 
 .PHONY: clean
 clean:
@@ -111,6 +111,10 @@ lint: $(TOOLDIR)/golangci-lint
 .PHONY: format
 format: $(TOOLDIR)/gofumpt
 	gofumpt -w .
+
+.PHONY: gen
+gen:
+	go generate $$(go list ./... | grep -v 'sources/' | grep -v 'builds/')
 
 #
 # Dependencies
