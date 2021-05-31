@@ -71,9 +71,8 @@ end
 class Build
   include Output
 
-  DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
-  LATEST_URL = 'https://api.github.com/repos/emacs-mirror/emacs/commits/%s'
-  NATIVE_COMP_REF_REGEXP = %r{^feature/native-comp}.freeze
+  EMACS_MIRROR_REPO = 'emacs-mirror/emacs'
+  DOWNLOAD_URL = 'https://api.github.com/repos/emacs-mirror/emacs/tarball/%s'
 
   attr_reader :root_dir
   attr_reader :source_dir
@@ -162,8 +161,20 @@ class Build
 
     info 'Downloading tarball from GitHub. This could take a while, ' \
          'please be patient.'
-    result = run_cmd('curl', '-L', url, '-o', target)
-    err 'Download failed.' unless result
+
+    args = ['curl', '-L', url, '-o', target]
+    log_args = args.clone
+
+    if options[:github_auth] && ENV['GITHUB_TOKEN']
+      args = [args[0]] +
+             ['-H', "Authorization: Token #{ENV['GITHUB_TOKEN']}"] + args[1..-1]
+      log_args = [log_args[0]] +
+                 ['-H', '"Authorization: Token $GITHUB_TOKEN"'] +
+                 log_args[1..-1]
+    end
+
+    out "CMD: #{log_args.join(' ')}"
+    system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
 
     target
   end
@@ -442,8 +453,9 @@ class Build
 
     ref_sha = options[:git_sha] || ref
     info "Fetching info for git ref: #{ref_sha}"
-    url = format(LATEST_URL, ref_sha)
-    commit_json = http_get(url)
+    commit_json = github_api_get(
+      "/repos/#{EMACS_MIRROR_REPO}/commits/#{ref_sha}"
+    )
     err "Failed to get commit info about: #{ref_sha}" if commit_json.nil?
 
     commit = JSON.parse(commit_json)
@@ -456,8 +468,18 @@ class Build
     @meta = meta
   end
 
-  def http_get(url)
-    response = Net::HTTP.get_response(URI.parse(url))
+  def github_api_get(uri)
+    uri = URI.join('https://api.github.com/', uri)
+
+    http = Net::HTTP.new(uri.hostname, uri.port)
+    http.use_ssl = true if uri.scheme == 'https'
+
+    request = Net::HTTP::Get.new(uri)
+    if options[:github_auth] && ENV['GITHUB_TOKEN']
+      request['Authorization'] = "Token #{ENV['GITHUB_TOKEN']}"
+    end
+
+    response = http.request(request)
     return unless response.code == '200'
 
     response.body
@@ -860,7 +882,8 @@ if __FILE__ == $PROGRAM_NAME
     native_full_aot: false,
     parallel: Etc.nprocessors,
     rsvg: true,
-    xwidgets: true
+    xwidgets: true,
+    github_auth: true
   }
 
   begin
@@ -917,6 +940,13 @@ if __FILE__ == $PROGRAM_NAME
       opts.on('--no-frame-refocus',
               'Apply no-frame-refocus patch (default: disabled)') do
         cli_options[:no_frame_refocus] = true
+      end
+
+      opts.on('--[no-]github-auth',
+              'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
+              'environment variable is set.' \
+              '(default: enabled)') do |v|
+        cli_options[:github_auth] = v
       end
 
       opts.on('--work-dir DIR',
