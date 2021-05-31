@@ -78,6 +78,7 @@ Options:
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
+        --[no-]github-auth           Make authenticated GitHub API requests if GITHUB_TOKEN environment variable is set.(default: enabled)
         --work-dir DIR               Specify a working directory where tarballs, sources, and builds will be stored and worked with
         --plan FILE                  Follow given plan file, instead of using given git ref/sha
 ```
