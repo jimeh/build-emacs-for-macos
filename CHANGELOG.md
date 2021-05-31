@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.15](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.14...0.4.15) (2021-05-31)
+
+
+### Features
+
+* **github:** perform authenticated GitHub API requests when GITHUB_TOKEN env var is set ([deda28e](https://github.com/jimeh/build-emacs-for-macos/commit/deda28e5aded2817bcc7956f377378576372816f))
+
 ### [0.4.14](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.13...0.4.14) (2021-05-22)
 
 
