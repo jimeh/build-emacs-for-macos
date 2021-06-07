@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.16](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.15...0.4.16) (2021-06-07)
+
+
+### Bug Fixes
+
+* **compiling:** improve portability of builds ([ca2d4c3](https://github.com/jimeh/build-emacs-for-macos/commit/ca2d4c38f69c434c77c266594104bfbf34ad5221))
+* **native_comp:** crash on launch when gcc homebrew package was not installed ([bd81870](https://github.com/jimeh/build-emacs-for-macos/commit/bd8187065928b9f79de8b14222c98f8dc34bfe5f))
+
 ### [0.4.15](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.14...0.4.15) (2021-05-31)
 
 
