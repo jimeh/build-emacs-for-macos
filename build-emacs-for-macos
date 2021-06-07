@@ -652,10 +652,34 @@ class LibEmbedder < AbstractEmbedder
     FileUtils.cd(File.dirname(app)) do
       copy_libs(binary)
       copy_extra_libs(extra_libs, binary) if extra_libs.any?
+      if eln_files.any?
+        info "Embedding libraries for #{eln_files.size} *.eln files " \
+             'within Emacs.app'
+        rel_path = Pathname.new(lib_dir).relative_path_from(
+          Pathname.new(File.dirname(binary))
+        ).to_s
+        eln_files.each { |f| copy_libs(f, rel_path) }
+      end
     end
   end
 
   private
+
+  def eln_files
+    @eln_files ||= Dir[
+      File.join(
+        app, 'Contents', 'Resources', 'native-lisp', '**', '*.eln'
+      ),
+      File.join(
+        app, 'Contents', 'MacOS', 'lib', 'emacs', '**',
+        'native-lisp', '**', '*.eln'
+      ),
+      File.join(
+        app, 'Contents', 'MacOS', 'libexec', 'emacs', '**',
+        'eln-cache', '**', '*.eln'
+      )
+    ]
+  end
 
   def copy_libs(exe, rel_path = nil)
     exe_file = File.basename(exe)
