@@ -74,6 +74,7 @@ Options:
         --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
         --[no-]xwidgets              Enable/disable XWidgets if supported (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
+        --[no-]native-march          Enable/disable -march=native CFLAG(default: disabled)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)

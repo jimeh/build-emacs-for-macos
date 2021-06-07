@@ -267,7 +267,7 @@ class Build
           "-I#{File.join(gcc_info.root_dir, 'include')}",
           "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
           '-O2',
-          '-march=native',
+          (options[:native_march] ? '-march=native' : nil),
           ENV['CFLAGS']
         ].compact.join(' ')
 
@@ -904,6 +904,7 @@ if __FILE__ == $PROGRAM_NAME
   cli_options = {
     work_dir: File.expand_path(__dir__),
     native_full_aot: false,
+    native_march: false,
     parallel: Etc.nprocessors,
     rsvg: true,
     xwidgets: true,
@@ -943,6 +944,12 @@ if __FILE__ == $PROGRAM_NAME
               'Enable/disable native-comp ' \
               '(default: enabled if supported)') do |v|
         cli_options[:native_comp] = v
+      end
+
+      opts.on('--[no-]native-march',
+              'Enable/disable -march=native CFLAG' \
+              '(default: disabled)') do |v|
+        cli_options[:native_march] = v
       end
 
       opts.on('--[no-]native-full-aot',
