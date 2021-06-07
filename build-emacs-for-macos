@@ -118,9 +118,9 @@ class Build
     plan = YAML.safe_load(File.read(filename), [:Time])
 
     @meta = {
-      sha: plan.dig('commit', 'sha'),
-      ref: plan.dig('commit', 'ref'),
-      date: plan.dig('commit', 'date')
+      sha: plan.dig('source', 'commit', 'sha'),
+      ref: plan.dig('source', 'ref'),
+      date: plan.dig('source', 'commit', 'date')
     }
 
     if plan.dig('output', 'directory')
@@ -131,7 +131,11 @@ class Build
       @archive_filename = plan.dig('output', 'archive')
     end
 
-    @build_name = plan['build_name'] if plan['build_name']
+    if plan.dig('output', 'disk_image') || !plan.dig('output', 'archive')
+      options[:archive] = false
+    end
+
+    @build_name = plan.dig('build', 'name') if plan.dig('build', 'name')
   end
 
   def tarballs_dir
