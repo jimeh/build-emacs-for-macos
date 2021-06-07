@@ -48,6 +48,7 @@ func New(version, commit, date string) *CLI {
 				signCmd(),
 				notarizeCmd(),
 				packageCmd(),
+				releaseCmd(),
 				{
 					Name:    "version",
 					Usage:   "print the version",
