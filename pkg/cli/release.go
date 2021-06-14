@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/jimeh/build-emacs-for-macos/pkg/plan"
 	"github.com/jimeh/build-emacs-for-macos/pkg/release"
@@ -57,6 +59,7 @@ func releaseCmd() *cli2.Command {
 		},
 		Subcommands: []*cli2.Command{
 			releaseCheckCmd(),
+			releasePublishCmd(),
 		},
 	}
 }
@@ -121,4 +124,85 @@ func releaseCheckAction(
 	}
 
 	return release.Check(c.Context, rlsOpts)
+}
+
+func releasePublishCmd() *cli2.Command {
+	return &cli2.Command{
+		Name: "publish",
+		Usage: "publish a GitHub release with specified asset " +
+			"files",
+		ArgsUsage: "[<asset-file> ...]",
+		Flags: []cli2.Flag{
+			&cli2.StringFlag{
+				Name:    "sha",
+				Aliases: []string{"s"},
+				Usage:   "git SHA to create release on",
+				EnvVars: []string{"GITHUB_SHA"},
+			},
+			&cli2.StringFlag{
+				Name:    "type",
+				Aliases: []string{"t"},
+				Usage:   "release type, must be normal, prerelease, or draft",
+				Value:   "normal",
+			},
+			&cli2.StringFlag{
+				Name: "title",
+				Usage: "release title, will use release name if not " +
+					"specified",
+				Value: "",
+			},
+		},
+		Action: releaseActionWrapper(releasePublishAction),
+	}
+}
+
+func releasePublishAction(
+	c *cli2.Context,
+	opts *Options,
+	rOpts *releaseOptions,
+) error {
+	rlsOpts := &release.PublishOptions{
+		Repository:   rOpts.Repository,
+		CommitRef:    c.String("release-sha"),
+		ReleaseName:  rOpts.Name,
+		ReleaseTitle: c.String("title"),
+		AssetFiles:   c.Args().Slice(),
+		GithubToken:  rOpts.GithubToken,
+	}
+
+	rlsType := c.String("type")
+	switch rlsType {
+	case "draft":
+		rlsOpts.ReleaseType = release.Draft
+	case "prerelease":
+		rlsOpts.ReleaseType = release.Prerelease
+	case "normal":
+		rlsOpts.ReleaseType = release.Normal
+	default:
+		return fmt.Errorf("invalid --type \"%s\"", rlsType)
+	}
+
+	if rOpts.Plan != nil {
+		if rOpts.Plan.Release != nil {
+			rlsOpts.ReleaseName = rOpts.Plan.Release.Name
+			rlsOpts.ReleaseTitle = rOpts.Plan.Release.Title
+
+			if rOpts.Plan.Release.Draft {
+				rlsOpts.ReleaseType = release.Draft
+			} else if rOpts.Plan.Release.Prerelease {
+				rlsOpts.ReleaseType = release.Prerelease
+			}
+		}
+
+		if rOpts.Plan.Output != nil {
+			rlsOpts.AssetFiles = []string{
+				filepath.Join(
+					rOpts.Plan.Output.Directory,
+					rOpts.Plan.Output.DiskImage,
+				),
+			}
+		}
+	}
+
+	return release.Publish(c.Context, rlsOpts)
 }
