@@ -1,3 +1,4 @@
+PIP := $(shell command -v pip3 || command -v pip)
 SOURCES := $(shell \
 	find * \
 	-not -path 'sources/*' \
@@ -39,6 +40,22 @@ SHELL := env \
 
 # Default target
 .DEFAULT_GOAL := build
+
+#
+# Bootstrap
+#
+
+bootstrap: bootstrap-brew
+bootstrap-ci: bootstrap-brew bootstrap-brew-ci bootstrap-pip
+
+bootstrap-brew:
+	brew bundle
+
+bootstrap-brew-ci:
+	brew bundle --file Brewfile.ci
+
+bootstrap-pip:
+	$(PIP) install -r requirements-ci.txt
 
 #
 # Tools
