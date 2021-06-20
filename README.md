@@ -116,9 +116,12 @@ repository.
 ## Use Emacs.app as `emacs` CLI Tool
 
 Builds come with a custom `emacs` shell script launcher for use from the command
-line. It makes sure to use the main `Emacs.app/Contents/MacOS/Emacs` executable
-from the correct path, ensuring it finds all the relevant dependencies within
-the Emacs.app bundle.
+line, located next to `emacsclient` in `Emacs.app/Contents/MacOS/bin`.
+
+The custom `emacs` script makes sure to use the main
+`Emacs.app/Contents/MacOS/Emacs` executable from the correct path, ensuring it
+finds all the relevant dependencies within the Emacs.app bundle, regardless of
+it it's exposed via `PATH` or symlinked to from elsewhere.
 
 To use it, simply add `Emacs.app/Contents/MacOS/bin` to your `PATH`. For
 example, if you place Emacs.app in `/Applications`:
