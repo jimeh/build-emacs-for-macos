@@ -72,7 +72,7 @@ class Build
   include Output
 
   EMACS_MIRROR_REPO = 'emacs-mirror/emacs'
-  DOWNLOAD_URL = 'https://api.github.com/repos/emacs-mirror/emacs/tarball/%s'
+  DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
 
   attr_reader :root_dir
   attr_reader :source_dir
