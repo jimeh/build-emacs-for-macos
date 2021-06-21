@@ -1,3 +1,1 @@
-module.exports = {
-  tagPrefix: "",
-};
+module.exports = {};
