@@ -81,6 +81,11 @@ Options:
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
         --[no-]github-auth           Make authenticated GitHub API requests if GITHUB_TOKEN environment variable is set.(default: enabled)
         --work-dir DIR               Specify a working directory where tarballs, sources, and builds will be stored and worked with
+    -o, --output DIR                 Output directory for finished builds (default: <work-dir>/builds)
+        --build-name NAME            Override generated build name
+        --dist-include x,y,z         List of extra files to copy from Emacs source into build folder/archive (default: COPYING)
+        --[no-]archive               Enable/disable creating *.tbz archive (default: enabled)
+        --[no-]archive-keep          Enable/disable keeping source folder for archive (default: disabled)
         --plan FILE                  Follow given plan file, instead of using given git ref/sha
 ```
 

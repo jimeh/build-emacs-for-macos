@@ -1,6 +1,8 @@
 .DS_Store
+.envrc
 Formula/*
 Gemfile.lock
+bin
 builds
 sources
 tarballs
