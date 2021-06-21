@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.5.0](https://github.com/jimeh/build-emacs-for-macos/compare/v0.4.17...v0.5.0) (2021-06-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **release:** Add v prefix to git version tags
+* **build:** New archive naming convention, and folder structure within archive.
+
+### Features
+
+* **build:** add ability to output as directory and/or archive ([3e1eb01](https://github.com/jimeh/build-emacs-for-macos/commit/3e1eb01e248ebbc314b8b9f50bbc371ac8df666b))
+* **cli:** add basis for new "emacs-builder" CLI tool written in Go ([8d87c01](https://github.com/jimeh/build-emacs-for-macos/commit/8d87c01db79201182fbcd1a210b1b19df9209aeb))
+* **notarize:** add notarize command to notarize and staple *.dmg files ([72d0254](https://github.com/jimeh/build-emacs-for-macos/commit/72d0254772bf7d0937b41634e9a4bfcf87f60fb6))
+* **package:** add package command to create a styled *.dmg for Emacs.app ([87ecfbc](https://github.com/jimeh/build-emacs-for-macos/commit/87ecfbcec05b46d7a30202269474612834b648f3))
+* **plan:** add plan command to create build plans ([1ffd735](https://github.com/jimeh/build-emacs-for-macos/commit/1ffd735c23e375479ea6bb2c771553ce4cac902b))
+* **release:** add release check command ([276a9da](https://github.com/jimeh/build-emacs-for-macos/commit/276a9da5eed618322e09fba11a486ae0d9925fdd))
+* **release:** add release publish command ([72ca9ce](https://github.com/jimeh/build-emacs-for-macos/commit/72ca9ce2b64505a8bbc50b3139c0f84fb24813fd))
+* **sign:** add sign command to sign Emacs.app bundles with codesign ([698756a](https://github.com/jimeh/build-emacs-for-macos/commit/698756ac5597d3dc7b69f28bc209093fc8c11f30))
+
+
+* **release:** add v prefix to git version tags ([b719437](https://github.com/jimeh/build-emacs-for-macos/commit/b719437bee9acf28d5d352eb44cbf4d3a17107d7))
+
 ### [0.4.17](https://github.com/jimeh/build-emacs-for-macos/compare/0.4.16...0.4.17) (2021-06-20)
 
 
