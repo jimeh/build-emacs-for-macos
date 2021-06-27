@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.5.1](https://github.com/jimeh/build-emacs-for-macos/compare/v0.5.0...v0.5.1) (2021-06-27)
+
+
+### Bug Fixes
+
+* **native_comp:** symlink creation was missing a conditional check ([ca73ab7](https://github.com/jimeh/build-emacs-for-macos/commit/ca73ab7202877acefd97289f3d28e7c025e36b9d))
+
 ## [0.5.0](https://github.com/jimeh/build-emacs-for-macos/compare/v0.4.17...v0.5.0) (2021-06-21)
 
 
