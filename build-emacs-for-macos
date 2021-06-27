@@ -103,7 +103,7 @@ class Build
     app = compile_source(@source_dir)
     build_dir, app = create_build_dir(app)
 
-    symlink_internals(app)
+    handle_native_lisp(app)
     add_cli_helper(app)
 
     LibEmbedder.new(app, brew_dir, extra_libs).embed
@@ -405,10 +405,12 @@ class Build
     [target_dir, File.join(target_dir, File.basename(app))]
   end
 
-  def symlink_internals(app)
+  def handle_native_lisp(app)
     return unless options[:native_comp]
 
-    FileUtils.cd(File.join(app, 'Contents')) do
+    contents_dir = File.join(app, 'Contents')
+
+    FileUtils.cd(contents_dir) do
       # Skip creation of symlinks if *.eln files are located under
       # Resources/native-lisp. Emacs is capable of finding lisp sources and
       # *.eln cache files without symlinks.
@@ -423,6 +425,42 @@ class Build
 
       if source.nil?
         err 'Failed to find native-lisp cache directory for symlink creation.'
+      end
+
+      # Check for folder name containing two dots (.), as this causes Apple's
+      # codesign CLI tool to fail signing the Emacs.app bundle, complaining with
+      # q "bundle format unrecognized" error.
+      #
+      # The workaround for now is to rename the folder replacing the dots with
+      # hyphens (-), and create the native-lisp symlink pointing to the new
+      # location.
+      if source.match(%r{/.+\..+\..+/})
+        # Dig deeper into native-lisp directory
+        eln_dir = File.dirname(Dir[File.join(source, '**', '*.eln')].first)
+
+        base = File.basename(eln_dir)
+        parent = File.dirname(eln_dir)
+
+        until ['.', '/', contents_dir].include?(parent)
+          if base.match(/\..+\./)
+            old_name = File.join(parent, base)
+            new_name = File.join(parent, base.gsub(/\.(.+)\./, '-\\1-'))
+
+            info "Renaming: #{old_name} --> #{new_name}"
+            FileUtils.mv(old_name, new_name)
+          end
+
+          base = File.basename(parent)
+          parent = File.dirname(parent)
+        end
+
+        # Find native-lisp directory again after it has been renamed.
+        source = Dir['MacOS/libexec/emacs/**/eln-cache',
+                     'MacOS/lib/emacs/**/native-lisp'].first
+
+        if source.nil?
+          err 'Failed to find native-lisp cache directory for symlink creation.'
+        end
       end
 
       target = File.basename(source)
