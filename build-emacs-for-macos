@@ -420,7 +420,10 @@ class Build
 
       source = Dir['MacOS/libexec/emacs/**/eln-cache',
                    'MacOS/lib/emacs/**/native-lisp'].first
-      err 'Failed to find native-lisp cache directory for symlink creation.'
+
+      if source.nil?
+        err 'Failed to find native-lisp cache directory for symlink creation.'
+      end
 
       target = File.basename(source)
       FileUtils.ln_s(source, target) unless File.exist?(target)
