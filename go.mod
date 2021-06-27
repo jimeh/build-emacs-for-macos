@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/go-hclog v0.16.1
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
+	github.com/hexops/gotextdiff v1.0.3
 	github.com/jimeh/undent v1.1.0
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/mitchellh/gon v0.2.3
