@@ -97,6 +97,14 @@ func caskUpdateCmd() *cli2.Command {
 				EnvVars:  []string{"CASK_TEMPLATE_DIR"},
 				Required: true,
 			},
+			&cli2.BoolFlag{
+				Name:    "force",
+				Aliases: []string{"f"},
+				Usage: "force update file even if livecheck has it marked " +
+					"as not outdated (does not force update if formula " +
+					"content is unchanged)",
+				Value: false,
+			},
 		},
 		Action: caskActionWrapper(caskUpdateAction),
 	}
@@ -112,6 +120,7 @@ func caskUpdateAction(
 		GithubToken:  cOpts.GithubToken,
 		Ref:          c.String("ref"),
 		OutputDir:    c.String("output"),
+		Force:        c.Bool("force"),
 		TemplatesDir: c.String("templates-dir"),
 	}
 
