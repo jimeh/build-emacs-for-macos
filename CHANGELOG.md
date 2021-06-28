@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.6.0](https://github.com/jimeh/build-emacs-for-macos/compare/v0.5.2...v0.6.0) (2021-06-28)
+
+
+### Features
+
+* **cask:** add cask update command to manage cask formula ([adbcfc6](https://github.com/jimeh/build-emacs-for-macos/commit/adbcfc6fc433fcc99b10dc5ccb51ba458333fa9c))
+
 ### [0.5.2](https://github.com/jimeh/build-emacs-for-macos/compare/v0.5.1...v0.5.2) (2021-06-27)
 
 
