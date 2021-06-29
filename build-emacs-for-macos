@@ -117,9 +117,10 @@ class Build
   def load_plan(filename)
     plan = YAML.safe_load(File.read(filename), [:Time])
 
+    @ref = plan.dig('source', 'ref')
     @meta = {
       sha: plan.dig('source', 'commit', 'sha'),
-      ref: plan.dig('source', 'ref'),
+      ref: @ref,
       date: plan.dig('source', 'commit', 'date')
     }
 
