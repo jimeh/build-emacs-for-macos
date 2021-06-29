@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.3](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.2...v0.6.3) (2021-06-29)
+
+
+### Bug Fixes
+
+* **patches:** correctly set ref when loading a build plan YAML ([99aa76b](https://github.com/jimeh/build-emacs-for-macos/commit/99aa76b3985195c310a20bafa19a8c7a4c8558fd))
+
 ### [0.6.2](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.1...v0.6.2) (2021-06-29)
 
 
