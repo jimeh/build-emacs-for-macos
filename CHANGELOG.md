@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.2](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.1...v0.6.2) (2021-06-29)
+
+
+### Bug Fixes
+
+* **native_comp:** patch Emacs.pdmp for customized native-lisp paths ([23b8236](https://github.com/jimeh/build-emacs-for-macos/commit/23b8236e0a66fb09810e8422bedf02f7192a53e4))
+
 ### [0.6.1](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.0...v0.6.1) (2021-06-28)
 
 
