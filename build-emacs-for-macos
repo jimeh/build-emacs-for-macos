@@ -454,6 +454,13 @@ class Build
           parent = File.dirname(parent)
         end
 
+        eln_parts = eln_dir.match(
+          %r{/(\d+\.\d+\.\d+)/native-lisp/(\d+\.\d+\.\d+-\w+)(?:/.+)?$}i
+        )
+        if eln_parts
+          patch_dump_native_lisp_paths(app, eln_parts[1], eln_parts[2])
+        end
+
         # Find native-lisp directory again after it has been renamed.
         source = Dir['MacOS/libexec/emacs/**/eln-cache',
                      'MacOS/lib/emacs/**/native-lisp'].first
@@ -465,6 +472,29 @@ class Build
 
       target = File.basename(source)
       FileUtils.ln_s(source, target) unless File.exist?(target)
+    end
+  end
+
+  def patch_dump_native_lisp_paths(app, emacs_version, eln_version)
+    sanitized_emacs_version = emacs_version.gsub('.', '-')
+    sanitized_eln_version = eln_version.gsub('.', '-')
+
+    contents_dir = File.join(app, 'Contents')
+    FileUtils.cd(contents_dir) do
+      filename = Dir['MacOS/Emacs.pdmp', 'MacOS/libexec/Emacs.pdmp'].first
+      err "no Emacs.pdmp file found in #{app}" unless filename
+      info 'patching Emacs.pdmp to point at new native-lisp paths'
+
+      content = File.read(filename, mode: 'rb').gsub(
+        "lib/emacs/#{emacs_version}/native-lisp/#{eln_version}/",
+        "lib/emacs/#{sanitized_emacs_version}/" \
+        "native-lisp/#{sanitized_eln_version}/"
+      ).gsub(
+        "../native-lisp/#{eln_version}/",
+        "../native-lisp/#{sanitized_eln_version}/"
+      )
+
+      File.open(filename, 'w') { |f| f.write(content) }
     end
   end
 
