@@ -119,40 +119,18 @@ func signCLIHelper(ctx context.Context, appBundle string, opts *Options) error {
 // elnFiles finds all native-compilation *.eln files within a Emacs.app bundle,
 // based on expected paths they might be stored in.
 func elnFiles(emacsApp string) ([]string, error) {
-	dirs := []string{
-		// Current *.eln location.
-		filepath.Join(emacsApp, "Contents", "Resources", "native-lisp"),
-		// Legacy *.eln location.
-		filepath.Join(emacsApp, "Contents", "MacOS", "lib", "emacs"),
-	}
-
 	var files []string
-	walkDirFunc := func(path string, _d fs.DirEntry, _err error) error {
-		if strings.HasSuffix(path, ".eln") {
+	walkDirFunc := func(path string, d fs.DirEntry, _err error) error {
+		if d.Type().IsRegular() && strings.HasSuffix(path, ".eln") {
 			files = append(files, path)
 		}
 
 		return nil
 	}
 
-	for _, dir := range dirs {
-		fi, err := os.Stat(dir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-
-			return nil, err
-		}
-
-		if !fi.IsDir() {
-			continue
-		}
-
-		err = filepath.WalkDir(dir, walkDirFunc)
-		if err != nil {
-			return nil, err
-		}
+	err := filepath.WalkDir(filepath.Join(emacsApp, "Contents"), walkDirFunc)
+	if err != nil {
+		return nil, err
 	}
 
 	return files, nil
