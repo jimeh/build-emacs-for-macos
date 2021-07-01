@@ -42,11 +42,11 @@ type UpdateOptions struct {
 	// BuildsRepo is the GitHub repository containing binary releases.
 	BuildsRepo *repository.Repository
 
-	// TapRepo is the GitHub repository to update the cask formula in.
+	// TapRepo is the GitHub repository to update the casks in.
 	TapRepo *repository.Repository
 
-	// Ref is the git ref to apply cask formula updates on top of. Default
-	// branch will be used if empty.
+	// Ref is the git ref to apply cask updates on top of. Default branch will
+	// be used if empty.
 	Ref string
 
 	// OutputDir specifies a directory to write cask files to. When set, tap
@@ -56,10 +56,10 @@ type UpdateOptions struct {
 
 	// Force update will ignore the outdated live check flag, and process all
 	// casks regardless. But it will only update the cask in question if the
-	// resulting output cask formula is different.
+	// resulting output cask is different.
 	Force bool
 
-	// TemplatesDir is the directory where cask formula templates are located.
+	// TemplatesDir is the directory where cask templates are located.
 	TemplatesDir string
 
 	LiveChecks []*LiveCheck
@@ -150,7 +150,7 @@ func (s *Updater) putFile(
 	content []byte,
 ) (bool, error) {
 	parent := filepath.Dir(filename)
-	s.logger.Info("processing formula update",
+	s.logger.Info("processing cask update",
 		"output-directory", parent, "cask", chk.Cask, "file", filename,
 	)
 
@@ -164,18 +164,18 @@ func (s *Updater) putFile(
 		return false, err
 	}
 
-	infoMsg := "creating formula"
+	infoMsg := "creating cask"
 
 	if !os.IsNotExist(err) {
-		infoMsg = "updating formula"
+		infoMsg = "updating cask"
 		if bytes.Equal(existingContent, content) {
 			s.logger.Info(
-				"skip update: no change to cask formula content",
+				"skip update: no change to cask content",
 				"cask", chk.Cask, "file", filename,
 			)
 
 			s.logger.Debug(
-				"formula content",
+				"cask content",
 				"file", filename, "content", string(content),
 			)
 
@@ -198,7 +198,7 @@ func (s *Updater) putFile(
 	)
 
 	s.logger.Debug(
-		"formula content",
+		"cask content",
 		"file", filename, "content", string(content),
 	)
 
@@ -218,7 +218,7 @@ func (s *Updater) putRepoFile(
 	filename string,
 	content []byte,
 ) (bool, error) {
-	s.logger.Info("processing formula update",
+	s.logger.Info("processing cask update",
 		"tap-repo", repo.Source, "cask", chk.Cask, "file", filename,
 	)
 	repoContent, _, resp, err := s.gh.Repositories.GetContents(
@@ -264,12 +264,12 @@ func (s *Updater) createRepoFile(
 	diff := fmt.Sprint(gotextdiff.ToUnified(filename, filename, "", edits))
 
 	s.logger.Info(
-		"creating formula",
+		"creating cask",
 		"cask", chk.Cask, "version", chk.Version.Latest, "file", filename,
 		"diff", diff,
 	)
 	s.logger.Debug(
-		"formula content",
+		"cask content",
 		"file", filename, "content", string(content),
 	)
 	contResp, _, err := s.gh.Repositories.CreateFile(
@@ -307,7 +307,7 @@ func (s *Updater) updateRepoFile(
 
 	if existingContent == string(content) {
 		s.logger.Info(
-			"skip update: no change to formula content",
+			"skip update: no change to cask content",
 			"cask", chk.Cask, "file", filename,
 		)
 
@@ -329,12 +329,12 @@ func (s *Updater) updateRepoFile(
 	))
 
 	s.logger.Info(
-		"updating formula",
+		"updating cask",
 		"cask", chk.Cask, "version", chk.Version.Latest, "file", filename,
 		"diff", diff,
 	)
 	s.logger.Debug(
-		"formula content",
+		"cask content",
 		"file", filename, "content", string(content),
 	)
 

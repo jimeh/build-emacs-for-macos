@@ -23,7 +23,7 @@ func caskCmd() *cli2.Command {
 
 	return &cli2.Command{
 		Name:  "cask",
-		Usage: "manage Homebrew Cask formula",
+		Usage: "manage Homebrew Casks",
 		Flags: []cli2.Flag{
 			&cli2.StringFlag{
 				Name:    "builds-repository",
@@ -101,7 +101,7 @@ func caskUpdateCmd() *cli2.Command {
 				Name:    "force",
 				Aliases: []string{"f"},
 				Usage: "force update file even if livecheck has it marked " +
-					"as not outdated (does not force update if formula " +
+					"as not outdated (does not force update if cask " +
 					"content is unchanged)",
 				Value: false,
 			},
