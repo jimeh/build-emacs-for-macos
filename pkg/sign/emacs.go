@@ -117,11 +117,15 @@ func signCLIHelper(ctx context.Context, appBundle string, opts *Options) error {
 }
 
 // elnFiles finds all native-compilation *.eln files within a Emacs.app bundle,
-// based on expected paths they might be stored in.
+// excluding any *.eln which should be automatically located by codesign when
+// signing the Emacs.app bundle itself with the --deep flag. Essentially this
+// only returns *.eln files which must be individually signed before signing the
+// app bundle itself.
 func elnFiles(emacsApp string) ([]string, error) {
 	var files []string
 	walkDirFunc := func(path string, d fs.DirEntry, _err error) error {
-		if d.Type().IsRegular() && strings.HasSuffix(path, ".eln") {
+		if d.Type().IsRegular() && strings.HasSuffix(path, ".eln") &&
+			!strings.Contains(path, ".app/Contents/Frameworks/") {
 			files = append(files, path)
 		}
 

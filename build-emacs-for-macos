@@ -412,20 +412,17 @@ class Build
     contents_dir = File.join(app, 'Contents')
 
     FileUtils.cd(contents_dir) do
-      # Skip creation of symlinks if *.eln files are located under
-      # Resources/native-lisp. Emacs is capable of finding lisp sources and
-      # *.eln cache files without symlinks.
-      return if Dir['Resources/native-lisp/**/*.eln'].any?
-
-      info 'Creating symlinks within Emacs.app needed for native-comp'
-
-      FileUtils.ln_s('Resources/lisp', 'lisp') unless File.exist?('lisp')
-
       source = Dir['MacOS/libexec/emacs/**/eln-cache',
                    'MacOS/lib/emacs/**/native-lisp'].first
 
-      if source.nil?
-        err 'Failed to find native-lisp cache directory for symlink creation.'
+      # Skip creation of symlinks if *.eln files are not located in a location
+      # known to be used by builds which need symlinks and other tweaks.
+      return if source.nil?
+
+      info 'Creating symlinks within Emacs.app needed for native-comp'
+
+      if !File.exist?('lisp') && File.exist?('Resources/lisp')
+        FileUtils.ln_s('Resources/lisp', 'lisp')
       end
 
       # Check for folder name containing two dots (.), as this causes Apple's
@@ -435,10 +432,9 @@ class Build
       # The workaround for now is to rename the folder replacing the dots with
       # hyphens (-), and create the native-lisp symlink pointing to the new
       # location.
-      if source.match(%r{/.+\..+\..+/})
-        # Dig deeper into native-lisp directory
-        eln_dir = File.dirname(Dir[File.join(source, '**', '*.eln')].first)
+      eln_dir = File.dirname(Dir[File.join(source, '**', '*.eln')].first)
 
+      if eln_dir.match(%r{/.+\..+\..+/})
         base = File.basename(eln_dir)
         parent = File.dirname(eln_dir)
 
