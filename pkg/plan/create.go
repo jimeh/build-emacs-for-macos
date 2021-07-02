@@ -11,6 +11,7 @@ import (
 	"github.com/jimeh/build-emacs-for-macos/pkg/commit"
 	"github.com/jimeh/build-emacs-for-macos/pkg/gh"
 	"github.com/jimeh/build-emacs-for-macos/pkg/osinfo"
+	"github.com/jimeh/build-emacs-for-macos/pkg/release"
 	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
 )
 
@@ -64,15 +65,17 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		return nil, err
 	}
 
-	releaseName := fmt.Sprintf(
-		"Emacs.%s.%s.%s",
+	version := fmt.Sprintf(
+		"%s.%s.%s",
 		commitInfo.DateString(),
 		commitInfo.ShortSHA(),
 		sanitizeString(opts.Ref),
 	)
+
+	releaseName := fmt.Sprintf("Emacs.%s", version)
 	buildName := fmt.Sprintf(
-		"%s.%s.%s",
-		releaseName,
+		"Emacs.%s.%s.%s",
+		version,
 		sanitizeString(osInfo.Name+"-"+osInfo.MajorMinor()),
 		sanitizeString(osInfo.Arch),
 	)
@@ -92,12 +95,23 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		},
 		OS: osInfo,
 		Release: &Release{
-			Name: releaseName,
+			Name:       releaseName,
+			Prerelease: true,
 		},
 		Output: &Output{
 			Directory: opts.OutputDir,
 			DiskImage: diskImage,
 		},
+	}
+
+	// If given git ref is a stable release tag (emacs-23.2b, emacs-27.2, etc.)
+	// we modify release properties accordingly.
+	if v, err := release.GitRefToStableVersion(opts.Ref); err == nil {
+		plan.Release.Prerelease = false
+		plan.Release.Name, err = release.VersionToName(v)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if opts.TestBuild != "" {

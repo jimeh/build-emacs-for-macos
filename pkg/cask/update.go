@@ -19,6 +19,7 @@ import (
 	"github.com/hexops/gotextdiff/myers"
 	"github.com/hexops/gotextdiff/span"
 	"github.com/jimeh/build-emacs-for-macos/pkg/gh"
+	"github.com/jimeh/build-emacs-for-macos/pkg/release"
 	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
 )
 
@@ -363,9 +364,14 @@ func (s *Updater) renderCask(
 	ctx context.Context,
 	chk *LiveCheck,
 ) ([]byte, error) {
-	releaseName := "Emacs." + chk.Version.Latest
+	releaseName, err := release.VersionToName(chk.Version.Latest)
+	if err != nil {
+		return nil, err
+	}
 
-	s.logger.Info("fetching release details", "release", releaseName)
+	s.logger.Info("fetching release details",
+		"release", releaseName, "repo", s.BuildsRepo.URL(),
+	)
 	release, resp, err := s.gh.Repositories.GetReleaseByTag(
 		ctx, s.BuildsRepo.Owner(), s.BuildsRepo.Name(), releaseName,
 	)
