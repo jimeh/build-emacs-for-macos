@@ -1,8 +1,8 @@
 diff --git a/lisp/emacs-lisp/comp.el b/lisp/emacs-lisp/comp.el
-index 8c638312b0..87af889ef4 100644
+index 638d4b274c..2599211936 100644
 --- a/lisp/emacs-lisp/comp.el
 +++ b/lisp/emacs-lisp/comp.el
-@@ -4215,6 +4215,52 @@ native-compile-async
+@@ -4224,6 +4224,52 @@ native-compile-async
    (let ((load (not (not load))))
      (native--compile-async files recursively load selector)))
  
@@ -16,10 +16,10 @@ index 8c638312b0..87af889ef4 100644
 +           (devtools-dir
 +            "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
 +           (gcc-dir (expand-file-name
-+                     "<%= relative_lib_dir %>"
++                     "<%= app_bundle_relative_lib_dir %>"
 +                     invocation-directory))
 +           (darwin-dir (expand-file-name
-+                        "<%= sanitized_relative_darwin_lib_dir %>"
++                        "<%= app_bundle_relative_darwin_lib_dir %>"
 +                        invocation-directory))
 +           (lib-paths (list)))
 +

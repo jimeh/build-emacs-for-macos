@@ -11,6 +11,7 @@ require 'net/http'
 require 'optparse'
 require 'pathname'
 require 'time'
+require 'tmpdir'
 require 'uri'
 require 'yaml'
 
@@ -735,8 +736,6 @@ class AbstractEmbedder
     @app = app
   end
 
-  private
-
   def invocation_dir
     File.join(app, 'Contents', 'MacOS')
   end
@@ -746,7 +745,7 @@ class AbstractEmbedder
   end
 
   def lib_dir
-    File.join(invocation_dir, 'lib')
+    File.join(app, 'Contents', 'Frameworks')
   end
 end
 
@@ -902,15 +901,15 @@ class GccLibEmbedder < AbstractEmbedder
   end
 
   def target_dir
-    File.join(invocation_dir, gcc_info.relative_lib_dir)
+    File.join(lib_dir, gcc_info.relative_lib_dir)
   end
 
   def source_darwin_dir
-    File.join(invocation_dir, gcc_info.relative_darwin_lib_dir)
+    File.join(lib_dir, gcc_info.relative_darwin_lib_dir)
   end
 
   def target_darwin_dir
-    File.join(invocation_dir, gcc_info.sanitized_relative_darwin_lib_dir)
+    File.join(lib_dir, gcc_info.sanitized_relative_darwin_lib_dir)
   end
 
   def source_dir
@@ -966,7 +965,21 @@ class GccInfo
   def sanitized_relative_darwin_lib_dir
     @sanitized_relative_darwin_lib_dir ||= File.join(
       File.dirname(relative_darwin_lib_dir),
-      File.basename(relative_darwin_lib_dir).split('.').first
+      File.basename(relative_darwin_lib_dir).gsub('.', '_')
+    )
+  end
+
+  def app_bundle_relative_lib_dir
+    @app_bundle_relative_lib_dir ||= relative_dir(
+      File.join(embedder.lib_dir, relative_lib_dir),
+      embedder.invocation_dir
+    )
+  end
+
+  def app_bundle_relative_darwin_lib_dir
+    @app_bundle_relative_darwin_lib_dir ||= relative_dir(
+      File.join(embedder.lib_dir, sanitized_relative_darwin_lib_dir),
+      embedder.invocation_dir
     )
   end
 
@@ -1012,6 +1025,10 @@ class GccInfo
   end
 
   private
+
+  def embedder
+    @embedder ||= AbstractEmbedder.new(Dir.mktmpdir(['Emacs', '.app']))
+  end
 
   def relative_dir(path, root)
     Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
