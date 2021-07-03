@@ -64,7 +64,7 @@ func Bulk(ctx context.Context, opts *BulkOptions) error {
 				)
 				logger.Info("modifying", changes...)
 				if !opts.DryRun {
-					r, _, err = gh.Repositories.EditRelease(
+					_, _, err = gh.Repositories.EditRelease(
 						ctx, opts.Repository.Owner(), opts.Repository.Name(),
 						r.GetID(), r,
 					)
