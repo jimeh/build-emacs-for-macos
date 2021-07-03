@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,6 +61,7 @@ func releaseCmd() *cli2.Command {
 		Subcommands: []*cli2.Command{
 			releaseCheckCmd(),
 			releasePublishCmd(),
+			releaseBulkCmd(),
 		},
 	}
 }
@@ -205,4 +207,57 @@ func releasePublishAction(
 	}
 
 	return release.Publish(c.Context, rlsOpts)
+}
+
+func releaseBulkCmd() *cli2.Command {
+	return &cli2.Command{
+		Name:      "bulk",
+		Usage:     "bulk modify GitHub releases",
+		ArgsUsage: "",
+		Flags: []cli2.Flag{
+			&cli2.StringFlag{
+				Name:  "name",
+				Usage: "regexp pattern matching release names to modify",
+			},
+			&cli2.StringFlag{
+				Name: "prerelease",
+				Usage: "change prerelease flag, must be \"true\" or " +
+					"\"false\", otherwise prerelease value is not changed",
+			},
+			&cli2.BoolFlag{
+				Name:  "dry-run",
+				Usage: "do not perform any changes",
+			},
+		},
+		Action: releaseActionWrapper(releaseBulkAction),
+	}
+}
+
+func releaseBulkAction(
+	c *cli2.Context,
+	opts *Options,
+	rOpts *releaseOptions,
+) error {
+	bulkOpts := &release.BulkOptions{
+		Repository:  rOpts.Repository,
+		NamePattern: c.String("name"),
+		DryRun:      c.Bool("dry-run"),
+		GithubToken: rOpts.GithubToken,
+	}
+
+	switch c.String("prerelease") {
+	case "true":
+		v := true
+		bulkOpts.Prerelease = &v
+	case "false":
+		v := false
+		bulkOpts.Prerelease = &v
+	case "":
+	default:
+		return errors.New(
+			"--prerelease by me \"true\" or \"false\" when specified",
+		)
+	}
+
+	return release.Bulk(c.Context, bulkOpts)
 }
