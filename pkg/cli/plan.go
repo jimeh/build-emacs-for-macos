@@ -89,7 +89,7 @@ func planAction(c *cli2.Context, opts *Options) error {
 		GithubToken:   c.String("github-token"),
 	}
 
-	if c.String("test-build-type") == "draft" {
+	if c.String("test-release-type") == "draft" {
 		planOpts.TestBuildType = plan.Draft
 	}
 

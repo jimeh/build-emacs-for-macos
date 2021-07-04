@@ -120,10 +120,12 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		plan.Build.Name += ".test." + testName
 		plan.Release.Title = "Test Builds"
 		plan.Release.Name = "test-builds"
+
+		plan.Release.Prerelease = true
+		plan.Release.Draft = false
 		if opts.TestBuildType == Draft {
+			plan.Release.Prerelease = false
 			plan.Release.Draft = true
-		} else {
-			plan.Release.Prerelease = true
 		}
 
 		index := strings.LastIndex(diskImage, ".")
