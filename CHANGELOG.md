@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.9](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.8...v0.6.9) (2021-07-04)
+
+
+### Features
+
+* **release:** add bulk edit command to quickly change multiple GitHub releases ([cb63806](https://github.com/jimeh/build-emacs-for-macos/commit/cb638062625d9bc3eee12515067fb09e05a08414))
+
+
+### Bug Fixes
+
+* **plan:** correctly parse --test-release-type flag ([fd0ec4d](https://github.com/jimeh/build-emacs-for-macos/commit/fd0ec4d772dd3da93afc234fb3024220b2099c88))
+
 ### [0.6.8](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.7...v0.6.8) (2021-07-02)
 
 
