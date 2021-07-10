@@ -45,6 +45,11 @@ The build produced does have some limitations:
   that built the application will yield warnings. If you want to make a signed
   Emacs.app, google is you friend for finding signing instructions.
 
+## Binary Builds
+
+Nightly and stable binary builds produced with this build script are available
+from [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds).
+
 ## Requirements
 
 - [Xcode](https://apps.apple.com/gb/app/xcode/id497799835?mt=12)
