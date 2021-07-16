@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.10](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.9...v0.6.10) (2021-07-16)
+
+
+### Bug Fixes
+
+* **native-comp:** *.eln files were not being found during shared lib embedding ([9d32509](https://github.com/jimeh/build-emacs-for-macos/commit/9d32509c615076618957cc47c82f6e9d8f972fe7))
+
 ### [0.6.9](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.8...v0.6.9) (2021-07-04)
 
 
