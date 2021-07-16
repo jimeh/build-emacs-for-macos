@@ -783,19 +783,7 @@ class LibEmbedder < AbstractEmbedder
   private
 
   def eln_files
-    @eln_files ||= Dir[
-      File.join(
-        app, 'Contents', 'Resources', 'native-lisp', '**', '*.eln'
-      ),
-      File.join(
-        app, 'Contents', 'MacOS', 'lib', 'emacs', '**',
-        'native-lisp', '**', '*.eln'
-      ),
-      File.join(
-        app, 'Contents', 'MacOS', 'libexec', 'emacs', '**',
-        'eln-cache', '**', '*.eln'
-      )
-    ]
+    @eln_files ||= Dir[File.join(app, 'Contents', '**', '*.eln')]
   end
 
   def copy_libs(exe, rel_path = nil)
