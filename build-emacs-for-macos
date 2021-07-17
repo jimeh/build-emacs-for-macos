@@ -294,6 +294,8 @@ class Build
           "-L#{gcc_info.libgccjit_lib_dir}",
           "-I#{File.join(gcc_info.root_dir, 'include')}",
           "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
+          # Ensure library re-linking and code signing will work after building.
+          '-Wl,-headerpad_max_install_names',
           ENV['LDFLAGS']
         ].compact.join(' ')
 
