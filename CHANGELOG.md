@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.12](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.11...v0.6.12) (2021-08-02)
+
+
+### Bug Fixes
+
+* **sign:** resolve signing issue caused by re-linking shared lib in *.eln files ([e6b1e5a](https://github.com/jimeh/build-emacs-for-macos/commit/e6b1e5a554fd0f776bd01c17cfb1ebbbdf7a7831))
+
 ### [0.6.11](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.10...v0.6.11) (2021-07-17)
 
 
