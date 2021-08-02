@@ -747,7 +747,7 @@ class AbstractEmbedder
   end
 
   def lib_dir
-    File.join(app, 'Contents', 'Frameworks')
+    File.join(invocation_dir, 'lib')
   end
 end
 
