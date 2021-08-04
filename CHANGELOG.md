@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.13](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.12...v0.6.13) (2021-08-04)
+
+
+### Bug Fixes
+
+* **native_comp:** add option to enable/disable relinking *.eln files ([ac943c4](https://github.com/jimeh/build-emacs-for-macos/commit/ac943c430c58e0761ac44e8d25d4d55a461d01a2))
+
 ### [0.6.12](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.11...v0.6.12) (2021-08-02)
 
 
