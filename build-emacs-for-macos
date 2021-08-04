@@ -133,10 +133,6 @@ class Build
       @archive_filename = plan.dig('output', 'archive')
     end
 
-    if plan.dig('output', 'disk_image') || !plan.dig('output', 'archive')
-      options[:archive] = false
-    end
-
     @build_name = plan.dig('build', 'name') if plan.dig('build', 'name')
   end
 
