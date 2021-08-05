@@ -761,12 +761,14 @@ end
 class LibEmbedder < AbstractEmbedder
   attr_reader :lib_source
   attr_reader :extra_libs
+  attr_reader :embed_eln_files
 
   def initialize(app, lib_source, extra_libs = [], embed_eln_files = true)
     super(app)
 
     @lib_source = lib_source
     @extra_libs = extra_libs
+    @embed_eln_files = embed_eln_files
   end
 
   def embed
@@ -1036,6 +1038,7 @@ if __FILE__ == $PROGRAM_NAME
   cli_options = {
     work_dir: File.expand_path(__dir__),
     native_full_aot: false,
+    relink_eln: true,
     native_march: false,
     parallel: Etc.nprocessors,
     rsvg: true,
