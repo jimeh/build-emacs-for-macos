@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.14](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.13...v0.6.14) (2021-08-05)
+
+
+### Bug Fixes
+
+* **build:** silly typo ([1fc7faa](https://github.com/jimeh/build-emacs-for-macos/commit/1fc7faac1f040466fa4474a873d2290273780ee2))
+
 ### [0.6.13](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.12...v0.6.13) (2021-08-04)
 
 
