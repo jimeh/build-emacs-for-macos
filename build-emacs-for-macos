@@ -107,7 +107,7 @@ class Build
     handle_native_lisp(app)
     add_cli_helper(app)
 
-    LibEmbedder.new(app, brew_dir, extra_libs, optsion[:relink_eln]).embed
+    LibEmbedder.new(app, brew_dir, extra_libs, options[:relink_eln]).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
 
     archive_build(build_dir) if options[:archive]
