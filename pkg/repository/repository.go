@@ -22,8 +22,8 @@ const GitHub Type = "github"
 // Repository represents basic information about a repository with helper
 // methods to get various pieces of information from it.
 type Repository struct {
-	Type   Type   `yaml:"type,omitempty"`
-	Source string `yaml:"source,omitempty"`
+	Type   Type   `yaml:"type,omitempty" json:"type,omitempty"`
+	Source string `yaml:"source,omitempty" json:"source,omitempty"`
 }
 
 func NewGitHub(ownerAndName string) (*Repository, error) {

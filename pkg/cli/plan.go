@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -36,6 +37,12 @@ func planCmd() *cli2.Command {
 			&cli2.StringFlag{
 				Name:  "sha",
 				Usage: "override commit SHA of specified git branch/tag",
+			},
+			&cli2.StringFlag{
+				Name:    "format",
+				Aliases: []string{"f"},
+				Usage:   "output format of build plan (yaml or json)",
+				Value:   "yaml",
 			},
 			&cli2.StringFlag{
 				Name: "output",
@@ -102,7 +109,18 @@ func planAction(c *cli2.Context, opts *Options) error {
 		return err
 	}
 
-	planYAML, err := p.YAML()
+	format := c.String("format")
+	var plan string
+	switch format {
+	case "yaml", "yml":
+		format = "yaml"
+		plan, err = p.YAML()
+	case "json":
+		format = "json"
+		plan, err = p.JSON()
+	default:
+		err = fmt.Errorf("--format must be yaml or json")
+	}
 	if err != nil {
 		return err
 	}
@@ -111,7 +129,7 @@ func planAction(c *cli2.Context, opts *Options) error {
 	out = os.Stdout
 	if f := c.String("output"); f != "" {
 		logger.Info("writing plan", "file", f)
-		logger.Debug("content", "yaml", planYAML)
+		logger.Debug("content", format, plan)
 		out, err = os.Create(f)
 		if err != nil {
 			return err
@@ -119,7 +137,7 @@ func planAction(c *cli2.Context, opts *Options) error {
 		defer out.Close()
 	}
 
-	_, err = out.WriteString(planYAML)
+	_, err = out.WriteString(plan)
 	if err != nil {
 		return err
 	}

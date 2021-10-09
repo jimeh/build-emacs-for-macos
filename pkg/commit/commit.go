@@ -8,11 +8,11 @@ import (
 )
 
 type Commit struct {
-	SHA       string     `yaml:"sha"`
-	Date      *time.Time `yaml:"date"`
-	Author    string     `yaml:"author"`
-	Committer string     `yaml:"committer"`
-	Message   string     `yaml:"message"`
+	SHA       string     `yaml:"sha" json:"sha"`
+	Date      *time.Time `yaml:"date" json:"date"`
+	Author    string     `yaml:"author" json:"author"`
+	Committer string     `yaml:"committer" json:"committer"`
+	Message   string     `yaml:"message" json:"message"`
 }
 
 func New(rc *github.RepositoryCommit) *Commit {

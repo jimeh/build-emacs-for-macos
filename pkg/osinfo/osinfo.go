@@ -6,9 +6,9 @@ import (
 )
 
 type OSInfo struct {
-	Name    string `yaml:"name"`
-	Version string `yaml:"version"`
-	Arch    string `yaml:"arch"`
+	Name    string `yaml:"name" json:"name"`
+	Version string `yaml:"version" json:"version"`
+	Arch    string `yaml:"arch" json:"arch"`
 }
 
 func New() (*OSInfo, error) {
