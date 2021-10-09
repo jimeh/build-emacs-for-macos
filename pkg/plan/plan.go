@@ -5,15 +5,14 @@ import (
 	"io"
 	"os"
 
-	"github.com/jimeh/build-emacs-for-macos/pkg/commit"
 	"github.com/jimeh/build-emacs-for-macos/pkg/osinfo"
-	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
+	"github.com/jimeh/build-emacs-for-macos/pkg/source"
 	"gopkg.in/yaml.v3"
 )
 
 type Plan struct {
 	Build   *Build         `yaml:"build,omitempty"`
-	Source  *Source        `yaml:"source,omitempty"`
+	Source  *source.Source `yaml:"source,omitempty"`
 	OS      *osinfo.OSInfo `yaml:"os,omitempty"`
 	Release *Release       `yaml:"release,omitempty"`
 	Output  *Output        `yaml:"output,omitempty"`
@@ -56,17 +55,6 @@ func (s *Plan) YAML() (string, error) {
 
 type Build struct {
 	Name string `yaml:"name,omitempty"`
-}
-
-type Source struct {
-	Ref        string                 `yaml:"ref,omitempty"`
-	Repository *repository.Repository `yaml:"repository,omitempty"`
-	Commit     *commit.Commit         `yaml:"commit,omitempty"`
-	Tarball    *Tarball               `yaml:"tarball,omitempty"`
-}
-
-type Tarball struct {
-	URL string `yaml:"url,omitempty"`
 }
 
 type Release struct {

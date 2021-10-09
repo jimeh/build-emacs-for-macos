@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/jimeh/build-emacs-for-macos/pkg/gh"
 	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
+	"github.com/jimeh/build-emacs-for-macos/pkg/source"
 )
 
 type releaseType int
@@ -40,6 +41,11 @@ type PublishOptions struct {
 	// draft)
 	ReleaseType releaseType
 
+	// Source contains the source used to build the asset files. When set a
+	// release body/description text will be generated based on source commit
+	// details.
+	Source *source.Source
+
 	// AssetFiles is a list of files which must all exist in the release for
 	// the check to pass.
 	AssetFiles []string
@@ -68,6 +74,16 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 	prerelease := opts.ReleaseType == Prerelease
 	draft := opts.ReleaseType == Draft
 
+	body := ""
+	if opts.Source != nil {
+		body, err = releaseBody(opts)
+		if err != nil {
+			return err
+		}
+		logger.Debug("rendered release body", "content", body)
+	}
+
+	created := false
 	logger.Info("checking release", "tag", tagName)
 	release, resp, err := gh.Repositories.GetReleaseByTag(
 		ctx, opts.Repository.Owner(), opts.Repository.Name(), tagName,
@@ -77,6 +93,7 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 			return err
 		}
 
+		created = true
 		logger.Info("creating release", "tag", tagName, "name", name)
 
 		release, _, err = gh.Repositories.CreateRelease(
@@ -87,6 +104,7 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 				TargetCommitish: &opts.CommitRef,
 				Prerelease:      boolPtr(false),
 				Draft:           boolPtr(true),
+				Body:            &body,
 			},
 		)
 		if err != nil {
@@ -158,6 +176,11 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 		changed = true
 	}
 
+	if body != "" && release.GetBody() != body {
+		release.Body = &body
+		changed = true
+	}
+
 	if release.GetDraft() != draft {
 		release.Draft = &draft
 		changed = true
@@ -178,7 +201,11 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 		}
 	}
 
-	logger.Info("release created", "url", release.GetHTMLURL())
+	if created {
+		logger.Info("release created", "url", release.GetHTMLURL())
+	} else {
+		logger.Info("release updated", "url", release.GetHTMLURL())
+	}
 
 	return nil
 }

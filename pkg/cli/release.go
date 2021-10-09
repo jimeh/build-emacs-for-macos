@@ -185,6 +185,8 @@ func releasePublishAction(
 	}
 
 	if rOpts.Plan != nil {
+		rlsOpts.Source = rOpts.Plan.Source
+
 		if rOpts.Plan.Release != nil {
 			rlsOpts.ReleaseName = rOpts.Plan.Release.Name
 			rlsOpts.ReleaseTitle = rOpts.Plan.Release.Title

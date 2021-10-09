@@ -89,3 +89,42 @@ func (s *Repository) TarballURL(ref string) string {
 		return ""
 	}
 }
+
+func (s *Repository) CommitURL(ref string) string {
+	if ref == "" {
+		return ""
+	}
+
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/commit/" + ref
+	default:
+		return ""
+	}
+}
+
+func (s *Repository) TreeURL(ref string) string {
+	if ref == "" {
+		return ""
+	}
+
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/tree/" + ref
+	default:
+		return ""
+	}
+}
+
+func (s *Repository) ActionRunURL(runID string) string {
+	if runID == "" {
+		return ""
+	}
+
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/actions/runs/" + runID
+	default:
+		return ""
+	}
+}

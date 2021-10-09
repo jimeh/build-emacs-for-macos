@@ -13,6 +13,7 @@ import (
 	"github.com/jimeh/build-emacs-for-macos/pkg/osinfo"
 	"github.com/jimeh/build-emacs-for-macos/pkg/release"
 	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
+	"github.com/jimeh/build-emacs-for-macos/pkg/source"
 )
 
 var nonAlphaNum = regexp.MustCompile(`[^\w_-]+`)
@@ -85,11 +86,11 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		Build: &Build{
 			Name: buildName,
 		},
-		Source: &Source{
+		Source: &source.Source{
 			Ref:        opts.Ref,
 			Repository: repo,
 			Commit:     commitInfo,
-			Tarball: &Tarball{
+			Tarball: &source.Tarball{
 				URL: repo.TarballURL(commitInfo.SHA),
 			},
 		},
