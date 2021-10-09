@@ -50,11 +50,17 @@ type PublishOptions struct {
 	// the check to pass.
 	AssetFiles []string
 
+	// AssetSizeCheck causes a file size check for any existing asset files on a
+	// release which have the same filename as a asset we want to upload. If the
+	// size of the local and remote files are the same, the existing asset file
+	// is left in place. When this is false, given asset files will always be
+	// uploaded, replacing any asset files with the same filename.
+	AssetSizeCheck bool
+
 	// GitHubToken is the OAuth token used to talk to the GitHub API.
 	GithubToken string
 }
 
-//nolint:funlen,gocyclo
 // Publish creates and publishes a GitHub release.
 func Publish(ctx context.Context, opts *PublishOptions) error {
 	logger := hclog.FromContext(ctx).Named("release")
@@ -112,62 +118,9 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 		}
 	}
 
-	for _, fileName := range files {
-		fileIO, err2 := os.Open(fileName)
-		if err2 != nil {
-			return err2
-		}
-		defer fileIO.Close()
-
-		fileInfo, err2 := fileIO.Stat()
-		if err2 != nil {
-			return err2
-		}
-
-		fileBaseName := filepath.Base(fileName)
-		assetExists := false
-
-		for _, a := range release.Assets {
-			if a.GetName() != fileBaseName {
-				continue
-			}
-
-			if a.GetSize() == int(fileInfo.Size()) {
-				logger.Info("asset exists with correct size",
-					"file", fileBaseName,
-					"local_size", byteCountIEC(fileInfo.Size()),
-					"remote_size", byteCountIEC(int64(a.GetSize())),
-				)
-				assetExists = true
-			} else {
-				_, err = gh.Repositories.DeleteReleaseAsset(
-					ctx, opts.Repository.Owner(), opts.Repository.Name(),
-					a.GetID(),
-				)
-				if err != nil {
-					return err
-				}
-				logger.Info(
-					"deleted asset with wrong size", "file", fileBaseName,
-				)
-			}
-		}
-
-		if !assetExists {
-			logger.Info("uploading asset",
-				"file", fileBaseName,
-				"size", byteCountIEC(fileInfo.Size()),
-			)
-			_, _, err2 = gh.Repositories.UploadReleaseAsset(
-				ctx, opts.Repository.Owner(), opts.Repository.Name(),
-				release.GetID(),
-				&github.UploadOptions{Name: fileBaseName},
-				fileIO,
-			)
-			if err2 != nil {
-				return err2
-			}
-		}
+	err = uploadReleaseAssets(ctx, gh, release, files, opts)
+	if err != nil {
+		return err
 	}
 
 	changed := false
@@ -192,6 +145,7 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 	}
 
 	if changed {
+		logger.Info("updating release attributes", "url", release.GetHTMLURL())
 		release, _, err = gh.Repositories.EditRelease(
 			ctx, opts.Repository.Owner(), opts.Repository.Name(),
 			release.GetID(), release,
@@ -205,6 +159,78 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 		logger.Info("release created", "url", release.GetHTMLURL())
 	} else {
 		logger.Info("release updated", "url", release.GetHTMLURL())
+	}
+
+	return nil
+}
+
+func uploadReleaseAssets(
+	ctx context.Context,
+	gh *github.Client,
+	release *github.RepositoryRelease,
+	fileNames []string,
+	opts *PublishOptions,
+) error {
+	logger := hclog.FromContext(ctx).Named("release")
+
+	for _, fileName := range fileNames {
+		logger.Debug("processing asset", "file", filepath.Base(fileName))
+
+		fileIO, err := os.Open(fileName)
+		if err != nil {
+			return err
+		}
+		defer fileIO.Close()
+
+		fileInfo, err := fileIO.Stat()
+		if err != nil {
+			return err
+		}
+
+		fileBaseName := filepath.Base(fileName)
+		assetExists := false
+
+		for _, a := range release.Assets {
+			if a.GetName() != fileBaseName {
+				continue
+			}
+
+			if opts.AssetSizeCheck && a.GetSize() == int(fileInfo.Size()) {
+				logger.Info("asset exists with correct size",
+					"file", fileBaseName,
+					"local_size", byteCountIEC(fileInfo.Size()),
+					"remote_size", byteCountIEC(int64(a.GetSize())),
+				)
+				assetExists = true
+			} else {
+				logger.Info(
+					"deleting existing asset", "file", fileBaseName,
+				)
+				_, err = gh.Repositories.DeleteReleaseAsset(
+					ctx, opts.Repository.Owner(), opts.Repository.Name(),
+					a.GetID(),
+				)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if !assetExists {
+			logger.Info("uploading asset",
+				"file", fileBaseName,
+				"size", byteCountIEC(fileInfo.Size()),
+			)
+			_, _, err = gh.Repositories.UploadReleaseAsset(
+				ctx, opts.Repository.Owner(), opts.Repository.Name(),
+				release.GetID(),
+				&github.UploadOptions{Name: fileBaseName},
+				fileIO,
+			)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

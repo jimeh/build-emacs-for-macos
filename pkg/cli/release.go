@@ -153,6 +153,12 @@ func releasePublishCmd() *cli2.Command {
 					"specified",
 				Value: "",
 			},
+			&cli2.BoolFlag{
+				Name: "asset-size-check",
+				Usage: "Do not replace existing asset files if local and " +
+					"remote file sizes match.",
+				Value: false,
+			},
 		},
 		Action: releaseActionWrapper(releasePublishAction),
 	}
@@ -164,12 +170,13 @@ func releasePublishAction(
 	rOpts *releaseOptions,
 ) error {
 	rlsOpts := &release.PublishOptions{
-		Repository:   rOpts.Repository,
-		CommitRef:    c.String("release-sha"),
-		ReleaseName:  rOpts.Name,
-		ReleaseTitle: c.String("title"),
-		AssetFiles:   c.Args().Slice(),
-		GithubToken:  rOpts.GithubToken,
+		Repository:     rOpts.Repository,
+		CommitRef:      c.String("release-sha"),
+		ReleaseName:    rOpts.Name,
+		ReleaseTitle:   c.String("title"),
+		AssetFiles:     c.Args().Slice(),
+		AssetSizeCheck: c.Bool("asset-size-check"),
+		GithubToken:    rOpts.GithubToken,
 	}
 
 	rlsType := c.String("type")
