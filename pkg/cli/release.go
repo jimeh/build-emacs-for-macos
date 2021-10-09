@@ -108,7 +108,7 @@ func releaseCheckCmd() *cli2.Command {
 
 func releaseCheckAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	rOpts *releaseOptions,
 ) error {
 	rlsOpts := &release.CheckOptions{
@@ -160,7 +160,7 @@ func releasePublishCmd() *cli2.Command {
 
 func releasePublishAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	rOpts *releaseOptions,
 ) error {
 	rlsOpts := &release.PublishOptions{
@@ -235,7 +235,7 @@ func releaseBulkCmd() *cli2.Command {
 
 func releaseBulkAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	rOpts *releaseOptions,
 ) error {
 	bulkOpts := &release.BulkOptions{
