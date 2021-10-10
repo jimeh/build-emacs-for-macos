@@ -43,7 +43,7 @@ func releaseCmd() *cli2.Command {
 				Usage: "owner/name of GitHub repo to check for release, " +
 					"ignored if a plan is provided",
 				EnvVars: []string{"GITHUB_REPOSITORY"},
-				Value:   "jimeh/emacs-builds",
+				Value:   "",
 			},
 			&cli2.StringFlag{
 				Name:    "name",
