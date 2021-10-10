@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.16](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.15...v0.6.16) (2021-10-10)
+
+
+### Features
+
+* **build:** handle macOS Big Sur and later version number ([2e2f9bc](https://github.com/jimeh/build-emacs-for-macos/commit/2e2f9bc98acdc972a22add3d1015bd80cad20b41))
+* **cask:** make cask template helpers more flexible ([d63cd54](https://github.com/jimeh/build-emacs-for-macos/commit/d63cd545aab3a35e0cbbbcabd862525acbc414b8))
+* **plan:** allow build plan to be output as YAML or JSON ([1bbfe5d](https://github.com/jimeh/build-emacs-for-macos/commit/1bbfe5d3ea810215b417e5b80d2902f03d68f366))
+* **release:** add description to GitHub Releases ([7118ed8](https://github.com/jimeh/build-emacs-for-macos/commit/7118ed856053de06ddcdfba2a2d6fa40f58c17ab))
+* **release:** force-replace existing asset files by default ([e7a991e](https://github.com/jimeh/build-emacs-for-macos/commit/e7a991ef92a5c546106a8badaf9c60247a1397b5))
+
+
+### Bug Fixes
+
+* **release:** publish arguments are not handled as asset files to upload ([b4c5184](https://github.com/jimeh/build-emacs-for-macos/commit/b4c5184cefe43fdc54b1ad5c8a1970f104137644))
+
 ### [0.6.15](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.14...v0.6.15) (2021-08-05)
 
 
