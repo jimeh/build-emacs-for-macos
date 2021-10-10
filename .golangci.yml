@@ -75,6 +75,9 @@ issues:
     - source: "`json:"
       linters:
         - lll
+    - source: "`yaml:"
+      linters:
+        - lll
 
 run:
   skip-dirs:

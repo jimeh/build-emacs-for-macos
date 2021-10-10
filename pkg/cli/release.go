@@ -43,7 +43,7 @@ func releaseCmd() *cli2.Command {
 				Usage: "owner/name of GitHub repo to check for release, " +
 					"ignored if a plan is provided",
 				EnvVars: []string{"GITHUB_REPOSITORY"},
-				Value:   "jimeh/emacs-builds",
+				Value:   "",
 			},
 			&cli2.StringFlag{
 				Name:    "name",
@@ -108,7 +108,7 @@ func releaseCheckCmd() *cli2.Command {
 
 func releaseCheckAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	rOpts *releaseOptions,
 ) error {
 	rlsOpts := &release.CheckOptions{
@@ -153,6 +153,12 @@ func releasePublishCmd() *cli2.Command {
 					"specified",
 				Value: "",
 			},
+			&cli2.BoolFlag{
+				Name: "asset-size-check",
+				Usage: "Do not replace existing asset files if local and " +
+					"remote file sizes match.",
+				Value: false,
+			},
 		},
 		Action: releaseActionWrapper(releasePublishAction),
 	}
@@ -160,16 +166,17 @@ func releasePublishCmd() *cli2.Command {
 
 func releasePublishAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	rOpts *releaseOptions,
 ) error {
 	rlsOpts := &release.PublishOptions{
-		Repository:   rOpts.Repository,
-		CommitRef:    c.String("release-sha"),
-		ReleaseName:  rOpts.Name,
-		ReleaseTitle: c.String("title"),
-		AssetFiles:   c.Args().Slice(),
-		GithubToken:  rOpts.GithubToken,
+		Repository:     rOpts.Repository,
+		CommitRef:      c.String("release-sha"),
+		ReleaseName:    rOpts.Name,
+		ReleaseTitle:   c.String("title"),
+		AssetFiles:     c.Args().Slice(),
+		AssetSizeCheck: c.Bool("asset-size-check"),
+		GithubToken:    rOpts.GithubToken,
 	}
 
 	rlsType := c.String("type")
@@ -184,7 +191,13 @@ func releasePublishAction(
 		return fmt.Errorf("invalid --type \"%s\"", rlsType)
 	}
 
+	if c.Args().Len() > 0 {
+		rlsOpts.AssetFiles = c.Args().Slice()
+	}
+
 	if rOpts.Plan != nil {
+		rlsOpts.Source = rOpts.Plan.Source
+
 		if rOpts.Plan.Release != nil {
 			rlsOpts.ReleaseName = rOpts.Plan.Release.Name
 			rlsOpts.ReleaseTitle = rOpts.Plan.Release.Title
@@ -196,7 +209,8 @@ func releasePublishAction(
 			}
 		}
 
-		if rOpts.Plan.Output != nil {
+		// Set asset files based on plan if no file arguments were given.
+		if len(rlsOpts.AssetFiles) == 0 && rOpts.Plan.Output != nil {
 			rlsOpts.AssetFiles = []string{
 				filepath.Join(
 					rOpts.Plan.Output.Directory,
@@ -235,7 +249,7 @@ func releaseBulkCmd() *cli2.Command {
 
 func releaseBulkAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	rOpts *releaseOptions,
 ) error {
 	bulkOpts := &release.BulkOptions{

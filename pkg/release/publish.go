@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/jimeh/build-emacs-for-macos/pkg/gh"
 	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
+	"github.com/jimeh/build-emacs-for-macos/pkg/source"
 )
 
 type releaseType int
@@ -40,15 +41,26 @@ type PublishOptions struct {
 	// draft)
 	ReleaseType releaseType
 
+	// Source contains the source used to build the asset files. When set a
+	// release body/description text will be generated based on source commit
+	// details.
+	Source *source.Source
+
 	// AssetFiles is a list of files which must all exist in the release for
 	// the check to pass.
 	AssetFiles []string
+
+	// AssetSizeCheck causes a file size check for any existing asset files on a
+	// release which have the same filename as a asset we want to upload. If the
+	// size of the local and remote files are the same, the existing asset file
+	// is left in place. When this is false, given asset files will always be
+	// uploaded, replacing any asset files with the same filename.
+	AssetSizeCheck bool
 
 	// GitHubToken is the OAuth token used to talk to the GitHub API.
 	GithubToken string
 }
 
-//nolint:funlen,gocyclo
 // Publish creates and publishes a GitHub release.
 func Publish(ctx context.Context, opts *PublishOptions) error {
 	logger := hclog.FromContext(ctx).Named("release")
@@ -68,6 +80,16 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 	prerelease := opts.ReleaseType == Prerelease
 	draft := opts.ReleaseType == Draft
 
+	body := ""
+	if opts.Source != nil {
+		body, err = releaseBody(opts)
+		if err != nil {
+			return err
+		}
+		logger.Debug("rendered release body", "content", body)
+	}
+
+	created := false
 	logger.Info("checking release", "tag", tagName)
 	release, resp, err := gh.Repositories.GetReleaseByTag(
 		ctx, opts.Repository.Owner(), opts.Repository.Name(), tagName,
@@ -77,6 +99,7 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 			return err
 		}
 
+		created = true
 		logger.Info("creating release", "tag", tagName, "name", name)
 
 		release, _, err = gh.Repositories.CreateRelease(
@@ -87,6 +110,7 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 				TargetCommitish: &opts.CommitRef,
 				Prerelease:      boolPtr(false),
 				Draft:           boolPtr(true),
+				Body:            &body,
 			},
 		)
 		if err != nil {
@@ -94,67 +118,19 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 		}
 	}
 
-	for _, fileName := range files {
-		fileIO, err2 := os.Open(fileName)
-		if err2 != nil {
-			return err2
-		}
-		defer fileIO.Close()
-
-		fileInfo, err2 := fileIO.Stat()
-		if err2 != nil {
-			return err2
-		}
-
-		fileBaseName := filepath.Base(fileName)
-		assetExists := false
-
-		for _, a := range release.Assets {
-			if a.GetName() != fileBaseName {
-				continue
-			}
-
-			if a.GetSize() == int(fileInfo.Size()) {
-				logger.Info("asset exists with correct size",
-					"file", fileBaseName,
-					"local_size", byteCountIEC(fileInfo.Size()),
-					"remote_size", byteCountIEC(int64(a.GetSize())),
-				)
-				assetExists = true
-			} else {
-				_, err = gh.Repositories.DeleteReleaseAsset(
-					ctx, opts.Repository.Owner(), opts.Repository.Name(),
-					a.GetID(),
-				)
-				if err != nil {
-					return err
-				}
-				logger.Info(
-					"deleted asset with wrong size", "file", fileBaseName,
-				)
-			}
-		}
-
-		if !assetExists {
-			logger.Info("uploading asset",
-				"file", fileBaseName,
-				"size", byteCountIEC(fileInfo.Size()),
-			)
-			_, _, err2 = gh.Repositories.UploadReleaseAsset(
-				ctx, opts.Repository.Owner(), opts.Repository.Name(),
-				release.GetID(),
-				&github.UploadOptions{Name: fileBaseName},
-				fileIO,
-			)
-			if err2 != nil {
-				return err2
-			}
-		}
+	err = uploadReleaseAssets(ctx, gh, release, files, opts)
+	if err != nil {
+		return err
 	}
 
 	changed := false
 	if release.GetName() != name {
 		release.Name = &name
+		changed = true
+	}
+
+	if body != "" && release.GetBody() != body {
+		release.Body = &body
 		changed = true
 	}
 
@@ -169,6 +145,7 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 	}
 
 	if changed {
+		logger.Info("updating release attributes", "url", release.GetHTMLURL())
 		release, _, err = gh.Repositories.EditRelease(
 			ctx, opts.Repository.Owner(), opts.Repository.Name(),
 			release.GetID(), release,
@@ -178,13 +155,89 @@ func Publish(ctx context.Context, opts *PublishOptions) error {
 		}
 	}
 
-	logger.Info("release created", "url", release.GetHTMLURL())
+	if created {
+		logger.Info("release created", "url", release.GetHTMLURL())
+	} else {
+		logger.Info("release updated", "url", release.GetHTMLURL())
+	}
+
+	return nil
+}
+
+func uploadReleaseAssets(
+	ctx context.Context,
+	gh *github.Client,
+	release *github.RepositoryRelease,
+	fileNames []string,
+	opts *PublishOptions,
+) error {
+	logger := hclog.FromContext(ctx).Named("release")
+
+	for _, fileName := range fileNames {
+		logger.Debug("processing asset", "file", filepath.Base(fileName))
+
+		fileIO, err := os.Open(fileName)
+		if err != nil {
+			return err
+		}
+		defer fileIO.Close()
+
+		fileInfo, err := fileIO.Stat()
+		if err != nil {
+			return err
+		}
+
+		fileBaseName := filepath.Base(fileName)
+		assetExists := false
+
+		for _, a := range release.Assets {
+			if a.GetName() != fileBaseName {
+				continue
+			}
+
+			if opts.AssetSizeCheck && a.GetSize() == int(fileInfo.Size()) {
+				logger.Info("asset exists with correct size",
+					"file", fileBaseName,
+					"local_size", byteCountIEC(fileInfo.Size()),
+					"remote_size", byteCountIEC(int64(a.GetSize())),
+				)
+				assetExists = true
+			} else {
+				logger.Info(
+					"deleting existing asset", "file", fileBaseName,
+				)
+				_, err = gh.Repositories.DeleteReleaseAsset(
+					ctx, opts.Repository.Owner(), opts.Repository.Name(),
+					a.GetID(),
+				)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if !assetExists {
+			logger.Info("uploading asset",
+				"file", fileBaseName,
+				"size", byteCountIEC(fileInfo.Size()),
+			)
+			_, _, err = gh.Repositories.UploadReleaseAsset(
+				ctx, opts.Repository.Owner(), opts.Repository.Name(),
+				release.GetID(),
+				&github.UploadOptions{Name: fileBaseName},
+				fileIO,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
 
 func publishFileList(files []string) ([]string, error) {
-	var output []string
+	results := map[string]struct{}{}
 	for _, file := range files {
 		var err error
 		file, err = filepath.Abs(file)
@@ -200,11 +253,10 @@ func publishFileList(files []string) ([]string, error) {
 			return nil, fmt.Errorf("\"%s\" is not a file", file)
 		}
 
-		output = append(output, file)
+		results[file] = struct{}{}
 		sumFile := file + ".sha256"
 
 		_, err = os.Stat(sumFile)
-		fmt.Printf("err: %+v\n", err)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -212,7 +264,12 @@ func publishFileList(files []string) ([]string, error) {
 
 			return nil, err
 		}
-		output = append(output, sumFile)
+		results[sumFile] = struct{}{}
+	}
+
+	var output []string
+	for f := range results {
+		output = append(output, f)
 	}
 
 	return output, nil

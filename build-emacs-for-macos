@@ -53,7 +53,7 @@ class OSVersion
   end
 
   def to_s
-    @to_s ||= "#{major}.#{minor}"
+    @to_s ||= major >= 11 ? major.to_s : "#{major}.#{minor}"
   end
 
   def major

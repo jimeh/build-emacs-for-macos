@@ -52,7 +52,7 @@ func notarizeCmd() *cli2.Command {
 	}
 }
 
-func notarizeAction(c *cli2.Context, opts *Options) error {
+func notarizeAction(c *cli2.Context, _ *Options) error {
 	options := &notarize.Options{
 		File:     c.Args().Get(0),
 		BundleID: c.String("bundle-id"),

@@ -112,7 +112,7 @@ func caskUpdateCmd() *cli2.Command {
 
 func caskUpdateAction(
 	c *cli2.Context,
-	opts *Options,
+	_ *Options,
 	cOpts *caskOptions,
 ) error {
 	updateOpts := &cask.UpdateOptions{

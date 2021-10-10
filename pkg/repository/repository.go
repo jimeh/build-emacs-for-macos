@@ -22,8 +22,8 @@ const GitHub Type = "github"
 // Repository represents basic information about a repository with helper
 // methods to get various pieces of information from it.
 type Repository struct {
-	Type   Type   `yaml:"type,omitempty"`
-	Source string `yaml:"source,omitempty"`
+	Type   Type   `yaml:"type,omitempty" json:"type,omitempty"`
+	Source string `yaml:"source,omitempty" json:"source,omitempty"`
 }
 
 func NewGitHub(ownerAndName string) (*Repository, error) {
@@ -85,6 +85,45 @@ func (s *Repository) TarballURL(ref string) string {
 	switch s.Type {
 	case GitHub:
 		return GitHubBaseURL + s.Source + "/tarball/" + ref
+	default:
+		return ""
+	}
+}
+
+func (s *Repository) CommitURL(ref string) string {
+	if ref == "" {
+		return ""
+	}
+
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/commit/" + ref
+	default:
+		return ""
+	}
+}
+
+func (s *Repository) TreeURL(ref string) string {
+	if ref == "" {
+		return ""
+	}
+
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/tree/" + ref
+	default:
+		return ""
+	}
+}
+
+func (s *Repository) ActionRunURL(runID string) string {
+	if runID == "" {
+		return ""
+	}
+
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/actions/runs/" + runID
 	default:
 		return ""
 	}
