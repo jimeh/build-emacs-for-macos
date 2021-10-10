@@ -77,7 +77,7 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 	buildName := fmt.Sprintf(
 		"Emacs.%s.%s.%s",
 		version,
-		sanitizeString(osInfo.Name+"-"+osInfo.MajorMinor()),
+		sanitizeString(osInfo.Name+"-"+osInfo.DistinctVersion()),
 		sanitizeString(osInfo.Arch),
 	)
 	diskImage := buildName + ".dmg"

@@ -2,6 +2,7 @@ package osinfo
 
 import (
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -29,8 +30,17 @@ func New() (*OSInfo, error) {
 	}, nil
 }
 
-func (s *OSInfo) MajorMinor() string {
+// DistinctVersion returns macOS version down to a distinct "major"
+// version. For macOS 10.x, this will include the first two numeric parts of the
+// version (10.15), while for 11.x and later, the first numeric part is enough
+// (11).
+func (s *OSInfo) DistinctVersion() string {
 	parts := strings.Split(s.Version, ".")
+
+	if n, _ := strconv.Atoi(parts[0]); n >= 11 {
+		return parts[0]
+	}
+
 	max := len(parts)
 	if max > 2 {
 		max = 2
