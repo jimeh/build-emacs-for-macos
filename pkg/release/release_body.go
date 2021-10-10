@@ -22,11 +22,9 @@ var bodyTpl = template.Must(template.New("body").Funcs(tplFuncs).Parse(`
 {{ with .SourceURL -}}
 - Source: {{ . }}
 {{- end }}
-{{- if and .CommitSHA .CommitURL }}
-- Commit: [{{ $t }}{{ .CommitSHA }}{{ $t }}]
-  {{- if .CommitURL }}({{ .CommitURL }}){{ end }}
-{{- else if and .CommitSHA }}
-- Commit: {{ $t }}{{ .CommitSHA }}{{ $t }}
+{{- if .CommitURL }}
+- Commit: {{ .CommitURL }}
+  {{- if .CommitSHA }} ({{ $t }}{{ .CommitSHA }}{{ $t }}){{ end }}
 {{- end }}
 {{- with .TarballURL }}
 - Tarball: {{ . }}
