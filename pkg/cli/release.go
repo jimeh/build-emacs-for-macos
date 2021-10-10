@@ -191,6 +191,10 @@ func releasePublishAction(
 		return fmt.Errorf("invalid --type \"%s\"", rlsType)
 	}
 
+	if c.Args().Len() > 0 {
+		rlsOpts.AssetFiles = c.Args().Slice()
+	}
+
 	if rOpts.Plan != nil {
 		rlsOpts.Source = rOpts.Plan.Source
 
@@ -205,7 +209,8 @@ func releasePublishAction(
 			}
 		}
 
-		if rOpts.Plan.Output != nil {
+		// Set asset files based on plan if no file arguments were given.
+		if len(rlsOpts.AssetFiles) == 0 && rOpts.Plan.Output != nil {
 			rlsOpts.AssetFiles = []string{
 				filepath.Join(
 					rOpts.Plan.Output.Directory,

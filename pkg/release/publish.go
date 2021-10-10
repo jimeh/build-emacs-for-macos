@@ -237,7 +237,7 @@ func uploadReleaseAssets(
 }
 
 func publishFileList(files []string) ([]string, error) {
-	var output []string
+	results := map[string]struct{}{}
 	for _, file := range files {
 		var err error
 		file, err = filepath.Abs(file)
@@ -253,7 +253,7 @@ func publishFileList(files []string) ([]string, error) {
 			return nil, fmt.Errorf("\"%s\" is not a file", file)
 		}
 
-		output = append(output, file)
+		results[file] = struct{}{}
 		sumFile := file + ".sha256"
 
 		_, err = os.Stat(sumFile)
@@ -264,7 +264,12 @@ func publishFileList(files []string) ([]string, error) {
 
 			return nil, err
 		}
-		output = append(output, sumFile)
+		results[sumFile] = struct{}{}
+	}
+
+	var output []string
+	for f := range results {
+		output = append(output, f)
 	}
 
 	return output, nil
