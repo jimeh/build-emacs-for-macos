@@ -11,9 +11,11 @@ type ReleaseInfo struct {
 	Assets  map[string]*ReleaseAsset
 }
 
-func (s *ReleaseInfo) Asset(nameMatch string) *ReleaseAsset {
-	if a, ok := s.Assets[nameMatch]; ok {
-		return a
+func (s *ReleaseInfo) Asset(needles ...string) *ReleaseAsset {
+	if len(needles) == 1 {
+		if a, ok := s.Assets[needles[0]]; ok {
+			return a
+		}
 	}
 
 	// Dirty and inefficient way to ensure assets are searched in a predictable
@@ -27,16 +29,20 @@ func (s *ReleaseInfo) Asset(nameMatch string) *ReleaseAsset {
 	})
 
 	for _, a := range assets {
-		if strings.Contains(a.Filename, nameMatch) {
-			return a
+		for _, needle := range needles {
+			if !strings.Contains(a.Filename, needle) {
+				continue
+			}
 		}
+
+		return a
 	}
 
 	return nil
 }
 
-func (s *ReleaseInfo) DownloadURL(nameMatch string) string {
-	a := s.Asset(nameMatch)
+func (s *ReleaseInfo) DownloadURL(needles ...string) string {
+	a := s.Asset(needles...)
 	if a == nil {
 		return ""
 	}
@@ -44,8 +50,8 @@ func (s *ReleaseInfo) DownloadURL(nameMatch string) string {
 	return a.DownloadURL
 }
 
-func (s *ReleaseInfo) SHA256(nameMatch string) string {
-	a := s.Asset(nameMatch)
+func (s *ReleaseInfo) SHA256(needles ...string) string {
+	a := s.Asset(needles...)
 	if a == nil {
 		return ""
 	}
