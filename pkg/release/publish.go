@@ -204,7 +204,6 @@ func publishFileList(files []string) ([]string, error) {
 		sumFile := file + ".sha256"
 
 		_, err = os.Stat(sumFile)
-		fmt.Printf("err: %+v\n", err)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
