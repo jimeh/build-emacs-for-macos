@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.20](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.19...v0.6.20) (2021-10-23)
+
+
+### Bug Fixes
+
+* **notarization:** explicitly only copy *.c and *.h C source files ([591c39e](https://github.com/jimeh/build-emacs-for-macos/commit/591c39e629c9556adcf296cd5c15dd0b17c4d986))
+
 ### [0.6.19](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.18...v0.6.19) (2021-10-23)
 
 
