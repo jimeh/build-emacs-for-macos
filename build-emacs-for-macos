@@ -797,7 +797,10 @@ class AbstractEmbedder
 end
 
 class CSourcesEmbedder < AbstractEmbedder
+  PATH_PATCH = '(setq source-directory (expand-file-name ".."))'
+
   attr_reader :source_dir
+
   def initialize(app, source_dir)
     super(app)
 
@@ -807,13 +810,18 @@ class CSourcesEmbedder < AbstractEmbedder
   def embed
     info 'Embedding C source files into Emacs.app for documentation purposes'
 
-    FileUtils.cp_r(
-      File.join(source_dir, 'src'),
-      File.join(resources_dir, 'src')
-    )
+    src_dir = File.join(source_dir, 'src')
+    Dir[File.join(src_dir, '**', '*.{c,h}')].each do |f|
+      rel = f[src_dir.size + 1..-1]
+      target = File.join(resources_dir, 'src', rel)
+      FileUtils.mkdir_p(File.dirname(target))
+      FileUtils.cp(f, target)
+    end
+
+    return if File.read(subdirs_el_file).include?(PATH_PATCH)
 
     File.open(subdirs_el_file, 'a') do |f|
-      f.puts("(setq source-directory (expand-file-name \"..\"))\n")
+      f.puts("\n#{PATH_PATCH}")
     end
   end
 
