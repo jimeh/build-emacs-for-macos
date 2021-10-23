@@ -640,8 +640,10 @@ class Build
         'emacs-26'
       when /^emacs-27.*/
         'emacs-27'
-      else
+      when /^emacs-28.*/
         'emacs-28'
+      else
+        'emacs-29'
       end
     end
   end
@@ -649,14 +651,14 @@ class Build
   def patches(opts = {})
     p = []
 
-    if %w[emacs-26 emacs-27 emacs-28].include?(effective_version)
+    if %w[emacs-26 emacs-27 emacs-28 emacs-29].include?(effective_version)
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
              "patches/#{effective_version}/fix-window-role.patch"
       }
     end
 
-    if %w[emacs-27 emacs-28].include?(effective_version)
+    if %w[emacs-27 emacs-28 emacs-29].include?(effective_version)
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
              "patches/#{effective_version}/system-appearance.patch"
