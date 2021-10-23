@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.19](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.18...v0.6.19) (2021-10-23)
+
+
+### Bug Fixes
+
+* **patch:** resolve emacs-29 symlink patches to their real URL ([bcbd017](https://github.com/jimeh/build-emacs-for-macos/commit/bcbd01778d416b99205c51f348a543489889f66d))
+
 ### [0.6.18](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.17...v0.6.18) (2021-10-23)
 
 
