@@ -717,7 +717,14 @@ class Build
       info "Downloading patch: #{patch[:url]}"
       run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
 
-      apply_patch({ file: patch_file }, target)
+      real_patch_url = detect_github_symlink_patch(patch[:url], patch_file)
+      if real_patch_url
+        FileUtils.rm(patch_file)
+        apply_patch({ url: real_patch_url }, target)
+      else
+        apply_patch({ file: patch_file }, target)
+      end
+
     elsif patch[:replace]
       err 'Patch replace input error' unless patch[:replace].size == 3
 
@@ -734,6 +741,30 @@ class Build
       f.reopen(filepath, 'wb').write(s)
       f.close
     end
+  end
+
+  # When downloading raw files from GitHub, if the target file is a symlink, it
+  # will return the actual target path of the symlink instead of the content of
+  # the target file. Hence we have to check if the patch file we have downloaded
+  # contains one and only one line, and if so, assume it's a symlink.
+  def detect_github_symlink_patch(original_url, patch_file)
+    lines = []
+
+    # read first two lines
+    File.open(patch_file) do |f|
+      lines << f.gets
+      lines << f.gets
+    end
+
+    # if the file contains more than one line of text, it's not a symlink.
+    return unless lines[1].nil?
+
+    symlink_target = lines[0].strip
+    # Assume patch file content is something along the lines of
+    # "../emacs-28/fix-window-role.patch", hence we resolve it relative to the
+    # original url.
+    info "patch is symlink to #{symlink_target}"
+    URI.join(original_url, symlink_target).to_s
   end
 end
 
