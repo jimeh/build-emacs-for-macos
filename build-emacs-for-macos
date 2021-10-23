@@ -107,6 +107,7 @@ class Build
     handle_native_lisp(app)
     add_cli_helper(app)
 
+    CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(app, brew_dir, extra_libs, options[:relink_eln]).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
 
@@ -757,6 +758,38 @@ class AbstractEmbedder
 
   def lib_dir
     File.join(invocation_dir, 'lib')
+  end
+
+  def resources_dir
+    File.join(app, 'Contents', 'Resources')
+  end
+end
+
+class CSourcesEmbedder < AbstractEmbedder
+  attr_reader :source_dir
+  def initialize(app, source_dir)
+    super(app)
+
+    @source_dir = source_dir
+  end
+
+  def embed
+    info 'Embedding C source files into Emacs.app for documentation purposes'
+
+    FileUtils.cp_r(
+      File.join(source_dir, 'src'),
+      File.join(resources_dir, 'src')
+    )
+
+    File.open(subdirs_el_file, 'a') do |f|
+      f.puts("(setq source-directory (expand-file-name \"..\"))\n")
+    end
+  end
+
+  private
+
+  def subdirs_el_file
+    @subdirs_el_file ||= File.join(resources_dir, 'lisp', 'subdirs.el')
   end
 end
 
