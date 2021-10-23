@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.18](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.17...v0.6.18) (2021-10-23)
+
+
+### Features
+
+* **docs:** embed C source files and set source-directory accordingly ([67b8c5f](https://github.com/jimeh/build-emacs-for-macos/commit/67b8c5f3974e178e31519846d46af82d9770ad6e))
+
+
+### Bug Fixes
+
+* **patches:** correctly use emacs 28.x and 29.x patches ([4dad581](https://github.com/jimeh/build-emacs-for-macos/commit/4dad5812fa2b67adc7262a778829013995a904bc))
+
 ### [0.6.17](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.16...v0.6.17) (2021-10-10)
 
 
