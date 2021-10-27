@@ -46,6 +46,7 @@ func New(version, commit, date string) *CLI {
 			Commands: []*cli2.Command{
 				planCmd(),
 				signCmd(),
+				signFilesCmd(),
 				notarizeCmd(),
 				packageCmd(),
 				releaseCmd(),
