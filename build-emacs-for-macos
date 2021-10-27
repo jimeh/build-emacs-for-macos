@@ -105,8 +105,8 @@ class Build
     build_dir, app = create_build_dir(app)
 
     handle_native_lisp(app)
-    add_cli_helper(app)
 
+    CLIHelperEmbedder.new(app).embed
     CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(app, brew_dir, extra_libs, options[:relink_eln]).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
@@ -506,18 +506,6 @@ class Build
     end
   end
 
-  def add_cli_helper(app)
-    source = File.join(__dir__, 'helper', 'emacs-cli.bash')
-    target = File.join(app, 'Contents', 'MacOS', 'bin', 'emacs')
-    dir = File.dirname(target)
-
-    info "Adding \"emacs\" CLI helper to #{dir}"
-
-    FileUtils.mkdir_p(dir)
-    FileUtils.cp(source, target)
-    FileUtils.chmod('+w', target)
-  end
-
   def build_name
     return @build_name if @build_name
     return @build_name = options[:build_name] if options[:build_name]
@@ -787,12 +775,30 @@ class AbstractEmbedder
     File.join(invocation_dir, 'Emacs')
   end
 
+  def bin_dir
+    File.join(invocation_dir, 'bin')
+  end
+
   def lib_dir
     File.join(invocation_dir, 'lib')
   end
 
   def resources_dir
     File.join(app, 'Contents', 'Resources')
+  end
+end
+
+class CLIHelperEmbedder < AbstractEmbedder
+  def embed
+    source = File.join(__dir__, 'helper', 'emacs-cli.bash')
+    target = File.join(bin_dir, 'emacs')
+    dir = File.dirname(target)
+
+    info "Adding \"emacs\" CLI helper to #{dir}"
+
+    FileUtils.mkdir_p(dir)
+    FileUtils.cp(source, target)
+    FileUtils.chmod('+w', target)
   end
 end
 
