@@ -286,8 +286,6 @@ class Build
         verify_native_comp
         gcc_info.verify_libgccjit
 
-        apply_native_comp_env_setup_patch(source)
-
         ENV['CFLAGS'] = [
           "-I#{File.join(gcc_info.root_dir, 'include')}",
           "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
@@ -605,21 +603,6 @@ class Build
   def run_cmd(*args)
     out "CMD: #{args.join(' ')}"
     system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
-  end
-
-  def apply_native_comp_env_setup_patch(source)
-    term = 'native-compile-setup-environment-variables'
-    file = 'lisp/emacs-lisp/comp.el'
-    return if `grep '#{term}' '#{file}'`.strip.size.positive?
-
-    template = File.read(
-      File.join(__dir__, 'patches/native-comp-env-setup.diff.erb')
-    )
-    patch = ERB.new(template).result(gcc_info.get_binding)
-    patch_file = File.join(source, 'macos_patches/native-comp-env-setup.diff')
-
-    File.write(patch_file, patch)
-    apply_patch({ file: patch_file }, source)
   end
 
   def effective_version
@@ -975,9 +958,44 @@ class GccLibEmbedder < AbstractEmbedder
     FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
     FileUtils.chmod_R('u+w', target_dir)
     FileUtils.mv(source_darwin_dir, target_darwin_dir)
+
+    env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
+    return if File.exist?(site_start_el_file) &&
+              File.read(site_start_el_file).include?(env_setup)
+
+    File.open(site_start_el_file, 'a') do |f|
+      f.puts("\n#{env_setup}")
+    end
   end
 
   private
+
+  NATIVE_COMP_ENV_VAR_TPL = <<~ELISP
+    ;; Set LIBRARY_PATH to point at bundled GCC and Xcode Command Line Tools to
+    ;; ensure native-comp works.
+    (when (and (eq system-type 'darwin)
+               (string-match-p "\\.app\\/Contents\\/MacOS\\/?$"
+                               invocation-directory))
+      (let* ((library-path-env (getenv "LIBRARY_PATH"))
+             (devtools-dir
+              "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
+             (gcc-dir (expand-file-name
+                       "<%= app_bundle_relative_lib_dir %>"
+                       invocation-directory))
+             (darwin-dir (expand-file-name
+                          "<%= app_bundle_relative_darwin_lib_dir %>"
+                          invocation-directory))
+             (lib-paths (list)))
+
+        (if library-path-env
+            (push library-path-env lib-paths))
+        (if (file-directory-p devtools-dir)
+            (push devtools-dir lib-paths))
+        (push darwin-dir lib-paths)
+        (push gcc-dir lib-paths)
+
+        (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":"))))
+  ELISP
 
   def embedded?
     Dir[File.join(target_dir, 'libgcc*')].any?
@@ -1001,6 +1019,10 @@ class GccLibEmbedder < AbstractEmbedder
 
   def relative_dir(path, root)
     Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
+  end
+
+  def site_start_el_file
+    @site_start_el_file ||= File.join(resources_dir, 'lisp', 'site-start.el')
   end
 end
 
