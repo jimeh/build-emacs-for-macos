@@ -803,7 +803,10 @@ class CLIHelperEmbedder < AbstractEmbedder
 end
 
 class CSourcesEmbedder < AbstractEmbedder
-  PATH_PATCH = '(setq source-directory (expand-file-name ".."))'
+  PATH_PATCH = <<~ELISP
+    ;; Allow Emacs to find bundled C sources.
+    (setq source-directory (expand-file-name ".."))
+  ELISP
 
   attr_reader :source_dir
 
@@ -824,17 +827,18 @@ class CSourcesEmbedder < AbstractEmbedder
       FileUtils.cp(f, target)
     end
 
-    return if File.read(subdirs_el_file).include?(PATH_PATCH)
+    return if File.exist?(site_start_el_file) &&
+              File.read(site_start_el_file).include?(PATH_PATCH)
 
-    File.open(subdirs_el_file, 'a') do |f|
+    File.open(site_start_el_file, 'a') do |f|
       f.puts("\n#{PATH_PATCH}")
     end
   end
 
   private
 
-  def subdirs_el_file
-    @subdirs_el_file ||= File.join(resources_dir, 'lisp', 'subdirs.el')
+  def site_start_el_file
+    @site_start_el_file ||= File.join(resources_dir, 'lisp', 'site-start.el')
   end
 end
 
