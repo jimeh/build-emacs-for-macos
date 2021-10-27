@@ -105,8 +105,8 @@ class Build
     build_dir, app = create_build_dir(app)
 
     handle_native_lisp(app)
-    add_cli_helper(app)
 
+    CLIHelperEmbedder.new(app).embed
     CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(app, brew_dir, extra_libs, options[:relink_eln]).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
@@ -285,8 +285,6 @@ class Build
         info 'Compiling with native-comp enabled'
         verify_native_comp
         gcc_info.verify_libgccjit
-
-        apply_native_comp_env_setup_patch(source)
 
         ENV['CFLAGS'] = [
           "-I#{File.join(gcc_info.root_dir, 'include')}",
@@ -506,18 +504,6 @@ class Build
     end
   end
 
-  def add_cli_helper(app)
-    source = File.join(__dir__, 'helper', 'emacs-cli.bash')
-    target = File.join(app, 'Contents', 'MacOS', 'bin', 'emacs')
-    dir = File.dirname(target)
-
-    info "Adding \"emacs\" CLI helper to #{dir}"
-
-    FileUtils.mkdir_p(dir)
-    FileUtils.cp(source, target)
-    FileUtils.chmod('+w', target)
-  end
-
   def build_name
     return @build_name if @build_name
     return @build_name = options[:build_name] if options[:build_name]
@@ -617,21 +603,6 @@ class Build
   def run_cmd(*args)
     out "CMD: #{args.join(' ')}"
     system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
-  end
-
-  def apply_native_comp_env_setup_patch(source)
-    term = 'native-compile-setup-environment-variables'
-    file = 'lisp/emacs-lisp/comp.el'
-    return if `grep '#{term}' '#{file}'`.strip.size.positive?
-
-    template = File.read(
-      File.join(__dir__, 'patches/native-comp-env-setup.diff.erb')
-    )
-    patch = ERB.new(template).result(gcc_info.get_binding)
-    patch_file = File.join(source, 'macos_patches/native-comp-env-setup.diff')
-
-    File.write(patch_file, patch)
-    apply_patch({ file: patch_file }, source)
   end
 
   def effective_version
@@ -787,6 +758,10 @@ class AbstractEmbedder
     File.join(invocation_dir, 'Emacs')
   end
 
+  def bin_dir
+    File.join(invocation_dir, 'bin')
+  end
+
   def lib_dir
     File.join(invocation_dir, 'lib')
   end
@@ -796,8 +771,25 @@ class AbstractEmbedder
   end
 end
 
+class CLIHelperEmbedder < AbstractEmbedder
+  def embed
+    source = File.join(__dir__, 'helper', 'emacs-cli.bash')
+    target = File.join(bin_dir, 'emacs')
+    dir = File.dirname(target)
+
+    info "Adding \"emacs\" CLI helper to #{dir}"
+
+    FileUtils.mkdir_p(dir)
+    FileUtils.cp(source, target)
+    FileUtils.chmod('+w', target)
+  end
+end
+
 class CSourcesEmbedder < AbstractEmbedder
-  PATH_PATCH = '(setq source-directory (expand-file-name ".."))'
+  PATH_PATCH = <<~ELISP
+    ;; Allow Emacs to find bundled C sources.
+    (setq source-directory (expand-file-name ".."))
+  ELISP
 
   attr_reader :source_dir
 
@@ -818,17 +810,18 @@ class CSourcesEmbedder < AbstractEmbedder
       FileUtils.cp(f, target)
     end
 
-    return if File.read(subdirs_el_file).include?(PATH_PATCH)
+    return if File.exist?(site_start_el_file) &&
+              File.read(site_start_el_file).include?(PATH_PATCH)
 
-    File.open(subdirs_el_file, 'a') do |f|
+    File.open(site_start_el_file, 'a') do |f|
       f.puts("\n#{PATH_PATCH}")
     end
   end
 
   private
 
-  def subdirs_el_file
-    @subdirs_el_file ||= File.join(resources_dir, 'lisp', 'subdirs.el')
+  def site_start_el_file
+    @site_start_el_file ||= File.join(resources_dir, 'lisp', 'site-start.el')
   end
 end
 
@@ -965,9 +958,44 @@ class GccLibEmbedder < AbstractEmbedder
     FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
     FileUtils.chmod_R('u+w', target_dir)
     FileUtils.mv(source_darwin_dir, target_darwin_dir)
+
+    env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
+    return if File.exist?(site_start_el_file) &&
+              File.read(site_start_el_file).include?(env_setup)
+
+    File.open(site_start_el_file, 'a') do |f|
+      f.puts("\n#{env_setup}")
+    end
   end
 
   private
+
+  NATIVE_COMP_ENV_VAR_TPL = <<~ELISP
+    ;; Set LIBRARY_PATH to point at bundled GCC and Xcode Command Line Tools to
+    ;; ensure native-comp works.
+    (when (and (eq system-type 'darwin)
+               (string-match-p "\\.app\\/Contents\\/MacOS\\/?$"
+                               invocation-directory))
+      (let* ((library-path-env (getenv "LIBRARY_PATH"))
+             (devtools-dir
+              "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
+             (gcc-dir (expand-file-name
+                       "<%= app_bundle_relative_lib_dir %>"
+                       invocation-directory))
+             (darwin-dir (expand-file-name
+                          "<%= app_bundle_relative_darwin_lib_dir %>"
+                          invocation-directory))
+             (lib-paths (list)))
+
+        (if library-path-env
+            (push library-path-env lib-paths))
+        (if (file-directory-p devtools-dir)
+            (push devtools-dir lib-paths))
+        (push darwin-dir lib-paths)
+        (push gcc-dir lib-paths)
+
+        (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":"))))
+  ELISP
 
   def embedded?
     Dir[File.join(target_dir, 'libgcc*')].any?
@@ -991,6 +1019,10 @@ class GccLibEmbedder < AbstractEmbedder
 
   def relative_dir(path, root)
     Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
+  end
+
+  def site_start_el_file
+    @site_start_el_file ||= File.join(resources_dir, 'lisp', 'site-start.el')
   end
 end
 

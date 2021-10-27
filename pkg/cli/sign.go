@@ -112,3 +112,49 @@ func signAction(c *cli2.Context, opts *Options) error {
 
 	return sign.Emacs(c.Context, app, signOpts)
 }
+
+func signFilesCmd() *cli2.Command {
+	signCmd := signCmd()
+
+	var flags []cli2.Flag
+	for _, f := range signCmd.Flags {
+		n := f.Names()
+		if len(n) > 0 && n[0] == "plan" {
+			continue
+		}
+
+		flags = append(flags, f)
+	}
+
+	return &cli2.Command{
+		Name:      "sign-files",
+		Usage:     "sign files with codesign",
+		ArgsUsage: "<file> [<file>...]",
+		Hidden:    true,
+		Flags:     flags,
+		Action:    actionWrapper(signFilesAction),
+	}
+}
+
+func signFilesAction(c *cli2.Context, opts *Options) error {
+	signOpts := &sign.Options{
+		Identity:    c.String("sign"),
+		Options:     c.StringSlice("options"),
+		Deep:        c.Bool("deep"),
+		Timestamp:   c.Bool("timestamp"),
+		Force:       c.Bool("force"),
+		Verbose:     c.Bool("verbose"),
+		CodeSignCmd: c.String("codesign"),
+	}
+
+	if v := c.StringSlice("entitlements"); len(v) > 0 {
+		e := sign.Entitlements(v)
+		signOpts.Entitlements = &e
+	}
+
+	if !opts.quiet {
+		signOpts.Output = os.Stdout
+	}
+
+	return sign.Files(c.Context, c.Args().Slice(), signOpts)
+}
