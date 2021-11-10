@@ -1153,7 +1153,7 @@ if __FILE__ == $PROGRAM_NAME
   cli_options = {
     work_dir: File.expand_path(__dir__),
     native_full_aot: false,
-    relink_eln: true,
+    relink_eln: false,
     native_march: false,
     parallel: Etc.nprocessors,
     rsvg: true,
@@ -1213,7 +1213,7 @@ if __FILE__ == $PROGRAM_NAME
 
       opts.on('--[no-]relink-eln-files',
               'Enable/disable re-linking shared libraries in bundled *.eln ' \
-              'files (default: enabled)') do |v|
+              'files (default: disabled)') do |v|
         cli_options[:relink_eln] = v
       end
 
