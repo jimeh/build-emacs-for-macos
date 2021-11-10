@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.23](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.22...v0.6.23) (2021-11-10)
+
+
+### Bug Fixes
+
+* **build:** do not re-link eln files by default ([d338c13](https://github.com/jimeh/build-emacs-for-macos/commit/d338c136db8acc4378154cf66ed7db5462787602)), closes [#60](https://github.com/jimeh/build-emacs-for-macos/issues/60)
+
 ### [0.6.22](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.21...v0.6.22) (2021-11-10)
 
 
