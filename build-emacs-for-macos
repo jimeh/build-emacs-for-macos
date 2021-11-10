@@ -651,6 +651,15 @@ class Build
       end
     end
 
+    if %w[emacs-28 emacs-29].include?(effective_version)
+      if options[:posix_spawn]
+        p << {
+          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+               "patches/#{effective_version}/posix-spawn.patch"
+        }
+      end
+    end
+
     if effective_version == 'emacs-27'
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -1216,6 +1225,10 @@ if __FILE__ == $PROGRAM_NAME
 
       opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
         cli_options[:no_titlebar] = true
+      end
+
+      opts.on('--posix-spawn', 'Apply posix-spawn patch (default: disabled)') do
+        cli_options[:posix_spawn] = true
       end
 
       opts.on('--no-frame-refocus',
