@@ -81,8 +81,10 @@ Options:
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-march          Enable/disable -march=native CFLAG(default: disabled)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
+        --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: disabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
+        --posix-spawn                Apply posix-spawn patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
         --[no-]github-auth           Make authenticated GitHub API requests if GITHUB_TOKEN environment variable is set.(default: enabled)
         --work-dir DIR               Specify a working directory where tarballs, sources, and builds will be stored and worked with
@@ -90,7 +92,8 @@ Options:
         --build-name NAME            Override generated build name
         --dist-include x,y,z         List of extra files to copy from Emacs source into build folder/archive (default: COPYING)
         --[no-]archive               Enable/disable creating *.tbz archive (default: enabled)
-        --[no-]archive-keep          Enable/disable keeping source folder for archive (default: disabled)
+        --[no-]archive-keep-build-dir
+                                     Enable/disable keeping source folder for archive (default: disabled)
         --plan FILE                  Follow given plan file, instead of using given git ref/sha
 ```
 
