@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.24](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.23...v0.6.24) (2021-11-24)
+
+
+### Bug Fixes
+
+* **embedding:** embedding GCC fails when paths do not require sanitizing ([8a467b0](https://github.com/jimeh/build-emacs-for-macos/commit/8a467b0d43140f6956d53c27e2319ae1b572868c))
+
 ### [0.6.23](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.22...v0.6.23) (2021-11-10)
 
 
