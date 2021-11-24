@@ -966,7 +966,9 @@ class GccLibEmbedder < AbstractEmbedder
     FileUtils.cp_r(source_dir, target_dir)
     FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
     FileUtils.chmod_R('u+w', target_dir)
-    FileUtils.mv(source_darwin_dir, target_darwin_dir)
+    if source_darwin_dir != target_darwin_dir
+      FileUtils.mv(source_darwin_dir, target_darwin_dir)
+    end
 
     env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
     return if File.exist?(site_start_el_file) &&
