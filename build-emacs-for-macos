@@ -26,12 +26,25 @@ module Output
     if newline
       warn "==> #{msg}"
     else
-      STDERR.print "==> #{msg}"
+      $stderr.print "==> #{msg}"
     end
   end
 
   def err(msg = nil)
     raise Error, msg
+  end
+end
+
+module System
+  include Output
+
+  def run_cmd(*args)
+    out("CMD: #{args.join(' ')}")
+    cmd(*args)
+  end
+
+  def cmd(*args)
+    system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
   end
 end
 
@@ -71,6 +84,7 @@ end
 
 class Build
   include Output
+  include System
 
   EMACS_MIRROR_REPO = 'emacs-mirror/emacs'
   DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
@@ -400,13 +414,13 @@ class Build
     info "Copying \"#{app_name}\" to: #{target_dir}"
 
     FileUtils.mkdir_p(target_dir)
-    FileUtils.cp_r(app, target_dir)
+    cmd('cp', '-a', app, target_dir)
 
     options[:dist_include]&.each do |filename|
       src = File.join(source_dir, filename)
       if File.exist?(src)
         info "Copying \"#{filename}\" to: #{target_dir}"
-        FileUtils.cp_r(src, target_dir)
+        cmd('cp', '-pRL', src, target_dir)
       else
         info "Warning: #{filename} does not exist in #{source_dir}"
       end
@@ -431,7 +445,7 @@ class Build
       info 'Creating symlinks within Emacs.app needed for native-comp'
 
       if !File.exist?('lisp') && File.exist?('Resources/lisp')
-        FileUtils.ln_s('Resources/lisp', 'lisp')
+        run_cmd('ln', '-s', 'Resources/lisp', 'lisp')
       end
 
       # Check for folder name containing two dots (.), as this causes Apple's
@@ -453,7 +467,7 @@ class Build
             new_name = File.join(parent, base.gsub(/\.(.+)\./, '-\\1-'))
 
             info "Renaming: #{old_name} --> #{new_name}"
-            FileUtils.mv(old_name, new_name)
+            cmd('mv', old_name, new_name)
           end
 
           base = File.basename(parent)
@@ -477,7 +491,7 @@ class Build
       end
 
       target = File.basename(source)
-      FileUtils.ln_s(source, target) unless File.exist?(target)
+      run_cmd('ln', '-s', source, target) unless File.exist?(target)
     end
   end
 
@@ -598,11 +612,6 @@ class Build
     return unless response.code == '200'
 
     response.body
-  end
-
-  def run_cmd(*args)
-    out "CMD: #{args.join(' ')}"
-    system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
   end
 
   def effective_version
@@ -750,6 +759,7 @@ end
 
 class AbstractEmbedder
   include Output
+  include System
 
   attr_reader :app
 
@@ -786,11 +796,11 @@ class CLIHelperEmbedder < AbstractEmbedder
     target = File.join(bin_dir, 'emacs')
     dir = File.dirname(target)
 
-    info "Adding \"emacs\" CLI helper to #{dir}"
+    info 'Adding "emacs" CLI helper to Emacs.app'
 
     FileUtils.mkdir_p(dir)
-    FileUtils.cp(source, target)
-    FileUtils.chmod('+w', target)
+    run_cmd('cp', '-pRL', source, target)
+    run_cmd('chmod', '+w', target)
   end
 end
 
@@ -816,7 +826,7 @@ class CSourcesEmbedder < AbstractEmbedder
       rel = f[src_dir.size + 1..-1]
       target = File.join(resources_dir, 'src', rel)
       FileUtils.mkdir_p(File.dirname(target))
-      FileUtils.cp(f, target)
+      cmd('cp', '-pRL', f, target)
     end
 
     return if File.exist?(site_start_el_file) &&
@@ -906,7 +916,7 @@ class LibEmbedder < AbstractEmbedder
       next if match[2] == exe_file || File.exist?(File.join(lib_dir, match[2]))
 
       FileUtils.mkdir_p(lib_dir)
-      FileUtils.cp(match[1], lib_dir)
+      cmd('cp', '-pRL', match[1], lib_dir)
       copy_libs(File.join(lib_dir, match[2].to_s), rel_path)
     end
   end
@@ -921,7 +931,7 @@ class LibEmbedder < AbstractEmbedder
       target = "#{lib_dir}/#{lib_file}"
       unless File.exist?(target)
         FileUtils.mkdir_p(lib_dir)
-        FileUtils.cp(lib, lib_dir)
+        cmd('cp', '-pRL', lib, lib_dir)
       end
 
       while_writable(target) do
@@ -938,7 +948,7 @@ class LibEmbedder < AbstractEmbedder
     File.chmod(0o775, file)
     yield
   ensure
-    File.chmod(mode, file)
+    File.chmod(mode, file) if File.exist?(file)
   end
 end
 
@@ -963,11 +973,11 @@ class GccLibEmbedder < AbstractEmbedder
     end
 
     FileUtils.mkdir_p(File.dirname(target_dir))
-    FileUtils.cp_r(source_dir, target_dir)
+    run_cmd('cp', '-pRL', source_dir, target_dir)
     FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
-    FileUtils.chmod_R('u+w', target_dir)
+    run_cmd('chmod', '-R', 'u+w', target_dir)
     if source_darwin_dir != target_darwin_dir
-      FileUtils.mv(source_darwin_dir, target_darwin_dir)
+      run_cmd('mv', source_darwin_dir, target_darwin_dir)
     end
 
     env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
