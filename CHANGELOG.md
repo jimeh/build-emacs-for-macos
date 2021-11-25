@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.25](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.24...v0.6.25) (2021-11-25)
+
 ### [0.6.24](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.23...v0.6.24) (2021-11-24)
 
 
