@@ -81,7 +81,7 @@ Options:
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-march          Enable/disable -march=native CFLAG(default: disabled)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
-        --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: disabled)
+        --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: enabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --posix-spawn                Apply posix-spawn patch (default: disabled)
