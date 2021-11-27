@@ -17,21 +17,10 @@ Use this script at your own risk.
   built from the `master` branch. This script allows you to choose any branch,
   tag, or git ref you want.
 
-## Status
+## Binary Builds
 
-As of writing (2021-04-25) it works for me on my machine. Your luck may vary.
-
-I have successfully built:
-
-- `emacs-27.1` release git tag
-- `master` branch (Emacs 28.x)
-- `feature/native-comp` branch (Emacs 28.x)
-
-For reference, my machine is:
-
-- 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
-- macOS Big Sur 11.2.3 (20D91)
-- Xcode 12.4 (12D4e)
+Nightly and stable binary builds produced with this build script are available
+from [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds).
 
 ## Limitations
 
@@ -41,14 +30,9 @@ The build produced does have some limitations:
   application will be that of the machine it was built on.
 - The minimum required macOS version of the built application will be the same
   as that of the machine it was built on.
-- The application is not signed, so running it on machines other than the one
-  that built the application will yield warnings. If you want to make a signed
-  Emacs.app, google is you friend for finding signing instructions.
-
-## Binary Builds
-
-Nightly and stable binary builds produced with this build script are available
-from [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds).
+- The application is not signed automatically, but the CLI tool used to sign the
+  nightly builds is available. Run `go run ./cmd/emacs-builder package --help`
+  for details. More detailed instructions will come soon.
 
 ## Requirements
 
@@ -65,6 +49,26 @@ from [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds).
   ```
   brew install ruby
   ```
+
+## Status
+
+As of writing (2021-11-27) it works for me on my machine and for the nightly
+builds in [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds). Your luck
+may vary.
+
+I have successfully built:
+
+- `emacs-28` release branch
+- `master` branch (Emacs 29.x)
+
+For reference, my machine is:
+
+- 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
+- macOS Monterey 12.0.1 (21A559)
+- Xcode 13.1 (13A1030d)
+
+Nightly builds are built with GitHub Actions on GitHub-hosted runners, using
+`macos-10.15`.
 
 ## Usage
 
