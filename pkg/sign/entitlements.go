@@ -14,6 +14,7 @@ var DefaultEmacsEntitlements = []string{
 	"com.apple.security.cs.allow-jit",
 	"com.apple.security.network.client",
 	"com.apple.security.cs.disable-library-validation",
+	"com.apple.security.cs.allow-dyld-environment-variables",
 	"com.apple.security.automation.apple-events",
 }
 

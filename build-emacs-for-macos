@@ -213,7 +213,7 @@ class Build
     end
 
     out "CMD: #{log_args.join(' ')}"
-    system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
+    cmd(*args)
 
     target
   end
@@ -549,7 +549,7 @@ class Build
     if !File.exist?(archive_filename)
       info "Creating #{filename} archive in \"#{target_dir}\"..."
       FileUtils.cd(parent_dir) do
-        system('tar', '-cjf', archive_filename, build)
+        cmd('tar', '-cjf', archive_filename, build)
 
         if options[:archive_keep] == false
           info "Removing \"#{build}\" directory from #{parent_dir}"
@@ -770,23 +770,27 @@ class AbstractEmbedder
   end
 
   def invocation_dir
-    File.join(app, 'Contents', 'MacOS')
+    @invocation_dir ||= File.join(app, 'Contents', 'MacOS')
   end
 
   def bin
-    File.join(invocation_dir, 'Emacs')
+    @bin ||= File.join(invocation_dir, 'Emacs')
   end
 
   def bin_dir
-    File.join(invocation_dir, 'bin')
+    @bin_dir ||= File.join(invocation_dir, 'bin')
   end
 
   def lib_dir
-    File.join(invocation_dir, 'lib')
+    @lib_dir ||= frameworks_dir
+  end
+
+  def frameworks_dir
+    @frameworks_dir ||= File.join(app, 'Contents', 'Frameworks')
   end
 
   def resources_dir
-    File.join(app, 'Contents', 'Resources')
+    @resources_dir ||= File.join(app, 'Contents', 'Resources')
   end
 end
 
@@ -847,14 +851,14 @@ end
 class LibEmbedder < AbstractEmbedder
   attr_reader :lib_source
   attr_reader :extra_libs
-  attr_reader :embed_eln_files
+  attr_reader :relink_eln_files
 
-  def initialize(app, lib_source, extra_libs = [], embed_eln_files = true)
+  def initialize(app, lib_source, extra_libs = [], relink_eln_files = true)
     super(app)
 
     @lib_source = lib_source
     @extra_libs = extra_libs
-    @embed_eln_files = embed_eln_files
+    @relink_eln_files = relink_eln_files
   end
 
   def embed
@@ -864,15 +868,20 @@ class LibEmbedder < AbstractEmbedder
     binary ||= bin
 
     FileUtils.cd(File.dirname(app)) do
+      rel_path = Pathname.new(lib_dir).relative_path_from(
+        Pathname.new(File.dirname(binary))
+      ).to_s
+      rpath = File.join('@executable_path', rel_path)
+
+      set_rpath(binary, rpath)
       copy_libs(binary)
       copy_extra_libs(extra_libs, binary) if extra_libs.any?
-      if eln_files.any?
+
+      if relink_eln_files && eln_files.any?
         info "Embedding libraries for #{eln_files.size} *.eln files " \
              'within Emacs.app'
-        rel_path = Pathname.new(lib_dir).relative_path_from(
-          Pathname.new(File.dirname(binary))
-        ).to_s
-        eln_files.each { |f| copy_libs(f, rel_path) } if embed_eln_files
+
+        eln_files.each { |f| copy_libs(f) }
       end
     end
   end
@@ -883,21 +892,19 @@ class LibEmbedder < AbstractEmbedder
     @eln_files ||= Dir[File.join(app, 'Contents', '**', '*.eln')]
   end
 
-  def copy_libs(exe, rel_path = nil)
-    exe_file = File.basename(exe)
-    rel_path ||= Pathname.new(lib_dir).relative_path_from(
-      Pathname.new(File.dirname(exe))
-    ).to_s
+  def set_rpath(exe, rpath)
+    return if rpath.nil? || rpath == ''
 
-    rpath = File.join('@executable_path', rel_path)
     rpaths = `otool -l "#{exe}" | grep -A 2 'cmd LC_RPATH' | grep 'path'`
+    return if rpaths.include?(rpath)
 
-    unless rpaths.include?(rpath)
-      while_writable(exe) do
-        system('install_name_tool', '-add_rpath',
-               File.join('@executable_path', rel_path), exe)
-      end
+    while_writable(exe) do
+      cmd('install_name_tool', '-add_rpath', rpath, exe)
     end
+  end
+
+  def copy_libs(exe)
+    exe_file = File.basename(exe)
 
     `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
       match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
@@ -905,11 +912,11 @@ class LibEmbedder < AbstractEmbedder
 
       while_writable(exe) do
         if match[2] == exe_file
-          system('install_name_tool', '-id',
-                 File.join('@executable_path', rel_path, match[2].to_s), exe)
+          cmd('install_name_tool', '-id',
+              File.join('@rpath', match[2].to_s), exe)
         else
-          system('install_name_tool', '-change', match[1],
-                 File.join('@executable_path', rel_path, match[2].to_s), exe)
+          cmd('install_name_tool', '-change', match[1],
+              File.join('@rpath', match[2].to_s), exe)
         end
       end
 
@@ -917,15 +924,11 @@ class LibEmbedder < AbstractEmbedder
 
       FileUtils.mkdir_p(lib_dir)
       cmd('cp', '-pRL', match[1], lib_dir)
-      copy_libs(File.join(lib_dir, match[2].to_s), rel_path)
+      copy_libs(File.join(lib_dir, match[2].to_s))
     end
   end
 
-  def copy_extra_libs(extra_libs, exe, rel_path = nil)
-    rel_path ||= Pathname.new(lib_dir).relative_path_from(
-      Pathname.new(File.dirname(exe))
-    ).to_s
-
+  def copy_extra_libs(extra_libs, exe)
     extra_libs.each do |lib|
       lib_file = File.basename(lib)
       target = "#{lib_dir}/#{lib_file}"
@@ -935,11 +938,11 @@ class LibEmbedder < AbstractEmbedder
       end
 
       while_writable(target) do
-        system('install_name_tool', '-id',
-               File.join('@executable_path', rel_path, lib_file), target)
+        cmd('install_name_tool', '-id',
+            File.join('@rpath', lib_file), target)
       end
 
-      copy_libs(target, rel_path)
+      copy_libs(target)
     end
   end
 
@@ -1066,7 +1069,7 @@ class GccInfo
   end
 
   def relative_lib_dir
-    @relative_lib_dir ||= relative_dir(lib_dir, root_dir)
+    @relative_lib_dir ||= relative_dir(lib_dir, File.join(root_dir, 'lib'))
   end
 
   def darwin_lib_dir
@@ -1081,7 +1084,9 @@ class GccInfo
   end
 
   def relative_darwin_lib_dir
-    @relative_darwin_lib_dir ||= relative_dir(darwin_lib_dir, root_dir)
+    @relative_darwin_lib_dir ||= relative_dir(
+      darwin_lib_dir, File.join(root_dir, 'lib')
+    )
   end
 
   # Sanitize folder name with full "MAJOR.MINOR.PATCH" version number to just
@@ -1165,7 +1170,7 @@ if __FILE__ == $PROGRAM_NAME
   cli_options = {
     work_dir: File.expand_path(__dir__),
     native_full_aot: false,
-    relink_eln: false,
+    relink_eln: true,
     native_march: false,
     parallel: Etc.nprocessors,
     rsvg: true,
@@ -1225,7 +1230,7 @@ if __FILE__ == $PROGRAM_NAME
 
       opts.on('--[no-]relink-eln-files',
               'Enable/disable re-linking shared libraries in bundled *.eln ' \
-              'files (default: disabled)') do |v|
+              'files (default: enabled)') do |v|
         cli_options[:relink_eln] = v
       end
 
