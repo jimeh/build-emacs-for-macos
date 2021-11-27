@@ -11,11 +11,18 @@ import (
 // DefaultEmacsEntitlements is the default set of entitlements application
 // bundles are signed with if no entitlements are provided.
 var DefaultEmacsEntitlements = []string{
-	"com.apple.security.cs.allow-jit",
-	"com.apple.security.network.client",
-	"com.apple.security.cs.disable-library-validation",
-	"com.apple.security.cs.allow-dyld-environment-variables",
+	"com.apple.developer.mail-client",
+	"com.apple.developer.web-browser",
 	"com.apple.security.automation.apple-events",
+	"com.apple.security.cs.allow-dyld-environment-variables",
+	"com.apple.security.cs.allow-jit",
+	"com.apple.security.cs.disable-library-validation",
+	"com.apple.security.device.audio-input",
+	"com.apple.security.device.camera",
+	"com.apple.security.device.microphone",
+	"com.apple.security.network.client",
+	"com.apple.security.network.server",
+	"com.apple.security.print",
 }
 
 //go:embed entitlements.tpl
