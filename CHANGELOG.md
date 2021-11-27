@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.26](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.25...v0.6.26) (2021-11-27)
+
+
+### Features
+
+* **build:** re-link eln files by default again ([4ae288c](https://github.com/jimeh/build-emacs-for-macos/commit/4ae288cae34c5e1d291dad7b6b654fe37c4a221f))
+* **native-comp:** no longer require gcc homebrew formula ([3bd78d1](https://github.com/jimeh/build-emacs-for-macos/commit/3bd78d130a5419a6530a7d30e271569e501870fb)), closes [#53](https://github.com/jimeh/build-emacs-for-macos/issues/53)
+
+
+### Bug Fixes
+
+* **embed:** relink shared libraries with [@rpath](https://github.com/rpath) instead of [@executable](https://github.com/executable)_path ([fb5362c](https://github.com/jimeh/build-emacs-for-macos/commit/fb5362ce183ce43e52afcc0fc721cf2145f9c85b))
+
 ### [0.6.25](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.24...v0.6.25) (2021-11-25)
 
 ### [0.6.24](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.23...v0.6.24) (2021-11-24)
