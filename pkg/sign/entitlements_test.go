@@ -47,11 +47,14 @@ var entitlementsTestCases = []struct {
 	{
 		name: "many",
 		entitlements: Entitlements{
-			"com.apple.security.cs.allow-jit",
-			"com.apple.security.network.client",
-			"com.apple.security.cs.disable-library-validation",
-			"com.apple.security.cs.allow-dyld-environment-variables",
+			"com.apple.developer.mail-client",
+			"com.apple.developer.web-browser",
 			"com.apple.security.automation.apple-events",
+			"com.apple.security.cs.allow-dyld-environment-variables",
+			"com.apple.security.cs.allow-jit",
+			"com.apple.security.cs.disable-library-validation",
+			"com.apple.security.network.client",
+			"com.apple.security.network.server",
 		},
 		//nolint:lll
 		want: undent.String(`
@@ -59,15 +62,21 @@ var entitlementsTestCases = []struct {
             <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
             <plist version="1.0">
               <dict>
-                <key>com.apple.security.cs.allow-jit</key>
+                <key>com.apple.developer.mail-client</key>
                 <true/>
-                <key>com.apple.security.network.client</key>
+                <key>com.apple.developer.web-browser</key>
                 <true/>
-                <key>com.apple.security.cs.disable-library-validation</key>
+                <key>com.apple.security.automation.apple-events</key>
                 <true/>
                 <key>com.apple.security.cs.allow-dyld-environment-variables</key>
                 <true/>
-                <key>com.apple.security.automation.apple-events</key>
+                <key>com.apple.security.cs.allow-jit</key>
+                <true/>
+                <key>com.apple.security.cs.disable-library-validation</key>
+                <true/>
+                <key>com.apple.security.network.client</key>
+                <true/>
+                <key>com.apple.security.network.server</key>
                 <true/>
               </dict>
             </plist>`,
@@ -78,11 +87,14 @@ var entitlementsTestCases = []struct {
 func TestDefaultEmacsEntitlements(t *testing.T) {
 	assert.Equal(t,
 		[]string{
-			"com.apple.security.cs.allow-jit",
-			"com.apple.security.network.client",
-			"com.apple.security.cs.disable-library-validation",
-			"com.apple.security.cs.allow-dyld-environment-variables",
+			"com.apple.developer.mail-client",
+			"com.apple.developer.web-browser",
 			"com.apple.security.automation.apple-events",
+			"com.apple.security.cs.allow-dyld-environment-variables",
+			"com.apple.security.cs.allow-jit",
+			"com.apple.security.cs.disable-library-validation",
+			"com.apple.security.network.client",
+			"com.apple.security.network.server",
 		},
 		DefaultEmacsEntitlements,
 	)

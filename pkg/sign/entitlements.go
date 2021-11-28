@@ -17,12 +17,8 @@ var DefaultEmacsEntitlements = []string{
 	"com.apple.security.cs.allow-dyld-environment-variables",
 	"com.apple.security.cs.allow-jit",
 	"com.apple.security.cs.disable-library-validation",
-	"com.apple.security.device.audio-input",
-	"com.apple.security.device.camera",
-	"com.apple.security.device.microphone",
 	"com.apple.security.network.client",
 	"com.apple.security.network.server",
-	"com.apple.security.print",
 }
 
 //go:embed entitlements.tpl
