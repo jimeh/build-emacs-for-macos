@@ -128,3 +128,15 @@ func (s *Repository) ActionRunURL(runID string) string {
 		return ""
 	}
 }
+
+func (s *Repository) ReleaseURL(releaseName string) string {
+	if releaseName == "" {
+		return ""
+	}
+	switch s.Type {
+	case GitHub:
+		return GitHubBaseURL + s.Source + "/releases/tag/" + releaseName
+	default:
+		return ""
+	}
+}

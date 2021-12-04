@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jimeh/build-emacs-for-macos/pkg/osinfo"
+	"github.com/jimeh/build-emacs-for-macos/pkg/release"
 	"github.com/jimeh/build-emacs-for-macos/pkg/source"
 	"gopkg.in/yaml.v3"
 )
@@ -78,10 +79,11 @@ type Build struct {
 }
 
 type Release struct {
-	Name       string `yaml:"name" json:"name"`
-	Title      string `yaml:"title,omitempty" json:"title,omitempty"`
-	Draft      bool   `yaml:"draft,omitempty" json:"draft,omitempty"`
-	Prerelease bool   `yaml:"prerelease,omitempty" json:"prerelease,omitempty"`
+	Name       string          `yaml:"name" json:"name"`
+	Title      string          `yaml:"title,omitempty" json:"title,omitempty"`
+	Draft      bool            `yaml:"draft,omitempty" json:"draft,omitempty"`
+	Prerelease bool            `yaml:"prerelease,omitempty" json:"prerelease,omitempty"`
+	Channel    release.Channel `yaml:"channel,omitempty" json:"channel,omitempty"`
 }
 
 type Output struct {

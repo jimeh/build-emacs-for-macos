@@ -18,7 +18,7 @@ var (
 
 var (
 	stableVersion = regexp.MustCompile(`^\d+\.\d+(?:[a-z]+)?$`)
-	stableGetRef  = regexp.MustCompile(`^emacs-(\d+\.\d+(?:[a-z]+)?)$`)
+	stableGitRef  = regexp.MustCompile(`^emacs-(\d+\.\d+(?:[a-z]+)?)$`)
 )
 
 func VersionToName(version string) (string, error) {
@@ -34,7 +34,7 @@ func VersionToName(version string) (string, error) {
 }
 
 func GitRefToStableVersion(ref string) (string, error) {
-	if m := stableGetRef.FindStringSubmatch(ref); len(m) > 1 {
+	if m := stableGitRef.FindStringSubmatch(ref); len(m) > 1 {
 		return m[1], nil
 	}
 

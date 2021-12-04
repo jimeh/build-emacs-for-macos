@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
@@ -13,10 +14,13 @@ import (
 	"github.com/jimeh/build-emacs-for-macos/pkg/osinfo"
 	"github.com/jimeh/build-emacs-for-macos/pkg/release"
 	"github.com/jimeh/build-emacs-for-macos/pkg/repository"
+	"github.com/jimeh/build-emacs-for-macos/pkg/sanitize"
 	"github.com/jimeh/build-emacs-for-macos/pkg/source"
 )
 
-var nonAlphaNum = regexp.MustCompile(`[^\w_-]+`)
+var gitTagMatcher = regexp.MustCompile(
+	`^emacs(-.*)?-((\d+\.\d+)(?:\.(\d+))?(-rc\d+)?(.+)?)$`,
+)
 
 type TestBuildType string
 
@@ -37,7 +41,7 @@ type Options struct {
 	Output        io.Writer
 }
 
-func Create(ctx context.Context, opts *Options) (*Plan, error) {
+func Create(ctx context.Context, opts *Options) (*Plan, error) { //nolint:funlen
 	logger := hclog.FromContext(ctx).Named("plan")
 
 	repo, err := repository.NewGitHub(opts.EmacsRepo)
@@ -66,19 +70,36 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		return nil, err
 	}
 
-	version := fmt.Sprintf(
+	absoluteVersion := fmt.Sprintf(
 		"%s.%s.%s",
 		commitInfo.DateString(),
 		commitInfo.ShortSHA(),
-		sanitizeString(opts.Ref),
+		sanitize.String(opts.Ref),
 	)
 
-	releaseName := fmt.Sprintf("Emacs.%s", version)
+	version, channel, err := parseGitRef(opts.Ref)
+	if err != nil {
+		return nil, err
+	}
+
+	var releaseName string
+	switch channel {
+	case release.Stable, release.RC:
+		releaseName = "Emacs-" + version
+	case release.Pretest:
+		version += "-pretest"
+		absoluteVersion += "-pretest"
+		releaseName = "Emacs-" + version
+	default:
+		version = absoluteVersion
+		releaseName = "Emacs." + version
+	}
+
 	buildName := fmt.Sprintf(
 		"Emacs.%s.%s.%s",
-		version,
-		sanitizeString(osInfo.Name+"-"+osInfo.DistinctVersion()),
-		sanitizeString(osInfo.Arch),
+		absoluteVersion,
+		sanitize.String(osInfo.Name+"-"+osInfo.DistinctVersion()),
+		sanitize.String(osInfo.Arch),
 	)
 	diskImage := buildName + ".dmg"
 
@@ -97,7 +118,8 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		OS: osInfo,
 		Release: &Release{
 			Name:       releaseName,
-			Prerelease: true,
+			Prerelease: channel != release.Stable,
+			Channel:    channel,
 		},
 		Output: &Output{
 			Directory: opts.OutputDir,
@@ -105,28 +127,18 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 		},
 	}
 
-	// If given git ref is a stable release tag (emacs-23.2b, emacs-27.2, etc.)
-	// we modify release properties accordingly.
-	if v, err := release.GitRefToStableVersion(opts.Ref); err == nil {
-		plan.Release.Prerelease = false
-		plan.Release.Name, err = release.VersionToName(v)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if opts.TestBuild != "" {
-		testName := sanitizeString(opts.TestBuild)
+		testName := sanitize.String(opts.TestBuild)
 
 		plan.Build.Name += ".test." + testName
-		plan.Release.Title = "Test Builds"
+		plan.Release.Title = "Test Builds (" + testName + ")"
 		plan.Release.Name = "test-builds"
 
-		plan.Release.Prerelease = true
-		plan.Release.Draft = false
-		if opts.TestBuildType == Draft {
-			plan.Release.Prerelease = false
-			plan.Release.Draft = true
+		plan.Release.Prerelease = false
+		plan.Release.Draft = true
+		if opts.TestBuildType == Prerelease {
+			plan.Release.Prerelease = true
+			plan.Release.Draft = false
 		}
 
 		index := strings.LastIndex(diskImage, ".")
@@ -137,6 +149,35 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) {
 	return plan, nil
 }
 
-func sanitizeString(s string) string {
-	return nonAlphaNum.ReplaceAllString(s, "-")
+func parseGitRef(ref string) (string, release.Channel, error) {
+	m := gitTagMatcher.FindStringSubmatch(ref)
+
+	if len(m) == 0 {
+		return "", release.Nightly, nil
+	}
+
+	if strings.Contains(m[1], "pretest") {
+		return m[2], release.Pretest, nil
+	}
+
+	if m[4] != "" {
+		n, err := strconv.Atoi(m[4])
+		if err != nil {
+			return "", "", err
+		}
+
+		if n >= 90 {
+			return m[2], release.Pretest, nil
+		}
+	}
+
+	if strings.HasPrefix(m[5], "-rc") {
+		return m[2], release.RC, nil
+	}
+
+	if m[2] == m[3] {
+		return m[2], release.Stable, nil
+	}
+
+	return "", "", nil
 }
