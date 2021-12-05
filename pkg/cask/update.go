@@ -393,9 +393,7 @@ func (s *Updater) renderCask(
 		filename := asset.GetName()
 		s.logger.Debug("processing asset", "filename", filename)
 
-		if strings.HasSuffix(filename, ".sha256") {
-			filename = strings.TrimSuffix(filename, ".sha256")
-		}
+		filename = strings.TrimSuffix(filename, ".sha256")
 
 		if _, ok := info.Assets[filename]; !ok {
 			info.Assets[filename] = &ReleaseAsset{
