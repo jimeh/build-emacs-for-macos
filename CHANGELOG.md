@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.27](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.26...v0.6.27) (2021-12-05)
+
+
+### Features
+
+* **plan:** add support for pretest and release candidate builds ([743b10c](https://github.com/jimeh/build-emacs-for-macos/commit/743b10c751e146ec7569f39a475c20a0489955f4))
+
 ### [0.6.26](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.25...v0.6.26) (2021-11-27)
 
 
