@@ -3,6 +3,7 @@
 brew 'autoconf'
 brew 'coreutils'
 brew 'curl'
+brew 'dbus'
 brew 'expat'
 brew 'gcc'
 brew 'gmp'
