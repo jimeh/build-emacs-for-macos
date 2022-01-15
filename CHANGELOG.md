@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.28](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.27...v0.6.28) (2022-01-15)
+
+
+### Features
+
+* **build:** add dbus dependency to enable support in Emacs builds ([68ef4c0](https://github.com/jimeh/build-emacs-for-macos/commit/68ef4c066c3fd1a7337198e8f773866088b4f481))
+
 ### [0.6.27](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.26...v0.6.27) (2021-12-05)
 
 
