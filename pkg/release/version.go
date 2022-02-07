@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 // Errors
@@ -26,7 +27,8 @@ func VersionToName(version string) (string, error) {
 		return "", ErrEmptyVersion
 	}
 
-	if stableVersion.MatchString(version) {
+	if stableVersion.MatchString(version) ||
+		strings.HasSuffix(version, "-pretest") {
 		return "Emacs-" + version, nil
 	}
 
