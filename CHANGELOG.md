@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.30](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.29...v0.6.30) (2022-02-08)
+
+
+### Bug Fixes
+
+* **site-lisp:** add Homebrew's site-lisp directory to locallisppath ([cbd8cb2](https://github.com/jimeh/build-emacs-for-macos/commit/cbd8cb27b6ceff2e128c38cd1cc8f8380b9b4bfb))
+
 ### [0.6.29](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.28...v0.6.29) (2022-02-07)
 
 
