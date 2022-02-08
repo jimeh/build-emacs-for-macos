@@ -359,7 +359,8 @@ class Build
         '--with-modules',
         '--enable-locallisppath=' \
         '/Library/Application Support/Emacs/${version}/site-lisp:' \
-        '/Library/Application Support/Emacs/site-lisp'
+        '/Library/Application Support/Emacs/site-lisp:' \
+        '/usr/local/share/emacs/site-lisp'
       ]
       if options[:xwidgets] && supports_xwidgets?
         configure_flags << '--with-xwidgets'
