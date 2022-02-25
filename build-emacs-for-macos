@@ -812,7 +812,8 @@ end
 class CSourcesEmbedder < AbstractEmbedder
   PATH_PATCH = <<~ELISP
     ;; Allow Emacs to find bundled C sources.
-    (setq source-directory (expand-file-name ".."))
+    (setq source-directory
+      (expand-file-name ".." (file-name-directory load-file-name)))
   ELISP
 
   attr_reader :source_dir
