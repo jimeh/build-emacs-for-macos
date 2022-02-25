@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.31](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.30...v0.6.31) (2022-02-25)
+
+
+### Bug Fixes
+
+* set source-directory correctly ([07e0e3d](https://github.com/jimeh/build-emacs-for-macos/commit/07e0e3dacddfbdb7a59aceaa2dc9cdf503ac2bcc)), closes [#68](https://github.com/jimeh/build-emacs-for-macos/issues/68)
+
 ### [0.6.30](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.29...v0.6.30) (2022-02-08)
 
 
