@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.32](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.31...v0.6.32) (2022-04-30)
+
+
+### Features
+
+* **dbus:** add flag to explicitly disable dbus support ([8ad3ff4](https://github.com/jimeh/build-emacs-for-macos/commit/8ad3ff4f53505408aa097527177032a1fd6008e0)), closes [#69](https://github.com/jimeh/build-emacs-for-macos/issues/69)
+* **deps:** add sqlite brew dependency for Emacs 29.x ([a20a845](https://github.com/jimeh/build-emacs-for-macos/commit/a20a8456ab1e8de6357d5d121b9565ba65a6dd71))
+
+
+### Bug Fixes
+
+* **native-comp:** support libgccjit 11.3.0 ([e31f5aa](https://github.com/jimeh/build-emacs-for-macos/commit/e31f5aaf9355b674c2a86b8eda35f6513f344b72)), closes [#71](https://github.com/jimeh/build-emacs-for-macos/issues/71)
+
 ### [0.6.31](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.30...v0.6.31) (2022-02-25)
 
 
