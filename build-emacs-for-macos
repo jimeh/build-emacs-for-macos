@@ -1126,7 +1126,8 @@ class GccInfo
 
   def libgccjit_lib_dir
     @libgccjit_lib_dir ||= Dir[
-      File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*')
+      File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit*.dylib'),
+      File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*'),
     ]
                            .map { |path| File.dirname(path) }
                            .select { |path| File.basename(path).match(/^\d+$/) }
