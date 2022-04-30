@@ -367,6 +367,7 @@ class Build
       end
       configure_flags << native_comp_configure_flag if options[:native_comp]
       configure_flags << '--without-rsvg' if options[:rsvg] == false
+      configure_flags << '--without-dbus' if options[:dbus] == false
 
       run_cmd './configure', *configure_flags
 
@@ -1177,6 +1178,7 @@ if __FILE__ == $PROGRAM_NAME
     native_march: false,
     parallel: Etc.nprocessors,
     rsvg: true,
+    dbus: true,
     xwidgets: true,
     github_auth: true,
     dist_include: ['COPYING'],
@@ -1241,6 +1243,11 @@ if __FILE__ == $PROGRAM_NAME
               'Enable/disable SVG image support via librsvg ' \
               '(default: enabled)') do |v|
         cli_options[:rsvg] = v
+      end
+
+      opts.on('--[no-]dbus',
+              'Enable/disable dbus support (default: enabled)') do |v|
+        cli_options[:dbus] = v
       end
 
       opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
