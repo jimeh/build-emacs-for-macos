@@ -16,7 +16,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/jimeh/undent v1.1.0
 	github.com/mattn/go-isatty v0.0.13 // indirect
-	github.com/mitchellh/gon v0.2.3
+	github.com/mitchellh/gon v0.2.5
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
