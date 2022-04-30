@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 resolve_link() {
-  "$(type -p greadlink readlink | head -1)" "$1"
+  "$(command -v greadlink || command -v readlink)" "$1"
 }
 
 abs_dirname() {
