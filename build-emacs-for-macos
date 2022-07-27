@@ -671,6 +671,17 @@ class Build
       end
     end
 
+    if effective_version == 'emacs-28'
+      p << {
+        replace: [
+          'configure.ac',
+          'grep libgccjit.so\$))"',
+          'grep -E \'libgccjit\.(so|dylib)$\'))"'
+        ],
+        allow_failure: true
+      }
+    end
+
     if effective_version == 'emacs-27'
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -720,17 +731,34 @@ class Build
       err 'Patch replace input error' unless patch[:replace].size == 3
 
       file, before, after = patch[:replace]
+      info "Applying patch to #{file}..."
       filepath = File.join(target, file)
 
-      err "\"#{file}\" does not exist in #{target}" unless File.exist?(filepath)
+      unless File.exist?(filepath)
+        if patch[:allow_failure]
+          info "File #{filepath} does not exist, skipping patch."
+          return
+        end
+
+        err "\"#{file}\" does not exist in #{target}"
+      end
 
       f = File.open(filepath, 'rb')
       s = f.read
       sub = s.gsub!(before, after)
-      err "Replacement filed in #{file}" if sub.nil?
+
+      if sub.nil?
+        if patch[:allow_failure]
+          info 'Patch did not apply, skipping.'
+          return
+        end
+
+        err "Replacement failed in #{file}"
+      end
 
       f.reopen(filepath, 'wb').write(s)
       f.close
+      info "#{file} patched."
     end
   end
 
