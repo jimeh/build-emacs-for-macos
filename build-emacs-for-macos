@@ -682,6 +682,17 @@ class Build
       }
     end
 
+    if %w[emacs-28 emacs-29].include?(effective_version)
+      p << {
+        replace: [
+          'configure.ac',
+          'grep -E \'libgccjit\.(so|dylib)$\'))"',
+          'grep -E \'libgccjit\.(so|dylib)$\' | tail -1))"'
+        ],
+        allow_failure: true
+      }
+    end
+
     if effective_version == 'emacs-27'
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
