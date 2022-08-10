@@ -675,8 +675,19 @@ class Build
       p << {
         replace: [
           'configure.ac',
-          'grep libgccjit.so\$))"',
-          'grep -E \'libgccjit\.(so|dylib)$\'))"'
+          'grep libgccjit.so\$',
+          'grep -E \'libgccjit\.(so|dylib)$\''
+        ],
+        allow_failure: true
+      }
+    end
+
+    if %w[emacs-28 emacs-29].include?(effective_version)
+      p << {
+        replace: [
+          'configure.ac',
+          'grep -E \'libgccjit\.(so|dylib)$\'',
+          'grep -E \'libgccjit\.(so|dylib)$\' | tail -1'
         ],
         allow_failure: true
       }
