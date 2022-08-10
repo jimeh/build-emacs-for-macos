@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.35](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.34...v0.6.35) (2022-08-10)
+
+
+### Bug Fixes
+
+* **native-comp:** compatibility with libgccjit 12 homebrew formula ([e0fd2b1](https://github.com/jimeh/build-emacs-for-macos/commit/e0fd2b16eb91ac5a98ed4ec31f4773ab22cbd470))
+
 ### [0.6.34](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.33...v0.6.34) (2022-07-27)
 
 
