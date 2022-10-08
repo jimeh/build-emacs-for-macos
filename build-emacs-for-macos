@@ -254,10 +254,30 @@ class Build
     @supports_native_comp ||= !native_comp_configure_flag.nil?
   end
 
+  def native_comp_configure_match
+    @native_comp_configure_match ||= configure_help.match(
+      /\s+?(--with-native(?:comp|-compilation))(.+)?\s+?/
+    )
+  end
+
   def native_comp_configure_flag
-    @native_comp_configure_flag ||= configure_help.match(
-      /\s+(--with-native(?:comp|-compilation))\s+/
-    )&.[](1)
+    return @native_comp_configure_flag if @native_comp_configure_flag
+
+    return unless native_comp_configure_match&.[](1)
+
+    @native_comp_configure_flag = [
+      native_comp_configure_match[1],
+      native_comp_configure_flag_arg
+    ].compact.join('=')
+  end
+
+  def native_comp_configure_flag_arg
+    return @native_comp_configure_flag_arg if @native_comp_configure_flag_arg
+
+    return if native_comp_configure_match&.[](2) != '[=TYPE]'
+
+    @native_comp_configure_flag_arg = \
+      (options[:native_full_aot] ? 'aot' : 'yes')
   end
 
   def detect_native_comp
@@ -369,7 +389,7 @@ class Build
       configure_flags << '--without-rsvg' if options[:rsvg] == false
       configure_flags << '--without-dbus' if options[:dbus] == false
 
-      run_cmd './configure', *configure_flags
+      run_cmd './configure', *configure_flags.compact
 
       # Disable aligned_alloc on Mojave and below. See issue:
       # https://github.com/daviderestivo/homebrew-emacs-head/issues/15
@@ -386,8 +406,12 @@ class Build
         make_flags << "BYTE_COMPILE_EXTRA_FLAGS=--eval '(setq comp-speed 2)'"
 
         if options[:native_full_aot]
-          info 'Using NATIVE_FULL_AOT=1'
-          make_flags << 'NATIVE_FULL_AOT=1'
+          info 'Using native compile full AOT'
+          # We do not need to supply the full AOT make arg if
+          # --with-native-compilation=aot configure flag is supported.
+          unless native_comp_configure_flag_arg
+            make_flags << 'NATIVE_FULL_AOT=1'
+          end
           ENV.delete('NATIVE_FAST_BOOT')
         else
           ENV.delete('NATIVE_FULL_AOT')
@@ -395,7 +419,7 @@ class Build
         end
       end
 
-      run_cmd 'make', *make_flags
+      run_cmd 'make', *make_flags.compact
       run_cmd 'make', 'install'
     end
 
