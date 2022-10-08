@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.36](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.35...v0.6.36) (2022-10-08)
+
+
+### Bug Fixes
+
+* **native-comp:** support new configure flag format ([1f2868d](https://github.com/jimeh/build-emacs-for-macos/commit/1f2868d4b3784e906665e9f3b6b9bba8fd72292f)), closes [#76](https://github.com/jimeh/build-emacs-for-macos/issues/76)
+
 ### [0.6.35](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.34...v0.6.35) (2022-08-10)
 
 
