@@ -695,6 +695,15 @@ class Build
       end
     end
 
+    if effective_version == 'emacs-29'
+      if options[:poll]
+        p << {
+          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+               "patches/#{effective_version}/poll.patch"
+        }
+      end
+    end
+
     if %w[emacs-28 emacs-29].include?(effective_version)
       if options[:posix_spawn]
         p << {
@@ -1340,6 +1349,13 @@ if __FILE__ == $PROGRAM_NAME
       opts.on('--no-frame-refocus',
               'Apply no-frame-refocus patch (default: disabled)') do
         cli_options[:no_frame_refocus] = true
+      end
+
+      opts.on('--[no-]poll',
+              'Enable/disable experimental use of poll() instead of select() ' \
+              'to support > 1024 file descriptors ' \
+              '(default: disabled)') do |v|
+        cli_options[:poll] = v
       end
 
       opts.on('--[no-]github-auth',
