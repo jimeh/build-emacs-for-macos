@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.38](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.37...v0.6.38) (2022-12-01)
+
+
+### Features
+
+* **patch:** add round-undecorated-frame from emacs-plus for 29.x ([48a512f](https://github.com/jimeh/build-emacs-for-macos/commit/48a512fbce79759caa987e2880585bd0bc937977))
+* **patch:** add support for experimental poll patch from emacs-plus for 29.x ([a3530c0](https://github.com/jimeh/build-emacs-for-macos/commit/a3530c02e8260106f87d464e5cb398dcb2819460))
+
 ### [0.6.37](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.36...v0.6.37) (2022-12-01)
 
 
