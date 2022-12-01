@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.6.37](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.36...v0.6.37) (2022-12-01)
+
+
+### Features
+
+* **tree-sitter:** support new --with-tree-sitter configure flag ([0ba971e](https://github.com/jimeh/build-emacs-for-macos/commit/0ba971ef61a195c91e87aa381d5d3b044461b4f6))
+
 ### [0.6.36](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.35...v0.6.36) (2022-10-08)
 
 
