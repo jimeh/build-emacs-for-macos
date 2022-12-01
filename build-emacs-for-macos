@@ -250,6 +250,12 @@ class Build
     @supports_xwidgets ||= !!configure_help.match(/\s+--with-xwidgets\s+/)
   end
 
+  def supports_tree_sitter?
+    @supports_tree_sitter ||= !!configure_help.match(
+      /\s+--with-tree-sitter(\s|=).+/
+    )
+  end
+
   def supports_native_comp?
     @supports_native_comp ||= !native_comp_configure_flag.nil?
   end
@@ -384,6 +390,9 @@ class Build
       ]
       if options[:xwidgets] && supports_xwidgets?
         configure_flags << '--with-xwidgets'
+      end
+      if options[:tree_sitter] && supports_tree_sitter?
+        configure_flags << '--with-tree-sitter'
       end
       configure_flags << native_comp_configure_flag if options[:native_comp]
       configure_flags << '--without-rsvg' if options[:rsvg] == false
@@ -1243,6 +1252,7 @@ if __FILE__ == $PROGRAM_NAME
     rsvg: true,
     dbus: true,
     xwidgets: true,
+    tree_sitter: true,
     github_auth: true,
     dist_include: ['COPYING'],
     archive: true,
@@ -1276,6 +1286,12 @@ if __FILE__ == $PROGRAM_NAME
               'Enable/disable XWidgets if supported ' \
               '(default: enabled)') do |v|
         cli_options[:xwidgets] = v
+      end
+
+      opts.on('--[no-]tree-sitter',
+              'Enable/disable tree-sitter if supported' \
+              '(default: enabled)') do |v|
+        cli_options[:tree_sitter] = v
       end
 
       opts.on('--[no-]native-comp',
