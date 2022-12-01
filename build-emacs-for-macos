@@ -696,6 +696,10 @@ class Build
     end
 
     if effective_version == 'emacs-29'
+      p << {
+        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+             "patches/#{effective_version}/round-undecorated-frame.patch"
+      }
       if options[:poll]
         p << {
           url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
