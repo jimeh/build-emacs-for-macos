@@ -658,8 +658,10 @@ class Build
         'emacs-27'
       when /^emacs-28.*/
         'emacs-28'
-      else
+      when /^emacs-29.*/
         'emacs-29'
+      else
+        'emacs-30'
       end
     end
   end
@@ -667,14 +669,14 @@ class Build
   def patches(opts = {})
     p = []
 
-    if %w[emacs-26 emacs-27 emacs-28 emacs-29].include?(effective_version)
+    if %w[emacs-26 emacs-27 emacs-28 emacs-29 emacs-30].include?(effective_version)
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
              "patches/#{effective_version}/fix-window-role.patch"
       }
     end
 
-    if %w[emacs-27 emacs-28 emacs-29].include?(effective_version)
+    if %w[emacs-27 emacs-28 emacs-29 emacs-30].include?(effective_version)
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
              "patches/#{effective_version}/system-appearance.patch"
@@ -695,7 +697,7 @@ class Build
       end
     end
 
-    if effective_version == 'emacs-29'
+    if %w[emacs-29 emacs-30].include?(effective_version)
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
              "patches/#{effective_version}/round-undecorated-frame.patch"
