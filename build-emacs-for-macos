@@ -708,15 +708,6 @@ class Build
       end
     end
 
-    if %w[emacs-28 emacs-29].include?(effective_version)
-      if options[:posix_spawn]
-        p << {
-          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{effective_version}/posix-spawn.patch"
-        }
-      end
-    end
-
     if effective_version == 'emacs-28'
       p << {
         replace: [
@@ -1346,8 +1337,8 @@ if __FILE__ == $PROGRAM_NAME
         cli_options[:no_titlebar] = true
       end
 
-      opts.on('--posix-spawn', 'Apply posix-spawn patch (default: disabled)') do
-        cli_options[:posix_spawn] = true
+      opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
+        warn '==> WARN: posix-spawn patch is deprecated as has no effect.'
       end
 
       opts.on('--no-frame-refocus',
