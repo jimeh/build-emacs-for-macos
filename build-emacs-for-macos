@@ -173,7 +173,9 @@ class Build
     libs = [
       File.join(brew_dir, 'opt/expat/lib/libexpat.1.dylib'),
       File.join(brew_dir, 'opt/libiconv/lib/libiconv.2.dylib'),
-      File.join(brew_dir, 'opt/zlib/lib/libz.1.dylib')
+      File.join(brew_dir, 'opt/zlib/lib/libz.1.dylib'),
+      File.join(brew_dir, 'lib/libwebp.7.dylib'),
+      File.join(brew_dir, 'lib/libsharpyuv.0.dylib')
     ]
 
     if options[:native_comp]
