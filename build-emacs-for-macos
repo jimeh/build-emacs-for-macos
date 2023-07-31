@@ -7,6 +7,7 @@ require 'erb'
 require 'etc'
 require 'fileutils'
 require 'json'
+require 'logger'
 require 'net/http'
 require 'optparse'
 require 'pathname'
@@ -18,20 +19,55 @@ require 'yaml'
 class Error < StandardError; end
 
 module Output
-  def info(msg, newline: true)
-    out "INFO: #{msg}", newline: newline
-  end
+  class << self
+    LEVELS = {
+      debug: Logger::DEBUG,
+      error: Logger::ERROR,
+      fatal: Logger::FATAL,
+      info: Logger::INFO,
+      unknown: Logger::UNKNOWN,
+      warn: Logger::WARN
+    }.freeze
 
-  def out(msg, newline: true)
-    if newline
-      warn "==> #{msg}"
-    else
-      $stderr.print "==> #{msg}"
+    def log_level
+      LEVELS.key(logger.level)
+    end
+
+    def log_level=(level)
+      logger.level = LEVELS.fetch(level&.to_sym)
+    end
+
+    def logger
+      @logger ||= Logger.new($stderr).tap do |logger|
+        logger.level = Logger::INFO
+        logger.formatter = proc do |severity, _datetime, _progname, msg|
+          "==> #{severity.upcase}: #{msg}"
+        end
+      end
     end
   end
 
-  def err(msg = nil)
+  %i[debug info warn error].each do |severity|
+    define_method(severity) do |msg, newline: true|
+      logger.send(severity, format_msg(msg, newline: newline))
+    end
+  end
+
+  def fatal(msg = nil)
     raise Error, msg
+  end
+
+  private
+
+  def logger
+    Output.logger
+  end
+
+  def format_msg(msg, newline: true)
+    msg = msg.join("\n") if msg.is_a?(Array)
+    msg = msg.strip
+    msg = "#{msg}\n" if newline
+    msg
   end
 end
 
@@ -39,12 +75,12 @@ module System
   include Output
 
   def run_cmd(*args)
-    out("CMD: #{args.join(' ')}")
+    debug "executing: #{args.join(' ')}"
     cmd(*args)
   end
 
   def cmd(*args)
-    system(*args) || err("Exit code: #{$CHILD_STATUS.exitstatus}")
+    system(*args) || fatal("Exit code: #{$CHILD_STATUS.exitstatus}")
   end
 end
 
@@ -61,7 +97,7 @@ end
 class OSVersion
   def initialize
     @version = `sw_vers -productVersion`.match(
-      /(?<major>\d+)(?:\.(?<minor>\d+)(:?\.(?<patch>\d+))?)?/
+      /(?<major>\d+)(?:\.(?<minor>\d+)(?:\.(?<patch>\d+))?)?/
     )
   end
 
@@ -86,8 +122,7 @@ class Build
   include Output
   include System
 
-  EMACS_MIRROR_REPO = 'emacs-mirror/emacs'
-  DOWNLOAD_URL = 'https://github.com/emacs-mirror/emacs/tarball/%s'
+  DEFAULT_GITHUB_REPO = 'emacs-mirror/emacs'
 
   attr_reader :root_dir
   attr_reader :source_dir
@@ -106,7 +141,7 @@ class Build
     load_plan(options[:plan]) if options[:plan]
 
     unless meta[:sha] && meta[:date]
-      err 'Failed to get commit info from GitHub.'
+      fatal 'Failed to get commit info from GitHub.'
     end
 
     tarball = download_tarball(meta[:sha])
@@ -122,7 +157,9 @@ class Build
 
     CLIHelperEmbedder.new(app).embed
     CSourcesEmbedder.new(app, @source_dir).embed
-    LibEmbedder.new(app, brew_dir, extra_libs, options[:relink_eln]).embed
+    LibEmbedder.new(
+      app, brew_dir, extra_libs, relink_eln_files: options[:relink_eln]
+    ).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
 
     archive_build(build_dir) if options[:archive]
@@ -131,6 +168,7 @@ class Build
   private
 
   def load_plan(filename)
+    debug "Loading plan from: #{filename}"
     plan = YAML.safe_load(File.read(filename), [:Time])
 
     @ref = plan.dig('source', 'ref')
@@ -163,6 +201,10 @@ class Build
     @output_dir ||= (options[:output] || File.join(root_dir, 'builds'))
   end
 
+  def github_src_repo
+    @github_src_repo ||= options[:github_src_repo] || DEFAULT_GITHUB_REPO
+  end
+
   def brew_dir
     @brew_dir ||= `brew --prefix`.chomp
   end
@@ -189,8 +231,8 @@ class Build
   def download_tarball(sha)
     FileUtils.mkdir_p(tarballs_dir)
 
-    url = (DOWNLOAD_URL % sha)
-    filename = "emacs-mirror-emacs-#{sha[0..6]}.tgz"
+    url = "https://github.com/#{github_src_repo}/tarball/#{sha}"
+    filename = "#{github_src_repo.gsub(/[^a-zA-Z0-9-]+/, '-')}-#{sha[0..6]}.tgz"
     target = File.join(tarballs_dir, filename)
 
     if File.exist?(target)
@@ -212,7 +254,7 @@ class Build
                  log_args[1..-1]
     end
 
-    out "CMD: #{log_args.join(' ')}"
+    debug "executing: #{log_args.join(' ')}"
     cmd(*args)
 
     target
@@ -231,7 +273,7 @@ class Build
 
     info 'Extracting tarball...'
     result = run_cmd('tar', '-xzf', filename, '-C', sources_dir)
-    err 'Tarball extraction failed.' unless result
+    fatal 'Tarball extraction failed.' unless result
 
     patches.each { |patch| apply_patch(patch, target) }
 
@@ -287,15 +329,16 @@ class Build
   end
 
   def detect_native_comp
-    info 'Detecting native-comp support: ', newline: false
+    info 'Detecting native-comp support...'
     options[:native_comp] = supports_native_comp?
-    puts options[:native_comp] ? 'Supported' : 'Not supported'
+    info 'Native-comp is: ' \
+         "#{options[:native_comp] ? 'Supported' : 'Not supported'}"
   end
 
   def verify_native_comp
     return if supports_native_comp?
 
-    err 'This emacs source tree does not support native-comp'
+    fatal 'This emacs source tree does not support native-comp'
   end
 
   def autogen
@@ -314,7 +357,7 @@ class Build
 
     if File.exist?(emacs_app)
       info 'Emacs.app already exists in ' \
-           "\"#{target.gsub(root_dir + '/', '')}\", attempting to use."
+           "\"#{target.gsub("#{root_dir}/", '')}\", attempting to use."
       return emacs_app
     end
 
@@ -331,7 +374,7 @@ class Build
           "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
           '-O2',
           (options[:native_march] ? '-march=native' : nil),
-          ENV['CFLAGS']
+          ENV.fetch('CFLAGS', nil)
         ].compact.join(' ')
 
         ENV['LDFLAGS'] = [
@@ -342,14 +385,14 @@ class Build
           "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
           # Ensure library re-linking and code signing will work after building.
           '-Wl,-headerpad_max_install_names',
-          ENV['LDFLAGS']
+          ENV.fetch('LDFLAGS', nil)
         ].compact.join(' ')
 
         ENV['LIBRARY_PATH'] = [
           gcc_info.lib_dir,
           gcc_info.darwin_lib_dir,
           gcc_info.libgccjit_lib_dir,
-          ENV['LIBRARY_PATH']
+          ENV.fetch('LIBRARY_PATH', nil)
         ].compact.join(':')
       end
 
@@ -363,7 +406,7 @@ class Build
         File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
         File.join(brew_dir, 'Homebrew/Library/Homebrew/os/mac/pkgconfig',
                   OS.version.to_s),
-        ENV['PKG_CONFIG_PATH']
+        ENV.fetch('PKG_CONFIG_PATH', nil)
       ].compact.join(':')
 
       ENV['PATH'] = [
@@ -372,11 +415,11 @@ class Build
         File.join(brew_dir, 'opt/gnu-sed/libexec/gnubin'),
         File.join(brew_dir, 'bin'),
         File.join(brew_dir, 'opt/texinfo/bin'),
-        ENV['PATH']
+        ENV.fetch('PATH', nil)
       ].compact.join(':')
 
       ENV['LIBRARY_PATH'] = [
-        ENV['LIBRARY_PATH'],
+        ENV.fetch('LIBRARY_PATH', nil),
         '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
       ].compact.join(':')
 
@@ -432,7 +475,7 @@ class Build
       run_cmd 'make', 'install'
     end
 
-    err 'Build failed.' unless File.exist?(emacs_app)
+    fatal 'Build failed.' unless File.exist?(emacs_app)
 
     emacs_app
   end
@@ -442,8 +485,8 @@ class Build
     target_dir = File.join(output_dir, build_name)
 
     if File.exist?(target_dir)
-      err "Output directory #{target_dir} already exists, " \
-          'please delete it and try again'
+      fatal "Output directory #{target_dir} already exists, " \
+            'please delete it and try again'
     end
 
     info "Copying \"#{app_name}\" to: #{target_dir}"
@@ -521,7 +564,8 @@ class Build
                      'MacOS/lib/emacs/**/native-lisp'].first
 
         if source.nil?
-          err 'Failed to find native-lisp cache directory for symlink creation.'
+          fatal 'Failed to find native-lisp cache directory for ' \
+                'symlink creation.'
         end
       end
 
@@ -537,7 +581,7 @@ class Build
     contents_dir = File.join(app, 'Contents')
     FileUtils.cd(contents_dir) do
       filename = Dir['MacOS/Emacs.pdmp', 'MacOS/libexec/Emacs.pdmp'].first
-      err "no Emacs.pdmp file found in #{app}" unless filename
+      fatal "no Emacs.pdmp file found in #{app}" unless filename
       info 'patching Emacs.pdmp to point at new native-lisp paths'
 
       content = File.read(filename, mode: 'rb').gsub(
@@ -549,7 +593,7 @@ class Build
         "../native-lisp/#{sanitized_eln_version}/"
       )
 
-      File.open(filename, 'w') { |f| f.write(content) }
+      File.write(filename, content)
     end
   end
 
@@ -581,7 +625,10 @@ class Build
     build = File.basename(build_dir)
     parent_dir = File.dirname(build_dir)
 
-    if !File.exist?(archive_filename)
+    if File.exist?(archive_filename)
+      info "#{filename} archive exists in " \
+           "#{target_dir}, skipping archving."
+    else
       info "Creating #{filename} archive in \"#{target_dir}\"..."
       FileUtils.cd(parent_dir) do
         cmd('tar', '-cjf', archive_filename, build)
@@ -591,9 +638,6 @@ class Build
           FileUtils.rm_rf(build_dir)
         end
       end
-    else
-      info "#{filename} archive exists in " \
-           "#{target_dir}, skipping archving."
     end
   end
 
@@ -609,7 +653,7 @@ class Build
                   .gsub('#define HAVE_ALLOCA_H 1',
                         '#undef HAVE_ALLOCA_H')
 
-    File.open(filename, 'w') { |f| f.write(content) }
+    File.write(filename, content)
   end
 
   def meta
@@ -618,9 +662,9 @@ class Build
     ref_sha = options[:git_sha] || ref
     info "Fetching info for git ref: #{ref_sha}"
     commit_json = github_api_get(
-      "/repos/#{EMACS_MIRROR_REPO}/commits/#{ref_sha}"
+      "/repos/#{github_src_repo}/commits/#{ref_sha}"
     )
-    err "Failed to get commit info about: #{ref_sha}" if commit_json.nil?
+    fatal "Failed to get commit info about: #{ref_sha}" if commit_json.nil?
 
     commit = JSON.parse(commit_json)
     meta = {
@@ -650,26 +694,25 @@ class Build
   end
 
   def effective_version
-    @effective_version ||= begin
-      case ref
-      when /^emacs-26.*/
-        'emacs-26'
-      when /^emacs-27.*/
-        'emacs-27'
-      when /^emacs-28.*/
-        'emacs-28'
-      when /^emacs-29.*/
-        'emacs-29'
-      else
-        'emacs-30'
-      end
-    end
+    @effective_version ||= case ref
+                           when /^emacs-26.*/
+                             'emacs-26'
+                           when /^emacs-27.*/
+                             'emacs-27'
+                           when /^emacs-28.*/
+                             'emacs-28'
+                           when /^emacs-29.*/
+                             'emacs-29'
+                           else
+                             'emacs-30'
+                           end
   end
 
   def patches(opts = {})
     p = []
 
-    if %w[emacs-26 emacs-27 emacs-28 emacs-29 emacs-30].include?(effective_version)
+    if %w[emacs-26 emacs-27 emacs-28 emacs-29 emacs-30]
+       .include?(effective_version)
       p << {
         url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
              "patches/#{effective_version}/fix-window-role.patch"
@@ -750,7 +793,7 @@ class Build
   end
 
   def apply_patch(patch, target)
-    err "\"#{target}\" does not exist." unless File.exist?(target)
+    fatal "\"#{target}\" does not exist." unless File.exist?(target)
 
     if patch[:file]
       info 'Applying patch...'
@@ -778,7 +821,7 @@ class Build
       end
 
     elsif patch[:replace]
-      err 'Patch replace input error' unless patch[:replace].size == 3
+      fatal 'Patch replace input error' unless patch[:replace].size == 3
 
       file, before, after = patch[:replace]
       info "Applying patch to #{file}..."
@@ -790,7 +833,7 @@ class Build
           return
         end
 
-        err "\"#{file}\" does not exist in #{target}"
+        fatal "\"#{file}\" does not exist in #{target}"
       end
 
       f = File.open(filepath, 'rb')
@@ -803,7 +846,7 @@ class Build
           return
         end
 
-        err "Replacement failed in #{file}"
+        fatal "Replacement failed in #{file}"
       end
 
       f.reopen(filepath, 'wb').write(s)
@@ -844,9 +887,13 @@ class AbstractEmbedder
   attr_reader :app
 
   def initialize(app)
-    err "#{app} does not exist" unless File.exist?(app)
+    fatal "#{app} does not exist" unless File.exist?(app)
 
     @app = app
+  end
+
+  def relative_path(path)
+    Pathname.new(path).relative_path_from(Pathname.new(app)).to_s
   end
 
   def invocation_dir
@@ -904,12 +951,16 @@ class CSourcesEmbedder < AbstractEmbedder
   end
 
   def embed
-    info 'Embedding C source files into Emacs.app for documentation purposes'
+    info 'Bundling C source files into Emacs.app for documentation purposes...'
 
     src_dir = File.join(source_dir, 'src')
+    target_dir = File.join(resources_dir, 'src')
+    debug "Copying *.c and *.h files from '#{src_dir}' " \
+          "to: #{relative_path(target_dir)}"
+
     Dir[File.join(src_dir, '**', '*.{c,h}')].each do |f|
       rel = f[src_dir.size + 1..-1]
-      target = File.join(resources_dir, 'src', rel)
+      target = File.join(target_dir, rel)
       FileUtils.mkdir_p(File.dirname(target))
       cmd('cp', '-pRL', f, target)
     end
@@ -917,6 +968,8 @@ class CSourcesEmbedder < AbstractEmbedder
     return if File.exist?(site_start_el_file) &&
               File.read(site_start_el_file).include?(PATH_PATCH)
 
+    debug "Patching '#{relative_path(site_start_el_file)}' to allow Emacs to " \
+          'find bundled C sources'
     File.open(site_start_el_file, 'a') do |f|
       f.puts("\n#{PATH_PATCH}")
     end
@@ -934,7 +987,7 @@ class LibEmbedder < AbstractEmbedder
   attr_reader :extra_libs
   attr_reader :relink_eln_files
 
-  def initialize(app, lib_source, extra_libs = [], relink_eln_files = true)
+  def initialize(app, lib_source, extra_libs = [], relink_eln_files: true)
     super(app)
 
     @lib_source = lib_source
@@ -943,7 +996,7 @@ class LibEmbedder < AbstractEmbedder
   end
 
   def embed
-    info 'Embedding libraries into Emacs.app'
+    info 'Bundling shared libraries into Emacs.app...'
 
     binary = "#{bin}-bin" if File.exist?("#{bin}-bin")
     binary ||= bin
@@ -959,7 +1012,7 @@ class LibEmbedder < AbstractEmbedder
       copy_extra_libs(extra_libs, binary) if extra_libs.any?
 
       if relink_eln_files && eln_files.any?
-        info "Embedding libraries for #{eln_files.size} *.eln files " \
+        info "Bundling shared libraries for #{eln_files.size} *.eln files " \
              'within Emacs.app'
 
         eln_files.each { |f| copy_libs(f) }
@@ -980,47 +1033,74 @@ class LibEmbedder < AbstractEmbedder
     return if rpaths.include?(rpath)
 
     while_writable(exe) do
+      debug "Setting rpath for '#{relative_path(exe)}' to: #{rpath}"
       cmd('install_name_tool', '-add_rpath', rpath, exe)
     end
   end
 
   def copy_libs(exe)
-    exe_file = File.basename(exe)
+    exe_filename = File.basename(exe)
 
+    copied_libs = []
+
+    debug "Bundling shared libraries for: #{relative_path(exe)}"
     `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
+      # Parse otool -L output
       match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
-      next unless match && match[1].start_with?(lib_source)
+      next unless match
+
+      lib_filepath = match[1]
+      lib_filename = File.basename(lib_filepath)
+
+      # Only bundle libraries from lib_source.
+      next unless lib_filepath.start_with?(lib_source)
+
+      unless File.exist?(lib_filepath)
+        warn "-- Shared library '#{lib_filepath}' does not exist, skipping"
+        next
+      end
+
+      copied = false
 
       while_writable(exe) do
-        if match[2] == exe_file
-          cmd('install_name_tool', '-id',
-              File.join('@rpath', match[2].to_s), exe)
+        if lib_filename == exe_filename
+          id_name = File.join('@rpath', lib_filename)
+          debug "-- Setting install name to: #{id_name}"
+          cmd('install_name_tool', '-id', id_name, exe)
         else
-          cmd('install_name_tool', '-change', match[1],
-              File.join('@rpath', match[2].to_s), exe)
+          debug "-- Bundling shared library: #{lib_filepath}"
+          lib_target = File.join(lib_dir, lib_filename)
+
+          unless File.exist?(lib_target)
+            debug '-- -- Copying to: ' \
+                  "#{relative_path(File.join(lib_dir, lib_filename))}"
+            FileUtils.mkdir_p(lib_dir)
+            cmd('cp', '-pRL', lib_filepath, lib_target)
+            copied_libs << lib_target
+            copied = true
+          end
+
+          change_target = File.join('@rpath', lib_filename)
+          debug "-- -- Relinking to: #{change_target}"
+          cmd('install_name_tool', '-change', lib_filepath, change_target, exe)
         end
       end
 
-      next if match[2] == exe_file || File.exist?(File.join(lib_dir, match[2]))
-
-      FileUtils.mkdir_p(lib_dir)
-      cmd('cp', '-pRL', match[1], lib_dir)
-      copy_libs(File.join(lib_dir, match[2].to_s))
+      next if lib_filename == exe_filename || !copied
     end
+
+    copied_libs.each { |lib| copy_libs(lib) }
   end
 
-  def copy_extra_libs(extra_libs, exe)
+  def copy_extra_libs(extra_libs, _exe)
     extra_libs.each do |lib|
+      debug "Bundling extra shared library: #{lib}"
       lib_file = File.basename(lib)
       target = "#{lib_dir}/#{lib_file}"
       unless File.exist?(target)
         FileUtils.mkdir_p(lib_dir)
+        debug "-- Copying to: #{lib_file}"
         cmd('cp', '-pRL', lib, lib_dir)
-      end
-
-      while_writable(target) do
-        cmd('install_name_tool', '-id',
-            File.join('@rpath', lib_file), target)
       end
 
       copy_libs(target)
@@ -1050,10 +1130,10 @@ class GccLibEmbedder < AbstractEmbedder
       return
     end
 
-    info 'Embedding libgccjit into Emacs.app'
+    info 'Bundling libgccjit into Emacs.app'
 
     if gcc_info.lib_dir.empty?
-      err "No suitable GCC lib dir found in #{gcc_info.root_dir}"
+      fatal "No suitable GCC lib dir found in #{gcc_info.root_dir}"
     end
 
     FileUtils.mkdir_p(File.dirname(target_dir))
@@ -1068,6 +1148,7 @@ class GccLibEmbedder < AbstractEmbedder
     return if File.exist?(site_start_el_file) &&
               File.read(site_start_el_file).include?(env_setup)
 
+    debug 'Setting up site-start.el for self-contained native-comp Emacs.app'
     File.open(site_start_el_file, 'a') do |f|
       f.puts("\n#{env_setup}")
     end
@@ -1214,18 +1295,18 @@ class GccInfo
   end
 
   def verify_libgccjit
-    err 'gcc not installed' unless Dir.exist?(root_dir)
-    err 'libgccjit not installed' unless Dir.exist?(libgccjit_root_dir)
+    fatal 'gcc not installed' unless Dir.exist?(root_dir)
+    fatal 'libgccjit not installed' unless Dir.exist?(libgccjit_root_dir)
 
-    if libgccjit_lib_dir&.empty?
-      err "Detected libgccjit (#{libgccjit_root_dir}) does not have any " \
-          'libgccjit.so* files. Please try reinstalling libgccjit: ' \
-          'brew reinstall libgccjit'
+    if libgccjit_lib_dir.empty?
+      fatal "Detected libgccjit (#{libgccjit_root_dir}) does not have any " \
+            'libgccjit.so* files. Please try reinstalling libgccjit: ' \
+            'brew reinstall libgccjit'
     end
 
     return if major_version == libgccjit_major_version
 
-    err <<~TEXT
+    fatal <<~TEXT
       Detected GCC and libgccjit library paths do not belong to the same major
       version of GCC. Detected paths:
         - #{lib_dir}
@@ -1233,7 +1314,7 @@ class GccInfo
     TEXT
   end
 
-  def get_binding
+  def get_binding # rubocop:disable Naming/AccessorMethodName
     binding
   end
 
@@ -1259,10 +1340,12 @@ if __FILE__ == $PROGRAM_NAME
     dbus: true,
     xwidgets: true,
     tree_sitter: true,
+    github_src_repo: nil,
     github_auth: true,
     dist_include: ['COPYING'],
     archive: true,
-    archive_keep: false
+    archive_keep: false,
+    log_level: 'info'
   }
 
   begin
@@ -1355,6 +1438,12 @@ if __FILE__ == $PROGRAM_NAME
         cli_options[:poll] = v
       end
 
+      opts.on('--github-src-repo REPO',
+              'Specify a GitHub repo to download source tarballs from ' \
+              '(default: emacs-mirror/emacs)') do |v|
+        cli_options[:github_src_repo] = v
+      end
+
       opts.on('--[no-]github-auth',
               'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
               'environment variable is set.' \
@@ -1395,6 +1484,11 @@ if __FILE__ == $PROGRAM_NAME
         cli_options[:archive_keep] = v
       end
 
+      opts.on('--log-level LEVEL',
+              'Build script log level (default: info)') do |v|
+        cli_options[:log_level] = v
+      end
+
       opts.on(
         '--plan FILE',
         'Follow given plan file, instead of using given git ref/sha'
@@ -1403,6 +1497,7 @@ if __FILE__ == $PROGRAM_NAME
       end
     end.parse!
 
+    Output.log_level = cli_options[:log_level]
     work_dir = cli_options.delete(:work_dir)
     Build.new(work_dir, ARGV.shift, cli_options).build
   rescue Error => e
