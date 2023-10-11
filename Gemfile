@@ -2,6 +2,8 @@
 
 source 'http://rubygems.org/'
 
+gem 'ruby-macho'
+
 group :development do
   gem 'byebug'
   gem 'rubocop'
