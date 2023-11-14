@@ -172,6 +172,7 @@ class Build
       relink_eln_files: options[:relink_eln]
     ).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
+    self_sign_app(app) if options[:self_sign]
 
     archive_build(build_dir) if options[:archive]
   end
@@ -644,6 +645,10 @@ class Build
 
   def archive_filename
     @archive_filename ||= File.join(output_dir, "#{build_name}.tbz")
+  end
+
+  def self_sign_app(app)
+    cmd('codesign', '--force', '--deep', '-s', '-', app)
   end
 
   def archive_build(build_dir)
@@ -1470,6 +1475,7 @@ if __FILE__ == $PROGRAM_NAME
     github_src_repo: nil,
     github_auth: true,
     dist_include: ['COPYING'],
+    self_sign: true,
     archive: true,
     archive_keep: false,
     log_level: 'info'
@@ -1603,6 +1609,11 @@ if __FILE__ == $PROGRAM_NAME
           'List of extra files to copy from Emacs source into build ' \
           'folder/archive (default: COPYING)'
         ) { |v| cli_options[:dist_include] = v }
+
+        opts.on(
+          '--[no-]self-sign',
+          'Enable/disable self-signing of Emacs.app (default: enabled)'
+        ) { |v| cli_options[:self_sign] = v }
 
         opts.on(
           '--[no-]archive',
