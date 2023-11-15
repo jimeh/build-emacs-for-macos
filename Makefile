@@ -45,8 +45,11 @@ SHELL := env \
 # Bootstrap
 #
 
-bootstrap: bootstrap-brew
-bootstrap-ci: bootstrap-brew bootstrap-brew-ci bootstrap-pip
+bootstrap: bootstrap-brew bootstrap-ruby
+bootstrap-ci: bootstrap-brew bootstrap-brew-ci bootstrap-ruby bootstrap-pip
+
+bootstrap-ruby:
+	bundle install
 
 bootstrap-brew:
 	brew bundle
