@@ -181,7 +181,7 @@ class Build
 
   def load_plan(filename)
     debug "Loading plan from: #{filename}"
-    plan = YAML.safe_load(File.read(filename), [:Time])
+    plan = YAML.safe_load(File.read(filename), permitted_classes: [:Time])
 
     @ref = plan.dig('source', 'ref')
     @meta = {
