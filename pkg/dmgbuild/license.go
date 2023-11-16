@@ -116,6 +116,7 @@ func NewLicense() License {
 	return License{}
 }
 
+//nolint:goconst
 func (s *License) Render() []string {
 	var l []string
 

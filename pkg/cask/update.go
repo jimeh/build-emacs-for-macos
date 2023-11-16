@@ -145,7 +145,7 @@ func (s *Updater) Update(
 }
 
 func (s *Updater) putFile(
-	ctx context.Context,
+	_ context.Context,
 	chk *LiveCheck,
 	filename string,
 	content []byte,

@@ -22,8 +22,9 @@ type Options struct {
 	Output          io.Writer
 }
 
-//nolint:funlen
 // Create will create a *.dmg disk image as specified by the given Options.
+//
+//nolint:funlen
 func Create(ctx context.Context, opts *Options) (string, error) {
 	logger := hclog.FromContext(ctx).Named("package")
 

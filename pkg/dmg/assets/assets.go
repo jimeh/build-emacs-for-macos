@@ -8,6 +8,7 @@ import (
 //go:generate tiffutil -cathidpicheck bg.png bg@2x.png -out bg.tif
 
 // Background is a raw byte slice of bytes of bg.tiff
+//
 //go:embed bg.tif
 var Background []byte
 
@@ -19,6 +20,7 @@ func BackgroundTempFile() (string, error) {
 }
 
 // Icon is a raw byte slice of bytes of vol.icns
+//
 //go:embed vol.icns
 var Icon []byte
 
