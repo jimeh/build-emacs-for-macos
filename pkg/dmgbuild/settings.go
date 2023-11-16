@@ -90,9 +90,10 @@ func NewSettings() *Settings {
 	}
 }
 
-//nolint:funlen,gocyclo
 // Render returns a string slice where each string is a separate settings
 // statement.
+//
+//nolint:funlen,gocyclo
 func (s *Settings) Render() ([]string, error) {
 	r := []string{
 		"# -*- coding: utf-8 -*-\n",
