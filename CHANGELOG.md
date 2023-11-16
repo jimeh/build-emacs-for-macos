@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.6.43](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.42...v0.6.43) (2023-11-16)
+
+
+### Bug Fixes
+
+* **bootstrap:** add Ruby (bundle install) to make bootstrap ([bc62c89](https://github.com/jimeh/build-emacs-for-macos/commit/bc62c890ed1aafe767286feed3eac0437ff62dc0))
+* **plan:** resolve issue loading build plan with Ruby 3.x ([a534760](https://github.com/jimeh/build-emacs-for-macos/commit/a5347602cad16fd852386d863d88c025d703b392))
+* **shared-libs:** correctly resolve libwebp libraries ([6ee6d8c](https://github.com/jimeh/build-emacs-for-macos/commit/6ee6d8c13ad4806b4174905dce121750ebd7aa27))
+* **signing:** add self-signing step that is enabled by default ([23a9f30](https://github.com/jimeh/build-emacs-for-macos/commit/23a9f30d45ea25fada809db757b85c175d048936))
+
 ### [0.6.42](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.41...v0.6.42) (2023-07-31)
 
 
