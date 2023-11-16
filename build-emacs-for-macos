@@ -16,7 +16,10 @@ require 'tmpdir'
 require 'uri'
 require 'yaml'
 
-class Error < StandardError; end
+require 'macho'
+
+class Error < StandardError
+end
 
 module Output
   class << self
@@ -38,12 +41,16 @@ module Output
     end
 
     def logger
-      @logger ||= Logger.new($stderr).tap do |logger|
-        logger.level = Logger::INFO
-        logger.formatter = proc do |severity, _datetime, _progname, msg|
-          "==> #{severity.upcase}: #{msg}"
+      @logger ||=
+        Logger
+        .new($stderr)
+        .tap do |logger|
+          logger.level = Logger::INFO
+          logger.formatter =
+            proc do |severity, _datetime, _progname, msg|
+              "==> #{severity.upcase}: #{msg}"
+            end
         end
-      end
     end
   end
 
@@ -96,9 +103,10 @@ end
 
 class OSVersion
   def initialize
-    @version = `sw_vers -productVersion`.match(
-      /(?<major>\d+)(?:\.(?<minor>\d+)(?:\.(?<patch>\d+))?)?/
-    )
+    @version =
+      `sw_vers -productVersion`.match(
+        /(?<major>\d+)(?:\.(?<minor>\d+)(?:\.(?<patch>\d+))?)?/
+      )
   end
 
   def to_s
@@ -158,9 +166,13 @@ class Build
     CLIHelperEmbedder.new(app).embed
     CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(
-      app, brew_dir, extra_libs, relink_eln_files: options[:relink_eln]
+      app,
+      brew_dir,
+      extra_libs,
+      relink_eln_files: options[:relink_eln]
     ).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
+    self_sign_app(app) if options[:self_sign]
 
     archive_build(build_dir) if options[:archive]
   end
@@ -169,7 +181,7 @@ class Build
 
   def load_plan(filename)
     debug "Loading plan from: #{filename}"
-    plan = YAML.safe_load(File.read(filename), [:Time])
+    plan = YAML.safe_load(File.read(filename), permitted_classes: [:Time])
 
     @ref = plan.dig('source', 'ref')
     @meta = {
@@ -219,9 +231,14 @@ class Build
     ]
 
     if options[:native_comp]
-      libgcc_s = File.join(
-        brew_dir, 'lib', 'gcc', gcc_info.major_version, 'libgcc_s.1.dylib'
-      )
+      libgcc_s =
+        File.join(
+          brew_dir,
+          'lib',
+          'gcc',
+          gcc_info.major_version,
+          'libgcc_s.1.dylib'
+        )
       libs << libgcc_s if File.exist?(libgcc_s)
     end
 
@@ -247,11 +264,12 @@ class Build
     log_args = args.clone
 
     if options[:github_auth] && ENV['GITHUB_TOKEN']
-      args = [args[0]] +
-             ['-H', "Authorization: Token #{ENV['GITHUB_TOKEN']}"] + args[1..-1]
-      log_args = [log_args[0]] +
-                 ['-H', '"Authorization: Token $GITHUB_TOKEN"'] +
-                 log_args[1..-1]
+      args =
+        [args[0]] + ['-H', "Authorization: Token #{ENV['GITHUB_TOKEN']}"] +
+        args[1..-1]
+      log_args =
+        [log_args[0]] + ['-H', '"Authorization: Token $GITHUB_TOKEN"'] +
+        log_args[1..-1]
     end
 
     debug "executing: #{log_args.join(' ')}"
@@ -293,9 +311,8 @@ class Build
   end
 
   def supports_tree_sitter?
-    @supports_tree_sitter ||= !!configure_help.match(
-      /\s+--with-tree-sitter(\s|=).+/
-    )
+    @supports_tree_sitter ||=
+      !!configure_help.match(/\s+--with-tree-sitter(\s|=).+/)
   end
 
   def supports_native_comp?
@@ -303,9 +320,8 @@ class Build
   end
 
   def native_comp_configure_match
-    @native_comp_configure_match ||= configure_help.match(
-      /\s+?(--with-native(?:comp|-compilation))(.+)?\s+?/
-    )
+    @native_comp_configure_match ||=
+      configure_help.match(/\s+?(--with-native(?:comp|-compilation))(.+)?\s+?/)
   end
 
   def native_comp_configure_flag
@@ -324,7 +340,7 @@ class Build
 
     return if native_comp_configure_match&.[](2) != '[=TYPE]'
 
-    @native_comp_configure_flag_arg = \
+    @native_comp_configure_flag_arg =
       (options[:native_full_aot] ? 'aot' : 'yes')
   end
 
@@ -404,8 +420,11 @@ class Build
         File.join(brew_dir, 'opt/libxml2/lib/pkgconfig'),
         File.join(brew_dir, 'opt/ncurses/lib/pkgconfig'),
         File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
-        File.join(brew_dir, 'Homebrew/Library/Homebrew/os/mac/pkgconfig',
-                  OS.version.to_s),
+        File.join(
+          brew_dir,
+          'Homebrew/Library/Homebrew/os/mac/pkgconfig',
+          OS.version.to_s
+        ),
         ENV.fetch('PKG_CONFIG_PATH', nil)
       ].compact.join(':')
 
@@ -513,8 +532,11 @@ class Build
     contents_dir = File.join(app, 'Contents')
 
     FileUtils.cd(contents_dir) do
-      source = Dir['MacOS/libexec/emacs/**/eln-cache',
-                   'MacOS/lib/emacs/**/native-lisp'].first
+      source =
+        Dir[
+          'MacOS/libexec/emacs/**/eln-cache',
+          'MacOS/lib/emacs/**/native-lisp'
+        ].first
 
       # Skip creation of symlinks if *.eln files are not located in a location
       # known to be used by builds which need symlinks and other tweaks.
@@ -552,16 +574,20 @@ class Build
           parent = File.dirname(parent)
         end
 
-        eln_parts = eln_dir.match(
-          %r{/(\d+\.\d+\.\d+)/native-lisp/(\d+\.\d+\.\d+-\w+)(?:/.+)?$}i
-        )
+        eln_parts =
+          eln_dir.match(
+            %r{/(\d+\.\d+\.\d+)/native-lisp/(\d+\.\d+\.\d+-\w+)(?:/.+)?$}i
+          )
         if eln_parts
           patch_dump_native_lisp_paths(app, eln_parts[1], eln_parts[2])
         end
 
         # Find native-lisp directory again after it has been renamed.
-        source = Dir['MacOS/libexec/emacs/**/eln-cache',
-                     'MacOS/lib/emacs/**/native-lisp'].first
+        source =
+          Dir[
+            'MacOS/libexec/emacs/**/eln-cache',
+            'MacOS/lib/emacs/**/native-lisp'
+          ].first
 
         if source.nil?
           fatal 'Failed to find native-lisp cache directory for ' \
@@ -584,14 +610,18 @@ class Build
       fatal "no Emacs.pdmp file found in #{app}" unless filename
       info 'patching Emacs.pdmp to point at new native-lisp paths'
 
-      content = File.read(filename, mode: 'rb').gsub(
-        "lib/emacs/#{emacs_version}/native-lisp/#{eln_version}/",
-        "lib/emacs/#{sanitized_emacs_version}/" \
-        "native-lisp/#{sanitized_eln_version}/"
-      ).gsub(
-        "../native-lisp/#{eln_version}/",
-        "../native-lisp/#{sanitized_eln_version}/"
-      )
+      content =
+        File
+        .read(filename, mode: 'rb')
+        .gsub(
+          "lib/emacs/#{emacs_version}/native-lisp/#{eln_version}/",
+          "lib/emacs/#{sanitized_emacs_version}/" \
+          "native-lisp/#{sanitized_eln_version}/"
+        )
+        .gsub(
+          "../native-lisp/#{eln_version}/",
+          "../native-lisp/#{sanitized_eln_version}/"
+        )
 
       File.write(filename, content)
     end
@@ -601,19 +631,24 @@ class Build
     return @build_name if @build_name
     return @build_name = options[:build_name] if options[:build_name]
 
-    metadata = [
-      meta[:date]&.strftime('%Y-%m-%d'),
-      meta[:sha][0..6],
-      meta[:ref],
-      "macOS-#{OS.version}",
-      OS.arch
-    ].compact.map { |v| v.gsub(/[^\w_-]+/, '-') }
+    metadata =
+      [
+        meta[:date]&.strftime('%Y-%m-%d'),
+        meta[:sha][0..6],
+        meta[:ref],
+        "macOS-#{OS.version}",
+        OS.arch
+      ].compact.map { |v| v.gsub(/[^\w_-]+/, '-') }
 
     @build_name = "Emacs.#{metadata.join('.')}"
   end
 
   def archive_filename
     @archive_filename ||= File.join(output_dir, "#{build_name}.tbz")
+  end
+
+  def self_sign_app(app)
+    cmd('codesign', '--force', '--deep', '-s', '-', app)
   end
 
   def archive_build(build_dir)
@@ -643,15 +678,16 @@ class Build
 
   def disable_alligned_alloc
     filename = 'src/config.h'
-    content = File.read(filename)
-                  .gsub('#define HAVE_ALIGNED_ALLOC 1',
-                        '#undef HAVE_ALIGNED_ALLOC')
-                  .gsub('#define HAVE_DECL_ALIGNED_ALLOC 1',
-                        '#undef HAVE_DECL_ALIGNED_ALLOC')
-                  .gsub('#define HAVE_ALLOCA 1',
-                        '#undef HAVE_ALLOCA')
-                  .gsub('#define HAVE_ALLOCA_H 1',
-                        '#undef HAVE_ALLOCA_H')
+    content =
+      File
+      .read(filename)
+      .gsub('#define HAVE_ALIGNED_ALLOC 1', '#undef HAVE_ALIGNED_ALLOC')
+      .gsub(
+        '#define HAVE_DECL_ALIGNED_ALLOC 1',
+        '#undef HAVE_DECL_ALIGNED_ALLOC'
+      )
+      .gsub('#define HAVE_ALLOCA 1', '#undef HAVE_ALLOCA')
+      .gsub('#define HAVE_ALLOCA_H 1', '#undef HAVE_ALLOCA_H')
 
     File.write(filename, content)
   end
@@ -661,9 +697,7 @@ class Build
 
     ref_sha = options[:git_sha] || ref
     info "Fetching info for git ref: #{ref_sha}"
-    commit_json = github_api_get(
-      "/repos/#{github_src_repo}/commits/#{ref_sha}"
-    )
+    commit_json = github_api_get("/repos/#{github_src_repo}/commits/#{ref_sha}")
     fatal "Failed to get commit info about: #{ref_sha}" if commit_json.nil?
 
     commit = JSON.parse(commit_json)
@@ -694,61 +728,69 @@ class Build
   end
 
   def effective_version
-    @effective_version ||= case ref
-                           when /^emacs-26.*/
-                             'emacs-26'
-                           when /^emacs-27.*/
-                             'emacs-27'
-                           when /^emacs-28.*/
-                             'emacs-28'
-                           when /^emacs-29.*/
-                             'emacs-29'
-                           else
-                             'emacs-30'
-                           end
+    @effective_version ||=
+      case ref
+      when /^emacs-26.*/
+        'emacs-26'
+      when /^emacs-27.*/
+        'emacs-27'
+      when /^emacs-28.*/
+        'emacs-28'
+      when /^emacs-29.*/
+        'emacs-29'
+      else
+        'emacs-30'
+      end
   end
 
   def patches(opts = {})
     p = []
 
-    if %w[emacs-26 emacs-27 emacs-28 emacs-29 emacs-30]
-       .include?(effective_version)
+    if %w[emacs-26 emacs-27 emacs-28 emacs-29 emacs-30].include?(
+      effective_version
+    )
       p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/fix-window-role.patch"
+        url:
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+          "patches/#{effective_version}/fix-window-role.patch"
       }
     end
 
     if %w[emacs-27 emacs-28 emacs-29 emacs-30].include?(effective_version)
       p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/system-appearance.patch"
+        url:
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+          "patches/#{effective_version}/system-appearance.patch"
       }
 
       if options[:no_titlebar]
         p << {
-          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{effective_version}/no-titlebar.patch"
+          url:
+            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+            "patches/#{effective_version}/no-titlebar.patch"
         }
       end
 
       if options[:no_frame_refocus]
         p << {
-          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{effective_version}/no-frame-refocus-cocoa.patch"
+          url:
+            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+            "patches/#{effective_version}/no-frame-refocus-cocoa.patch"
         }
       end
     end
 
     if %w[emacs-29 emacs-30].include?(effective_version)
       p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/round-undecorated-frame.patch"
+        url:
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+          "patches/#{effective_version}/round-undecorated-frame.patch"
       }
       if options[:poll]
         p << {
-          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{effective_version}/poll.patch"
+          url:
+            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+            "patches/#{effective_version}/poll.patch"
         }
       end
     end
@@ -777,14 +819,16 @@ class Build
 
     if effective_version == 'emacs-27'
       p << {
-        url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-             "patches/#{effective_version}/ligatures-freeze-fix.patch"
+        url:
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+          "patches/#{effective_version}/ligatures-freeze-fix.patch"
       }
 
       if opts[:xwidgets]
         p << {
-          url: 'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-               "patches/#{effective_version}/xwidgets_webkit_in_cocoa.patch"
+          url:
+            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+            "patches/#{effective_version}/xwidgets_webkit_in_cocoa.patch"
         }
       end
     end
@@ -819,7 +863,6 @@ class Build
       else
         apply_patch({ file: patch_file }, target)
       end
-
     elsif patch[:replace]
       fatal 'Patch replace input error' unless patch[:replace].size == 3
 
@@ -965,14 +1008,14 @@ class CSourcesEmbedder < AbstractEmbedder
       cmd('cp', '-pRL', f, target)
     end
 
-    return if File.exist?(site_start_el_file) &&
-              File.read(site_start_el_file).include?(PATH_PATCH)
+    if File.exist?(site_start_el_file) &&
+       File.read(site_start_el_file).include?(PATH_PATCH)
+      return
+    end
 
     debug "Patching '#{relative_path(site_start_el_file)}' to allow Emacs to " \
           'find bundled C sources'
-    File.open(site_start_el_file, 'a') do |f|
-      f.puts("\n#{PATH_PATCH}")
-    end
+    File.open(site_start_el_file, 'a') { |f| f.puts("\n#{PATH_PATCH}") }
   end
 
   private
@@ -1007,16 +1050,29 @@ class LibEmbedder < AbstractEmbedder
       ).to_s
       rpath = File.join('@executable_path', rel_path)
 
-      set_rpath(binary, rpath)
-      copy_libs(binary)
-      copy_extra_libs(extra_libs, binary) if extra_libs.any?
+      copy, relink = build_bundle_plan(binary)
+
+      extra_libs.each do |lib|
+        extras_copy, extras_relink = build_bundle_plan(
+          lib, copy_macho_file: true
+        )
+        copy.concat(extras_copy)
+        relink.concat(extras_relink)
+      end
 
       if relink_eln_files && eln_files.any?
         info "Bundling shared libraries for #{eln_files.size} *.eln files " \
              'within Emacs.app'
 
-        eln_files.each { |f| copy_libs(f) }
+        eln_files.each do |f|
+          eln_copy, eln_relink = build_bundle_plan(f)
+          copy.concat(eln_copy)
+          relink.concat(eln_relink)
+        end
       end
+
+      bundle_libs(copy.uniq, relink.uniq)
+      set_rpath(binary, rpath)
     end
   end
 
@@ -1026,84 +1082,157 @@ class LibEmbedder < AbstractEmbedder
     @eln_files ||= Dir[File.join(app, 'Contents', '**', '*.eln')]
   end
 
-  def set_rpath(exe, rpath)
+  def set_rpath(macho_file, rpath)
     return if rpath.nil? || rpath == ''
 
-    rpaths = `otool -l "#{exe}" | grep -A 2 'cmd LC_RPATH' | grep 'path'`
-    return if rpaths.include?(rpath)
+    mf = MachO.open(macho_file)
 
-    while_writable(exe) do
-      debug "Setting rpath for '#{relative_path(exe)}' to: #{rpath}"
-      cmd('install_name_tool', '-add_rpath', rpath, exe)
+    return if mf.rpaths.include?(rpath)
+
+    debug "Setting rpath for '#{relative_path(macho_file)}' to: #{rpath}"
+    mf.add_rpath(rpath)
+    while_writable(macho_file) { mf.write! }
+  end
+
+  def resolve_dylib_path(path, loader_path: nil, rpaths: nil)
+    abs = path.gsub('@executable_path', invocation_dir)
+    abs = abs.gsub('@loader_path', loader_path) if loader_path
+
+    if abs.include?('@rpath')
+      abs = rpaths.map { |r| abs.gsub('@rpath', r) }
+                  .find { |f| File.exist?(f) }
+
+      fatal "Could not resolve path: #{path}" if abs.nil?
+    end
+
+    begin
+      File.realpath(abs)
+    rescue Errno::ENOENT
+      File.expand_path(abs)
     end
   end
 
-  def copy_libs(exe)
-    exe_filename = File.basename(exe)
+  def build_bundle_plan(macho_file, copy_macho_file: false)
+    macho_file = File.expand_path(macho_file)
+    loader_path = File.dirname(macho_file)
+    mf = MachO.open(macho_file)
 
-    copied_libs = []
+    if macho_file.start_with?(app)
+      debug 'Calculating bundling instructions for: ' \
+            "#{relative_path(macho_file)}"
+    else
+      debug "Calculating bundling instructions for: #{macho_file}"
+    end
 
-    debug "Bundling shared libraries for: #{relative_path(exe)}"
-    `otool -L "#{exe}"`.split("\n")[1..-1].each do |line|
-      # Parse otool -L output
-      match = line.match(%r{^\s+(.+/(lib[^/ ]+))\s})
-      next unless match
+    rpaths = mf.rpaths.map do |r|
+      resolve_dylib_path(r, loader_path: loader_path, rpaths: [loader_path])
+    end
 
-      lib_filepath = match[1]
-      lib_filename = File.basename(lib_filepath)
+    copy = []
+    relink = []
+
+    relink_target_file = macho_file
+
+    if copy_macho_file
+      macho_basename = File.basename(macho_file)
+      macho_copy_target = File.join(lib_dir, macho_basename)
+      relink_target_file = macho_copy_target
+      copy << {
+        source: macho_file,
+        target: macho_copy_target,
+        dylib_id: File.join('@rpath', macho_basename)
+      }
+    end
+
+    mf.linked_dylibs.each do |linked_dylib|
+      debug "-- Processing shared library: #{linked_dylib}"
+
+      lib_filepath = resolve_dylib_path(
+        linked_dylib,
+        loader_path: loader_path,
+        rpaths: rpaths + [loader_path]
+      )
+
+      fatal "Could not resolve path for '#{linked_dylib}'" if lib_filepath.nil?
+
+      debug "-- -- Resolved to: #{lib_filepath}" if linked_dylib != lib_filepath
 
       # Only bundle libraries from lib_source.
-      next unless lib_filepath.start_with?(lib_source)
-
-      unless File.exist?(lib_filepath)
-        warn "-- Shared library '#{lib_filepath}' does not exist, skipping"
+      unless lib_filepath.start_with?(lib_source)
+        debug "-- -- Skipping, not from lib_source: #{lib_source}"
         next
       end
 
-      copied = false
-
-      while_writable(exe) do
-        if lib_filename == exe_filename
-          id_name = File.join('@rpath', lib_filename)
-          debug "-- Setting install name to: #{id_name}"
-          cmd('install_name_tool', '-id', id_name, exe)
-        else
-          debug "-- Bundling shared library: #{lib_filepath}"
-          lib_target = File.join(lib_dir, lib_filename)
-
-          unless File.exist?(lib_target)
-            debug '-- -- Copying to: ' \
-                  "#{relative_path(File.join(lib_dir, lib_filename))}"
-            FileUtils.mkdir_p(lib_dir)
-            cmd('cp', '-pRL', lib_filepath, lib_target)
-            copied_libs << lib_target
-            copied = true
-          end
-
-          change_target = File.join('@rpath', lib_filename)
-          debug "-- -- Relinking to: #{change_target}"
-          cmd('install_name_tool', '-change', lib_filepath, change_target, exe)
-        end
+      unless File.exist?(lib_filepath)
+        warn "-- -- Skipping, shared library '#{lib_filepath}' does not exist"
+        next
       end
 
-      next if lib_filename == exe_filename || !copied
+      lib_basename = File.basename(lib_filepath)
+      copy_target = File.join(lib_dir, lib_basename)
+      new_dylib_id = File.join('@rpath', lib_basename)
+
+      copy.push(
+        source: lib_filepath,
+        target: copy_target,
+        dylib_id: new_dylib_id
+      )
+      relink.push(
+        target_file: relink_target_file,
+        old: linked_dylib,
+        new: new_dylib_id
+      )
+
+      sub_copy, sub_relink = build_bundle_plan(
+        lib_filepath, copy_macho_file: true
+      )
+
+      copy.concat(sub_copy)
+      relink.concat(sub_relink)
     end
 
-    copied_libs.each { |lib| copy_libs(lib) }
+    [copy.uniq, relink.uniq]
   end
 
-  def copy_extra_libs(extra_libs, _exe)
-    extra_libs.each do |lib|
-      debug "Bundling extra shared library: #{lib}"
-      lib_file = File.basename(lib)
-      target = "#{lib_dir}/#{lib_file}"
-      unless File.exist?(target)
-        FileUtils.mkdir_p(lib_dir)
-        debug "-- Copying to: #{lib_file}"
-        cmd('cp', '-pRL', lib, lib_dir)
+  def bundle_libs(copy, relink)
+    copy.each do |instruction|
+      source = instruction[:source]
+      target = instruction[:target]
+      dylib_id = instruction[:dylib_id]
+
+      next if File.exist?(target)
+
+      debug "Copying '#{source}' to: '#{relative_path(target)}' ('#{dylib_id}')"
+      FileUtils.mkdir_p(File.dirname(target))
+      cmd('cp', '-pRL', source, target)
+
+      next if dylib_id.nil? || dylib_id == ''
+
+      while_writable(target) do
+        MachO::Tools.change_dylib_id(target, dylib_id)
+      end
+    end
+
+    relink_files = relink.group_by { |r| r[:target_file] }
+    relink_files.each do |target_file, relinks|
+      debug "Changing linked dylibs in: '#{relative_path(target_file)}'"
+      mf = MachO.open(target_file)
+      changed = false
+
+      grouped = relinks.group_by { |r| r[:old] }
+      grouped.each do |old_dylib, r|
+        new_dylib = r.first[:new]
+        debug "-- Relinking '#{old_dylib}' as: '#{new_dylib}'"
+        unless mf.linked_dylibs.include?(old_dylib)
+          warn "-- -- Skipping, not linked: #{old_dylib}"
+          next
+        end
+
+        mf.change_install_name(old_dylib, new_dylib)
+        changed = true
       end
 
-      copy_libs(target)
+      while_writable(target_file) { mf.write! } if changed
     end
   end
 
@@ -1145,13 +1274,13 @@ class GccLibEmbedder < AbstractEmbedder
     end
 
     env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
-    return if File.exist?(site_start_el_file) &&
-              File.read(site_start_el_file).include?(env_setup)
+    if File.exist?(site_start_el_file) &&
+       File.read(site_start_el_file).include?(env_setup)
+      return
+    end
 
     debug 'Setting up site-start.el for self-contained native-comp Emacs.app'
-    File.open(site_start_el_file, 'a') do |f|
-      f.puts("\n#{env_setup}")
-    end
+    File.open(site_start_el_file, 'a') { |f| f.puts("\n#{env_setup}") }
   end
 
   private
@@ -1224,10 +1353,11 @@ class GccInfo
   end
 
   def lib_dir
-    @lib_dir ||= Dir[File.join(root_dir, 'lib/gcc/*/libgcc*')]
-                 .map { |path| File.dirname(path) }
-                 .select { |path| File.basename(path).match(/^\d+$/) }
-                 .max_by { |path| File.basename(path).to_i }
+    @lib_dir ||=
+      Dir[File.join(root_dir, 'lib/gcc/*/libgcc*')]
+      .map { |path| File.dirname(path) }
+      .select { |path| File.basename(path).match(/^\d+$/) }
+      .max_by { |path| File.basename(path).to_i }
   end
 
   def relative_lib_dir
@@ -1235,20 +1365,18 @@ class GccInfo
   end
 
   def darwin_lib_dir
-    @darwin_lib_dir ||= Dir[
-      File.join(lib_dir, 'gcc/*apple-darwin*/*')
-    ].max_by do |path|
-      [
-        File.basename(File.dirname(path)).match(/darwin(\d+)$/)[1].to_i,
-        File.basename(path).split('.').map(&:to_i)
-      ]
-    end
+    @darwin_lib_dir ||=
+      Dir[File.join(lib_dir, 'gcc/*apple-darwin*/*')].max_by do |path|
+        [
+          File.basename(File.dirname(path)).match(/darwin(\d+)$/)[1].to_i,
+          File.basename(path).split('.').map(&:to_i)
+        ]
+      end
   end
 
   def relative_darwin_lib_dir
-    @relative_darwin_lib_dir ||= relative_dir(
-      darwin_lib_dir, File.join(root_dir, 'lib')
-    )
+    @relative_darwin_lib_dir ||=
+      relative_dir(darwin_lib_dir, File.join(root_dir, 'lib'))
   end
 
   # Sanitize folder name with full "MAJOR.MINOR.PATCH" version number to just
@@ -1256,24 +1384,27 @@ class GccInfo
   # unrecognized" error if there are any folders with two dots in their name
   # within the Emacs.app application bundle.
   def sanitized_relative_darwin_lib_dir
-    @sanitized_relative_darwin_lib_dir ||= File.join(
-      File.dirname(relative_darwin_lib_dir),
-      File.basename(relative_darwin_lib_dir).gsub('.', '_')
-    )
+    @sanitized_relative_darwin_lib_dir ||=
+      File.join(
+        File.dirname(relative_darwin_lib_dir),
+        File.basename(relative_darwin_lib_dir).gsub('.', '_')
+      )
   end
 
   def app_bundle_relative_lib_dir
-    @app_bundle_relative_lib_dir ||= relative_dir(
-      File.join(embedder.lib_dir, relative_lib_dir),
-      embedder.invocation_dir
-    )
+    @app_bundle_relative_lib_dir ||=
+      relative_dir(
+        File.join(embedder.lib_dir, relative_lib_dir),
+        embedder.invocation_dir
+      )
   end
 
   def app_bundle_relative_darwin_lib_dir
-    @app_bundle_relative_darwin_lib_dir ||= relative_dir(
-      File.join(embedder.lib_dir, sanitized_relative_darwin_lib_dir),
-      embedder.invocation_dir
-    )
+    @app_bundle_relative_darwin_lib_dir ||=
+      relative_dir(
+        File.join(embedder.lib_dir, sanitized_relative_darwin_lib_dir),
+        embedder.invocation_dir
+      )
   end
 
   def libgccjit_root_dir
@@ -1285,13 +1416,14 @@ class GccInfo
   end
 
   def libgccjit_lib_dir
-    @libgccjit_lib_dir ||= Dir[
-      File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit*.dylib'),
-      File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*'),
-    ]
-                           .map { |path| File.dirname(path) }
-                           .select { |path| File.basename(path).match(/^\d+$/) }
-                           .max_by { |path| File.basename(path).to_i }
+    @libgccjit_lib_dir ||=
+      Dir[
+        File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit*.dylib'),
+        File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*')
+      ]
+      .map { |path| File.dirname(path) }
+      .select { |path| File.basename(path).match(/^\d+$/) }
+      .max_by { |path| File.basename(path).to_i }
   end
 
   def verify_libgccjit
@@ -1321,7 +1453,7 @@ class GccInfo
   private
 
   def embedder
-    @embedder ||= AbstractEmbedder.new(Dir.mktmpdir(['Emacs', '.app']))
+    @embedder ||= AbstractEmbedder.new(Dir.mktmpdir(%w[Emacs .app]))
   end
 
   def relative_dir(path, root)
@@ -1343,159 +1475,168 @@ if __FILE__ == $PROGRAM_NAME
     github_src_repo: nil,
     github_auth: true,
     dist_include: ['COPYING'],
+    self_sign: true,
     archive: true,
     archive_keep: false,
     log_level: 'info'
   }
 
   begin
-    OptionParser.new do |opts|
-      opts.banner = <<~DOC
-        Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
+    OptionParser
+      .new do |opts|
+        opts.banner = <<~DOC
+          Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
-        Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
-        available here: https://github.com/emacs-mirror/emacs
+          Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
+          available here: https://github.com/emacs-mirror/emacs
 
-        Options:
-      DOC
+          Options:
+        DOC
 
-      opts.on('-j', '--parallel COUNT',
-              'Compile using COUNT parallel processes ' \
-              "(detected: #{cli_options[:parallel]})") do |v|
-        cli_options[:parallel] = v
+        opts.on(
+          '-j',
+          '--parallel COUNT',
+          'Compile using COUNT parallel processes ' \
+          "(detected: #{cli_options[:parallel]})"
+        ) { |v| cli_options[:parallel] = v }
+
+        opts.on(
+          '--git-sha SHA',
+          'Override detected git SHA of specified ' \
+          'branch allowing builds of old commits'
+        ) { |v| cli_options[:git_sha] = v }
+
+        opts.on(
+          '--[no-]xwidgets',
+          'Enable/disable XWidgets if supported ' \
+          '(default: enabled)'
+        ) { |v| cli_options[:xwidgets] = v }
+
+        opts.on(
+          '--[no-]tree-sitter',
+          'Enable/disable tree-sitter if supported' \
+          '(default: enabled)'
+        ) { |v| cli_options[:tree_sitter] = v }
+
+        opts.on(
+          '--[no-]native-comp',
+          'Enable/disable native-comp ' \
+          '(default: enabled if supported)'
+        ) { |v| cli_options[:native_comp] = v }
+
+        opts.on(
+          '--[no-]native-march',
+          'Enable/disable -march=native CFLAG' \
+          '(default: disabled)'
+        ) { |v| cli_options[:native_march] = v }
+
+        opts.on(
+          '--[no-]native-full-aot',
+          'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
+          '(default: disabled)'
+        ) { |v| cli_options[:native_full_aot] = v }
+
+        opts.on(
+          '--[no-]relink-eln-files',
+          'Enable/disable re-linking shared libraries in bundled *.eln ' \
+          'files (default: enabled)'
+        ) { |v| cli_options[:relink_eln] = v }
+
+        opts.on(
+          '--[no-]rsvg',
+          'Enable/disable SVG image support via librsvg ' \
+          '(default: enabled)'
+        ) { |v| cli_options[:rsvg] = v }
+
+        opts.on(
+          '--[no-]dbus',
+          'Enable/disable dbus support (default: enabled)'
+        ) { |v| cli_options[:dbus] = v }
+
+        opts.on(
+          '--no-titlebar',
+          'Apply no-titlebar patch (default: disabled)'
+        ) { cli_options[:no_titlebar] = true }
+
+        opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
+          warn '==> WARN: posix-spawn patch is deprecated as has no effect.'
+        end
+
+        opts.on(
+          '--no-frame-refocus',
+          'Apply no-frame-refocus patch (default: disabled)'
+        ) { cli_options[:no_frame_refocus] = true }
+
+        opts.on(
+          '--[no-]poll',
+          'Enable/disable experimental use of poll() instead of select() ' \
+          'to support > 1024 file descriptors ' \
+          '(default: disabled)'
+        ) { |v| cli_options[:poll] = v }
+
+        opts.on(
+          '--github-src-repo REPO',
+          'Specify a GitHub repo to download source tarballs from ' \
+          '(default: emacs-mirror/emacs)'
+        ) { |v| cli_options[:github_src_repo] = v }
+
+        opts.on(
+          '--[no-]github-auth',
+          'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
+          'environment variable is set.' \
+          '(default: enabled)'
+        ) { |v| cli_options[:github_auth] = v }
+
+        opts.on(
+          '--work-dir DIR',
+          'Specify a working directory where tarballs, sources, and ' \
+          'builds will be stored and worked with'
+        ) { |v| cli_options[:work_dir] = v }
+
+        opts.on(
+          '-o DIR',
+          '--output DIR',
+          'Output directory for finished builds ' \
+          '(default: <work-dir>/builds)'
+        ) { |v| cli_options[:output] = v }
+
+        opts.on('--build-name NAME', 'Override generated build name') do |v|
+          cli_options[:build_name] = v
+        end
+
+        opts.on(
+          '--dist-include x,y,z',
+          'List of extra files to copy from Emacs source into build ' \
+          'folder/archive (default: COPYING)'
+        ) { |v| cli_options[:dist_include] = v }
+
+        opts.on(
+          '--[no-]self-sign',
+          'Enable/disable self-signing of Emacs.app (default: enabled)'
+        ) { |v| cli_options[:self_sign] = v }
+
+        opts.on(
+          '--[no-]archive',
+          'Enable/disable creating *.tbz archive (default: enabled)'
+        ) { |v| cli_options[:archive] = v }
+
+        opts.on(
+          '--[no-]archive-keep-build-dir',
+          'Enable/disable keeping source folder for archive ' \
+          '(default: disabled)'
+        ) { |v| cli_options[:archive_keep] = v }
+
+        opts.on(
+          '--log-level LEVEL',
+          'Build script log level (default: info)'
+        ) { |v| cli_options[:log_level] = v }
+
+        opts.on(
+          '--plan FILE',
+          'Follow given plan file, instead of using given git ref/sha'
+        ) { |v| cli_options[:plan] = v }
       end
-
-      opts.on('--git-sha SHA',
-              'Override detected git SHA of specified ' \
-              'branch allowing builds of old commits') do |v|
-        cli_options[:git_sha] = v
-      end
-
-      opts.on('--[no-]xwidgets',
-              'Enable/disable XWidgets if supported ' \
-              '(default: enabled)') do |v|
-        cli_options[:xwidgets] = v
-      end
-
-      opts.on('--[no-]tree-sitter',
-              'Enable/disable tree-sitter if supported' \
-              '(default: enabled)') do |v|
-        cli_options[:tree_sitter] = v
-      end
-
-      opts.on('--[no-]native-comp',
-              'Enable/disable native-comp ' \
-              '(default: enabled if supported)') do |v|
-        cli_options[:native_comp] = v
-      end
-
-      opts.on('--[no-]native-march',
-              'Enable/disable -march=native CFLAG' \
-              '(default: disabled)') do |v|
-        cli_options[:native_march] = v
-      end
-
-      opts.on('--[no-]native-full-aot',
-              'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
-              '(default: disabled)') do |v|
-        cli_options[:native_full_aot] = v
-      end
-
-      opts.on('--[no-]relink-eln-files',
-              'Enable/disable re-linking shared libraries in bundled *.eln ' \
-              'files (default: enabled)') do |v|
-        cli_options[:relink_eln] = v
-      end
-
-      opts.on('--[no-]rsvg',
-              'Enable/disable SVG image support via librsvg ' \
-              '(default: enabled)') do |v|
-        cli_options[:rsvg] = v
-      end
-
-      opts.on('--[no-]dbus',
-              'Enable/disable dbus support (default: enabled)') do |v|
-        cli_options[:dbus] = v
-      end
-
-      opts.on('--no-titlebar', 'Apply no-titlebar patch (default: disabled)') do
-        cli_options[:no_titlebar] = true
-      end
-
-      opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
-        warn '==> WARN: posix-spawn patch is deprecated as has no effect.'
-      end
-
-      opts.on('--no-frame-refocus',
-              'Apply no-frame-refocus patch (default: disabled)') do
-        cli_options[:no_frame_refocus] = true
-      end
-
-      opts.on('--[no-]poll',
-              'Enable/disable experimental use of poll() instead of select() ' \
-              'to support > 1024 file descriptors ' \
-              '(default: disabled)') do |v|
-        cli_options[:poll] = v
-      end
-
-      opts.on('--github-src-repo REPO',
-              'Specify a GitHub repo to download source tarballs from ' \
-              '(default: emacs-mirror/emacs)') do |v|
-        cli_options[:github_src_repo] = v
-      end
-
-      opts.on('--[no-]github-auth',
-              'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
-              'environment variable is set.' \
-              '(default: enabled)') do |v|
-        cli_options[:github_auth] = v
-      end
-
-      opts.on('--work-dir DIR',
-              'Specify a working directory where tarballs, sources, and ' \
-              'builds will be stored and worked with') do |v|
-        cli_options[:work_dir] = v
-      end
-
-      opts.on('-o DIR', '--output DIR',
-              'Output directory for finished builds ' \
-              '(default: <work-dir>/builds)') do |v|
-        cli_options[:output] = v
-      end
-
-      opts.on('--build-name NAME', 'Override generated build name') do |v|
-        cli_options[:build_name] = v
-      end
-
-      opts.on('--dist-include x,y,z',
-              'List of extra files to copy from Emacs source into build ' \
-              'folder/archive (default: COPYING)') do |v|
-        cli_options[:dist_include] = v
-      end
-
-      opts.on('--[no-]archive',
-              'Enable/disable creating *.tbz archive (default: enabled)') do |v|
-        cli_options[:archive] = v
-      end
-
-      opts.on('--[no-]archive-keep-build-dir',
-              'Enable/disable keeping source folder for archive ' \
-              '(default: disabled)') do |v|
-        cli_options[:archive_keep] = v
-      end
-
-      opts.on('--log-level LEVEL',
-              'Build script log level (default: info)') do |v|
-        cli_options[:log_level] = v
-      end
-
-      opts.on(
-        '--plan FILE',
-        'Follow given plan file, instead of using given git ref/sha'
-      ) do |v|
-        cli_options[:plan] = v
-      end
-    end.parse!
+      .parse!
 
     Output.log_level = cli_options[:log_level]
     work_dir = cli_options.delete(:work_dir)
