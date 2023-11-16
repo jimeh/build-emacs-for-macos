@@ -50,3 +50,9 @@ jobs:
         run: make test
         env:
           VERBOSE: "true"
+
+  release-please:
+    runs-on: ubuntu-latest
+    if: github.ref_name == 'main' || github.ref_name == 'master'
+    steps:
+      - uses: jimeh/release-please-manifest-action@v1
