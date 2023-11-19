@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.44](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.43...v0.6.44) (2023-11-19)
+
+
+### Bug Fixes
+
+* **builder/cask:** ensure release info helpers return correct asset ([af0b2b8](https://github.com/jimeh/build-emacs-for-macos/commit/af0b2b83abd5af0e61a085da386cc0da389f6588))
+
 ## [0.6.43](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.42...v0.6.43) (2023-11-16)
 
 
