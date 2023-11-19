@@ -46,16 +46,12 @@ SHELL := env \
 #
 
 bootstrap: bootstrap-brew bootstrap-ruby
-bootstrap-ci: bootstrap-brew bootstrap-brew-ci bootstrap-ruby bootstrap-pip
 
 bootstrap-ruby:
 	bundle install
 
 bootstrap-brew:
-	brew bundle
-
-bootstrap-brew-ci:
-	brew bundle --file Brewfile.ci
+	brew bundle --verbose --no-upgrade
 
 bootstrap-pip:
 	$(PIP) install -r requirements-ci.txt
