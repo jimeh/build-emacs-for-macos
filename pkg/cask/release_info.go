@@ -28,10 +28,11 @@ func (s *ReleaseInfo) Asset(needles ...string) *ReleaseAsset {
 		return assets[i].Filename < assets[j].Filename
 	})
 
+assetsLoop:
 	for _, a := range assets {
 		for _, needle := range needles {
 			if !strings.Contains(a.Filename, needle) {
-				continue
+				continue assetsLoop
 			}
 		}
 
