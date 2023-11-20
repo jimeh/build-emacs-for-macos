@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.45](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.44...v0.6.45) (2023-11-20)
+
+
+### Features
+
+* **builder/cask:** support shared helpers template ([97f77f3](https://github.com/jimeh/build-emacs-for-macos/commit/97f77f3b1043b66da6ec737e5db91605ec961d08))
+
 ## [0.6.44](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.43...v0.6.44) (2023-11-19)
 
 
