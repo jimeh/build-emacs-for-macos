@@ -433,10 +433,22 @@ func (s *Updater) renderCask(
 		}
 	}
 
-	templateFile := filepath.Join(s.TemplatesDir, chk.Cask+".rb.tpl")
-	tplContent, err := os.ReadFile(templateFile)
+	tplContent, err := os.ReadFile(
+		filepath.Join(s.TemplatesDir, chk.Cask+".rb.tpl"),
+	)
 	if err != nil {
 		return nil, err
+	}
+
+	helperContent, err := os.ReadFile(
+		filepath.Join(s.TemplatesDir, "_helpers.tpl"),
+	)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	if len(helperContent) > 0 {
+		tplContent = append(helperContent, tplContent...)
 	}
 
 	tpl, err := template.New(chk.Cask).Parse(string(tplContent))
