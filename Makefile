@@ -69,7 +69,7 @@ $(TOOLDIR)/$(1): Makefile
 endef
 
 $(eval $(call tool,gofumpt,mvdan.cc/gofumpt@latest))
-$(eval $(call tool,golangci-lint,github.com/golangci/golangci-lint/cmd/golangci-lint@v1.40))
+$(eval $(call tool,golangci-lint,github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55))
 $(eval $(call tool,gomod,github.com/Helcaraxan/gomod@latest))
 
 .PHONY: tools
