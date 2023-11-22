@@ -52,23 +52,23 @@ The build produced does have some limitations:
 
 ## Status
 
-As of writing (2021-11-27) it works for me on my machine and for the nightly
+As of writing (2023-11-20) it works for me on my machine and for the nightly
 builds in [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds). Your luck
 may vary.
 
 I have successfully built:
 
-- `emacs-28` release branch
-- `master` branch (Emacs 29.x)
+- `emacs-29.1` release tag.
+- `master` branch (Emacs 30.x).
 
 For reference, my machine is:
 
-- 13-inch MacBook Pro (2020), 10th-gen 2.3 GHz Quad-Core Intel Core i7 (4c/8t)
-- macOS Monterey 12.0.1 (21A559)
-- Xcode 13.1 (13A1030d)
+- 14-inch MacBook Pro (2023), Apple M3 Pro (11-cores)
+- macOS Sonoma 14.1.1 (23B2082)
+- Xcode 15.0.1 (15A507)
 
 Nightly builds are built with GitHub Actions on GitHub-hosted runners, using
-`macos-10.15`.
+`macos-12` for Intel builds, and `macos-13-xlarge` for Apple Silicon builds.
 
 ## Usage
 
@@ -119,10 +119,10 @@ as of writing) and build Emacs.app from it:
 ./build-emacs-for-macos
 ```
 
-To build the stable `emacs-27.1` release git tag run:
+To build the stable `emacs-29.1` release git tag run:
 
 ```
-./build-emacs-for-macos emacs-27.1
+./build-emacs-for-macos emacs-29.1
 ```
 
 All sources as downloaded as tarballs from the
@@ -154,10 +154,6 @@ If you want `emacs` in your terminal to launch a GUI instance of Emacs, don't
 use the alias from the above example.
 
 ## Native-Comp
-
-_Note: On 2021-04-25 the `feature/native-comp` branch was
-[merged](http://git.savannah.gnu.org/cgit/emacs.git/commit/?id=289000eee729689b0cf362a21baa40ac7f9506f6)
-into `master`._
 
 The build script will automatically detect if the source tree being built
 supports native-compilation, and enable it if available. You can override the
