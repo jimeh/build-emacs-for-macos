@@ -360,6 +360,7 @@ func (s *Updater) updateRepoFile(
 	return true, nil
 }
 
+//nolint:funlen
 func (s *Updater) renderCask(
 	ctx context.Context,
 	chk *LiveCheck,
