@@ -30,9 +30,11 @@ The build produced does have some limitations:
   application will be that of the machine it was built on.
 - The minimum required macOS version of the built application will be the same
   as that of the machine it was built on.
-- The application is not signed automatically, but the CLI tool used to sign the
-  nightly builds is available. Run `go run ./cmd/emacs-builder package --help`
-  for details. More detailed instructions will come soon.
+- The application is not signed automatically.  To sign it, do
+  ```
+  codesign --force --deep -s - Emacs.app
+  ```
+  If you have a code signing certificate, then replace the lone `-` argument with the common name of your certificate.
 
 ## Requirements
 
