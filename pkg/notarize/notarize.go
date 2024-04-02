@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bearer/gon/notarize"
+	"github.com/bearer/gon/staple"
 	"github.com/hashicorp/go-hclog"
-	"github.com/mitchellh/gon/notarize"
-	"github.com/mitchellh/gon/staple"
 )
 
 type Options struct {
@@ -25,21 +25,23 @@ func Notarize(ctx context.Context, opts *Options) error {
 	logger := hclog.FromContext(ctx).Named("notarize")
 
 	notarizeOpts := &notarize.Options{
-		File:     opts.File,
-		BundleId: opts.BundleID,
-		Username: opts.Username,
-		Password: opts.Password,
-		Provider: opts.Provider,
-		BaseCmd:  exec.CommandContext(ctx, ""),
+		File:        opts.File,
+		DeveloperId: opts.Username,
+		Password:    opts.Password,
+		Provider:    opts.Provider,
+		BaseCmd:     exec.CommandContext(ctx, ""),
 		Status: &status{
 			Lock:   &sync.Mutex{},
 			Logger: logger,
 		},
+		// Ensure we don't log anything from the notarize package, as it will
+		// log the password. We'll handle logging ourselves.
+		Logger: hclog.NewNullLogger(),
 	}
 
 	logger.Info("notarizing", "file", filepath.Base(opts.File))
 
-	info, err := notarize.Notarize(ctx, notarizeOpts)
+	info, _, err := notarize.Notarize(ctx, notarizeOpts)
 	if err != nil {
 		return err
 	}
@@ -68,8 +70,14 @@ type status struct {
 	Lock   *sync.Mutex
 	Logger hclog.Logger
 
-	lastStatusTime time.Time
+	lastinfoStatus     string
+	lastInfoStatusTime time.Time
+
+	lastLogStatus     string
+	lastLogStatusTime time.Time
 }
+
+var _ notarize.Status = (*status)(nil)
 
 func (s *status) Submitting() {
 	s.Lock.Lock()
@@ -82,17 +90,34 @@ func (s *status) Submitted(uuid string) {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
 
-	s.Logger.Info("submitted")
-	s.Logger.Debug("request", "uuid", uuid)
-	s.Logger.Info("waiting for result from Apple...")
+	msg := "submitted, waiting for result from Apple"
+	if s.Logger.IsDebug() {
+		s.Logger.Debug(msg, "uuid", uuid)
+	} else {
+		s.Logger.Info(msg)
+	}
 }
 
-func (s *status) Status(info notarize.Info) {
+func (s *status) InfoStatus(info notarize.Info) {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
 
-	if time.Now().After(s.lastStatusTime.Add(60 * time.Second)) {
-		s.lastStatusTime = time.Now()
+	if s.lastinfoStatus != info.Status ||
+		time.Now().After(s.lastInfoStatusTime.Add(60*time.Second)) {
+		s.lastinfoStatus = info.Status
+		s.lastInfoStatusTime = time.Now()
 		s.Logger.Info("status update", "status", info.Status)
+	}
+}
+
+func (s *status) LogStatus(log notarize.Log) {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
+	if s.lastLogStatus != log.Status ||
+		time.Now().After(s.lastLogStatusTime.Add(60*time.Second)) {
+		s.lastLogStatus = log.Status
+		s.lastLogStatusTime = time.Now()
+		s.Logger.Info("log status update", "status", log.Status)
 	}
 }

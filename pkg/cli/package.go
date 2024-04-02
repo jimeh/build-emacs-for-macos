@@ -76,9 +76,9 @@ func packageCmd() *cli2.Command {
 				EnvVars: []string{"AC_USERNAME"},
 			},
 			&cli2.StringFlag{
-				Name:  "ac-password",
-				Usage: "(with --sign) Apple Connect password",
-				Value: "@env:AC_PASSWORD",
+				Name:    "ac-password",
+				Usage:   "(with --sign) Apple Connect password",
+				EnvVars: []string{"AC_PASSWORD"},
 			},
 			&cli2.StringFlag{
 				Name:    "ac-provider",
