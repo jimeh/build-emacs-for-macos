@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.46](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.45...v0.6.46) (2024-04-03)
+
+
+### Bug Fixes
+
+* **emacs-builder:** resolve issues with notarizing Emacs app ([#100](https://github.com/jimeh/build-emacs-for-macos/issues/100)) ([1743035](https://github.com/jimeh/build-emacs-for-macos/commit/1743035a6d5d8c07a2c1da3f76cafe156e4ec31d))
+
 ## [0.6.45](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.44...v0.6.45) (2023-11-20)
 
 
