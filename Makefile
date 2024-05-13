@@ -51,7 +51,7 @@ bootstrap-ruby:
 	bundle install
 
 bootstrap-brew:
-	brew bundle --verbose --no-upgrade
+	brew bundle --verbose
 
 bootstrap-pip:
 	$(PIP) install -r requirements-ci.txt
