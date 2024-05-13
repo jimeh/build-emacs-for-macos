@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.47](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.46...v0.6.47) (2024-05-13)
+
+
+### Bug Fixes
+
+* **bootstrap:** remove --no-upgrade option from brew bundle ([2f0baba](https://github.com/jimeh/build-emacs-for-macos/commit/2f0babae990f908d706f5f60dc4a11573918c23d))
+
 ## [0.6.46](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.45...v0.6.46) (2024-04-03)
 
 
