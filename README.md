@@ -38,16 +38,15 @@ The build produced does have some limitations:
 
 - [Xcode](https://apps.apple.com/gb/app/xcode/id497799835?mt=12)
 - [Homebrew](https://brew.sh/)
-- All Homebrew formula listed in the `Brewfile`, which can all easily be
-  installed by running:
-  ```
-  brew bundle
-  ```
 - Ruby 2.3.0 or later is needed to execute the build script itself. macOS comes
   with Ruby, check your version with `ruby --version`. If it's too old, you can
   install a newer version with:
   ```
   brew install ruby
+  ```
+- All dependencies can all easily be installed by running:
+  ```
+  make bootstrap
   ```
 
 ## Status
