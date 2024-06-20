@@ -456,6 +456,9 @@ class Build
       if options[:tree_sitter] && supports_tree_sitter?
         configure_flags << '--with-tree-sitter'
       end
+      if options[:fd_setsize]
+        configure_flags << "CFLAGS=-DFD_SETSIZE=#{options[:fd_setsize]}"
+      end
       configure_flags << native_comp_configure_flag if options[:native_comp]
       configure_flags << '--without-rsvg' if options[:rsvg] == false
       configure_flags << '--without-dbus' if options[:dbus] == false
@@ -1573,6 +1576,12 @@ if __FILE__ == $PROGRAM_NAME
           'to support > 1024 file descriptors ' \
           '(default: disabled)'
         ) { |v| cli_options[:poll] = v }
+
+        opts.on(
+          '--fd-setsize SIZE',
+          'Set an arbitrary file descriptor size. To be used in tandem ' \
+          'with the `--poll` option (default: disabled)'
+        ) { |v| cli_options[:fd_setsize] = v }
 
         opts.on(
           '--github-src-repo REPO',
