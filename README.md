@@ -87,6 +87,7 @@ Options:
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
         --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: enabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
+        --[no-]poll                  Enable/disable experimental use of poll() instead of select() to support > 1024 file descriptors (default: disabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
         --posix-spawn                Apply posix-spawn patch (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
