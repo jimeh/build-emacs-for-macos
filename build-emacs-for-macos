@@ -1579,8 +1579,7 @@ if __FILE__ == $PROGRAM_NAME
 
         opts.on(
           '--fd-setsize SIZE',
-          'Set an arbitrary file descriptor size. To be used in tandem ' \
-          'with the `--poll` option (default: disabled)'
+          'Set an arbitrary file descriptor size (default: disabled)'
         ) { |v| cli_options[:fd_setsize] = v }
 
         opts.on(
