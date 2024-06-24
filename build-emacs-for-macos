@@ -380,18 +380,19 @@ class Build
     info 'Compiling from source. This will take a while...'
 
     FileUtils.cd(source) do
+      configure_cflags = [ENV.fetch('CFLAGS', nil)]
+
       if options[:native_comp]
         info 'Compiling with native-comp enabled'
         verify_native_comp
         gcc_info.verify_libgccjit
 
-        ENV['CFLAGS'] = [
+        configure_cflags.concat([
           "-I#{File.join(gcc_info.root_dir, 'include')}",
           "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
           '-O2',
           (options[:native_march] ? '-march=native' : nil),
-          ENV.fetch('CFLAGS', nil)
-        ].compact.join(' ')
+        ])
 
         ENV['LDFLAGS'] = [
           "-L#{gcc_info.lib_dir}",
@@ -457,11 +458,16 @@ class Build
         configure_flags << '--with-tree-sitter'
       end
       if options[:fd_setsize]
-        configure_flags << "CFLAGS=-DFD_SETSIZE=#{options[:fd_setsize]} -DDARWIN_UNLIMITED_SELECT"
+        configure_cflags.concat([
+          "-DFD_SETSIZE=#{options[:fd_setsize]}",
+          "-DDARWIN_UNLIMITED_SELECT",
+        ])
       end
       configure_flags << native_comp_configure_flag if options[:native_comp]
       configure_flags << '--without-rsvg' if options[:rsvg] == false
       configure_flags << '--without-dbus' if options[:dbus] == false
+
+      ENV['CFLAGS'] = configure_cflags.compact.join(' ')
 
       run_cmd './configure', *configure_flags.compact
 
