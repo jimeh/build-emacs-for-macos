@@ -457,7 +457,7 @@ class Build
         configure_flags << '--with-tree-sitter'
       end
       if options[:fd_setsize]
-        configure_flags << "CFLAGS=-DFD_SETSIZE=#{options[:fd_setsize]}"
+        configure_flags << "CFLAGS=-DFD_SETSIZE=#{options[:fd_setsize]} -DDARWIN_UNLIMITED_SELECT"
       end
       configure_flags << native_comp_configure_flag if options[:native_comp]
       configure_flags << '--without-rsvg' if options[:rsvg] == false
