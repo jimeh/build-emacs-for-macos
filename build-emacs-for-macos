@@ -442,13 +442,18 @@ class Build
         '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
       ].compact.join(':')
 
+      local_lisp_path = [
+        ENV.fetch('EMACS_LOCAL_LISP_PATH', '').split(':'),
+        '/Library/Application Support/Emacs/${version}/site-lisp',
+        '/Library/Application Support/Emacs/site-lisp',
+        '/usr/local/share/emacs/site-lisp',
+        '/opt/homebrew/share/emacs/site-lisp'
+      ].flatten.join(':')
+
       configure_flags = [
         '--with-ns',
         '--with-modules',
-        '--enable-locallisppath=' \
-        '/Library/Application Support/Emacs/${version}/site-lisp:' \
-        '/Library/Application Support/Emacs/site-lisp:' \
-        '/usr/local/share/emacs/site-lisp'
+        "--enable-locallisppath=#{local_lisp_path}"
       ]
       if options[:xwidgets] && supports_xwidgets?
         configure_flags << '--with-xwidgets'
