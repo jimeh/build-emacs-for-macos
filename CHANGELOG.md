@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.48](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.47...v0.6.48) (2024-08-09)
+
+
+### Bug Fixes
+
+* **local-lisp-path:** add Apple Silicon homebrew lisp-site ([8a1ae4d](https://github.com/jimeh/build-emacs-for-macos/commit/8a1ae4df1ca37a851f9936fcf2081536837e4c67))
+
 ## [0.6.47](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.46...v0.6.47) (2024-05-13)
 
 
