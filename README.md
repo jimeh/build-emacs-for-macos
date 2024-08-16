@@ -157,7 +157,7 @@ use the alias from the above example.
 The build script will automatically detect if the source tree being built
 supports native-compilation, and enable it if available. You can override the
 auto-detection logic to force enable or force disable native-compilation by
-passing `--native-comp` or `--no-native-comp` respectfully.
+passing `--native-comp` or `--no-native-comp` respectively.
 
 By default `NATIVE_FULL_AOT` is disabled which ensures a fast build by native
 compiling as few elisp source files as possible to build Emacs itself. Any
