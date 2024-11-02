@@ -210,7 +210,7 @@ class Build
   end
 
   def output_dir
-    @output_dir ||= (options[:output] || File.join(root_dir, 'builds'))
+    @output_dir ||= options[:output] || File.join(root_dir, 'builds')
   end
 
   def github_src_repo
@@ -736,71 +736,58 @@ class Build
     @effective_version ||=
       case ref
       when /^emacs-26.*/
-        'emacs-26'
+        26
       when /^emacs-27.*/
-        'emacs-27'
+        27
       when /^emacs-28.*/
-        'emacs-28'
+        28
       when /^emacs-29.*/
-        'emacs-29'
+        29
+      when /^emacs-30.*/
+        30
       else
-        'emacs-30'
+        31
       end
   end
 
   def patches(opts = {})
     p = []
 
-    if %w[emacs-26 emacs-27 emacs-28 emacs-29 emacs-30].include?(
-      effective_version
-    )
+    # Enabled by default patches.
+
+    if (26..31).include?(effective_version)
       p << {
         url:
           'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-          "patches/#{effective_version}/fix-window-role.patch"
+          "patches/emacs-#{effective_version}/fix-window-role.patch"
       }
     end
 
-    if %w[emacs-27 emacs-28 emacs-29 emacs-30].include?(effective_version)
+    if (27..31).include?(effective_version)
       p << {
         url:
-          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-          "patches/#{effective_version}/system-appearance.patch"
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/system-appearance.patch"
       }
-
-      if options[:no_titlebar]
-        p << {
-          url:
-            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-            "patches/#{effective_version}/no-titlebar.patch"
-        }
-      end
-
-      if options[:no_frame_refocus]
-        p << {
-          url:
-            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-            "patches/#{effective_version}/no-frame-refocus-cocoa.patch"
-        }
-      end
     end
 
-    if %w[emacs-29 emacs-30].include?(effective_version)
+    if (29..31).include?(effective_version)
       p << {
         url:
-          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-          "patches/#{effective_version}/round-undecorated-frame.patch"
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/round-undecorated-frame.patch"
       }
-      if options[:poll]
-        p << {
-          url:
-            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-            "patches/#{effective_version}/poll.patch"
-        }
-      end
     end
 
-    if effective_version == 'emacs-28'
+    if effective_version == 27
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/ligatures-freeze-fix.patch"
+      }
+    end
+
+    if effective_version == 28
       p << {
         replace: [
           'configure.ac',
@@ -811,7 +798,7 @@ class Build
       }
     end
 
-    if %w[emacs-28 emacs-29].include?(effective_version)
+    if (28..29).include?(effective_version)
       p << {
         replace: [
           'configure.ac',
@@ -822,23 +809,33 @@ class Build
       }
     end
 
-    if effective_version == 'emacs-27'
+    # Optional patches.
+
+    if options[:no_frame_refocus] && (27..31).include?(effective_version)
       p << {
         url:
           'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-          "patches/#{effective_version}/ligatures-freeze-fix.patch"
+          "patches/emacs-#{effective_version}/no-frame-refocus-cocoa.patch"
       }
-
-      if opts[:xwidgets]
-        p << {
-          url:
-            'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-            "patches/#{effective_version}/xwidgets_webkit_in_cocoa.patch"
-        }
-      end
     end
 
-    p
+    if options[:no_titlebar] && (27..28).include?(effective_version)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/no-titlebar.patch"
+      }
+    end
+
+    if opts[:xwidgets] && effective_version == 27
+      p << {
+        url:
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+          "patches/emacs-#{effective_version}/xwidgets_webkit_in_cocoa.patch"
+      }
+    end
+
+    p.uniq
   end
 
   def apply_patch(patch, target)
@@ -1486,162 +1483,159 @@ if __FILE__ == $PROGRAM_NAME
     log_level: 'info'
   }
 
+  parser = OptionParser.new do |opts|
+    opts.banner = <<~DOC
+      Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
+
+      Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
+      available here: https://github.com/emacs-mirror/emacs
+
+      Options:
+    DOC
+
+    opts.on(
+      '-j',
+      '--parallel COUNT',
+      'Compile using COUNT parallel processes ' \
+      "(detected: #{cli_options[:parallel]})"
+    ) { |v| cli_options[:parallel] = v }
+
+    opts.on(
+      '--git-sha SHA',
+      'Override detected git SHA of specified ' \
+      'branch allowing builds of old commits'
+    ) { |v| cli_options[:git_sha] = v }
+
+    opts.on(
+      '--[no-]xwidgets',
+      'Enable/disable XWidgets if supported ' \
+      '(default: enabled)'
+    ) { |v| cli_options[:xwidgets] = v }
+
+    opts.on(
+      '--[no-]tree-sitter',
+      'Enable/disable tree-sitter if supported' \
+      '(default: enabled)'
+    ) { |v| cli_options[:tree_sitter] = v }
+
+    opts.on(
+      '--[no-]native-comp',
+      'Enable/disable native-comp ' \
+      '(default: enabled if supported)'
+    ) { |v| cli_options[:native_comp] = v }
+
+    opts.on(
+      '--[no-]native-march',
+      'Enable/disable -march=native CFLAG' \
+      '(default: disabled)'
+    ) { |v| cli_options[:native_march] = v }
+
+    opts.on(
+      '--[no-]native-full-aot',
+      'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
+      '(default: disabled)'
+    ) { |v| cli_options[:native_full_aot] = v }
+
+    opts.on(
+      '--[no-]relink-eln-files',
+      'Enable/disable re-linking shared libraries in bundled *.eln ' \
+      'files (default: enabled)'
+    ) { |v| cli_options[:relink_eln] = v }
+
+    opts.on(
+      '--[no-]rsvg',
+      'Enable/disable SVG image support via librsvg ' \
+      '(default: enabled)'
+    ) { |v| cli_options[:rsvg] = v }
+
+    opts.on(
+      '--[no-]dbus',
+      'Enable/disable dbus support (default: enabled)'
+    ) { |v| cli_options[:dbus] = v }
+
+    opts.on(
+      '--no-titlebar',
+      'Apply no-titlebar patch (default: disabled)'
+    ) { cli_options[:no_titlebar] = true }
+
+    opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
+      warn '==> WARN: posix-spawn patch is deprecated and has no effect.'
+    end
+
+    opts.on(
+      '--no-frame-refocus',
+      'Apply no-frame-refocus patch (default: disabled)'
+    ) { cli_options[:no_frame_refocus] = true }
+
+    opts.on('--[no-]poll', 'Apply poll patch (deprecated)') do
+      warn '==> WARN: poll patch is deprecated and has no effect.'
+    end
+
+    opts.on(
+      '--github-src-repo REPO',
+      'Specify a GitHub repo to download source tarballs from ' \
+      '(default: emacs-mirror/emacs)'
+    ) { |v| cli_options[:github_src_repo] = v }
+
+    opts.on(
+      '--[no-]github-auth',
+      'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
+      'environment variable is set.' \
+      '(default: enabled)'
+    ) { |v| cli_options[:github_auth] = v }
+
+    opts.on(
+      '--work-dir DIR',
+      'Specify a working directory where tarballs, sources, and ' \
+      'builds will be stored and worked with'
+    ) { |v| cli_options[:work_dir] = v }
+
+    opts.on(
+      '-o DIR',
+      '--output DIR',
+      'Output directory for finished builds ' \
+      '(default: <work-dir>/builds)'
+    ) { |v| cli_options[:output] = v }
+
+    opts.on('--build-name NAME', 'Override generated build name') do |v|
+      cli_options[:build_name] = v
+    end
+
+    opts.on(
+      '--dist-include x,y,z',
+      'List of extra files to copy from Emacs source into build ' \
+      'folder/archive (default: COPYING)'
+    ) { |v| cli_options[:dist_include] = v }
+
+    opts.on(
+      '--[no-]self-sign',
+      'Enable/disable self-signing of Emacs.app (default: enabled)'
+    ) { |v| cli_options[:self_sign] = v }
+
+    opts.on(
+      '--[no-]archive',
+      'Enable/disable creating *.tbz archive (default: enabled)'
+    ) { |v| cli_options[:archive] = v }
+
+    opts.on(
+      '--[no-]archive-keep-build-dir',
+      'Enable/disable keeping source folder for archive ' \
+      '(default: disabled)'
+    ) { |v| cli_options[:archive_keep] = v }
+
+    opts.on(
+      '--log-level LEVEL',
+      'Build script log level (default: info)'
+    ) { |v| cli_options[:log_level] = v }
+
+    opts.on(
+      '--plan FILE',
+      'Follow given plan file, instead of using given git ref/sha'
+    ) { |v| cli_options[:plan] = v }
+  end
+
   begin
-    OptionParser
-      .new do |opts|
-        opts.banner = <<~DOC
-          Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
-
-          Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
-          available here: https://github.com/emacs-mirror/emacs
-
-          Options:
-        DOC
-
-        opts.on(
-          '-j',
-          '--parallel COUNT',
-          'Compile using COUNT parallel processes ' \
-          "(detected: #{cli_options[:parallel]})"
-        ) { |v| cli_options[:parallel] = v }
-
-        opts.on(
-          '--git-sha SHA',
-          'Override detected git SHA of specified ' \
-          'branch allowing builds of old commits'
-        ) { |v| cli_options[:git_sha] = v }
-
-        opts.on(
-          '--[no-]xwidgets',
-          'Enable/disable XWidgets if supported ' \
-          '(default: enabled)'
-        ) { |v| cli_options[:xwidgets] = v }
-
-        opts.on(
-          '--[no-]tree-sitter',
-          'Enable/disable tree-sitter if supported' \
-          '(default: enabled)'
-        ) { |v| cli_options[:tree_sitter] = v }
-
-        opts.on(
-          '--[no-]native-comp',
-          'Enable/disable native-comp ' \
-          '(default: enabled if supported)'
-        ) { |v| cli_options[:native_comp] = v }
-
-        opts.on(
-          '--[no-]native-march',
-          'Enable/disable -march=native CFLAG' \
-          '(default: disabled)'
-        ) { |v| cli_options[:native_march] = v }
-
-        opts.on(
-          '--[no-]native-full-aot',
-          'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
-          '(default: disabled)'
-        ) { |v| cli_options[:native_full_aot] = v }
-
-        opts.on(
-          '--[no-]relink-eln-files',
-          'Enable/disable re-linking shared libraries in bundled *.eln ' \
-          'files (default: enabled)'
-        ) { |v| cli_options[:relink_eln] = v }
-
-        opts.on(
-          '--[no-]rsvg',
-          'Enable/disable SVG image support via librsvg ' \
-          '(default: enabled)'
-        ) { |v| cli_options[:rsvg] = v }
-
-        opts.on(
-          '--[no-]dbus',
-          'Enable/disable dbus support (default: enabled)'
-        ) { |v| cli_options[:dbus] = v }
-
-        opts.on(
-          '--no-titlebar',
-          'Apply no-titlebar patch (default: disabled)'
-        ) { cli_options[:no_titlebar] = true }
-
-        opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
-          warn '==> WARN: posix-spawn patch is deprecated as has no effect.'
-        end
-
-        opts.on(
-          '--no-frame-refocus',
-          'Apply no-frame-refocus patch (default: disabled)'
-        ) { cli_options[:no_frame_refocus] = true }
-
-        opts.on(
-          '--[no-]poll',
-          'Enable/disable experimental use of poll() instead of select() ' \
-          'to support > 1024 file descriptors ' \
-          '(default: disabled)'
-        ) { |v| cli_options[:poll] = v }
-
-        opts.on(
-          '--github-src-repo REPO',
-          'Specify a GitHub repo to download source tarballs from ' \
-          '(default: emacs-mirror/emacs)'
-        ) { |v| cli_options[:github_src_repo] = v }
-
-        opts.on(
-          '--[no-]github-auth',
-          'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
-          'environment variable is set.' \
-          '(default: enabled)'
-        ) { |v| cli_options[:github_auth] = v }
-
-        opts.on(
-          '--work-dir DIR',
-          'Specify a working directory where tarballs, sources, and ' \
-          'builds will be stored and worked with'
-        ) { |v| cli_options[:work_dir] = v }
-
-        opts.on(
-          '-o DIR',
-          '--output DIR',
-          'Output directory for finished builds ' \
-          '(default: <work-dir>/builds)'
-        ) { |v| cli_options[:output] = v }
-
-        opts.on('--build-name NAME', 'Override generated build name') do |v|
-          cli_options[:build_name] = v
-        end
-
-        opts.on(
-          '--dist-include x,y,z',
-          'List of extra files to copy from Emacs source into build ' \
-          'folder/archive (default: COPYING)'
-        ) { |v| cli_options[:dist_include] = v }
-
-        opts.on(
-          '--[no-]self-sign',
-          'Enable/disable self-signing of Emacs.app (default: enabled)'
-        ) { |v| cli_options[:self_sign] = v }
-
-        opts.on(
-          '--[no-]archive',
-          'Enable/disable creating *.tbz archive (default: enabled)'
-        ) { |v| cli_options[:archive] = v }
-
-        opts.on(
-          '--[no-]archive-keep-build-dir',
-          'Enable/disable keeping source folder for archive ' \
-          '(default: disabled)'
-        ) { |v| cli_options[:archive_keep] = v }
-
-        opts.on(
-          '--log-level LEVEL',
-          'Build script log level (default: info)'
-        ) { |v| cli_options[:log_level] = v }
-
-        opts.on(
-          '--plan FILE',
-          'Follow given plan file, instead of using given git ref/sha'
-        ) { |v| cli_options[:plan] = v }
-      end
-      .parse!
+    parser.parse!
 
     Output.log_level = cli_options[:log_level]
     work_dir = cli_options.delete(:work_dir)
