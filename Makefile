@@ -48,10 +48,12 @@ SHELL := env \
 bootstrap: bootstrap-brew bootstrap-ruby
 
 bootstrap-ruby:
-	bundle install
+	env BUNDLE_WITHOUT=development bundle install
 
 bootstrap-brew:
+ifndef IN_NIX_SHELL
 	brew bundle --verbose
+endif
 
 bootstrap-pip:
 	$(PIP) install -r requirements-ci.txt
@@ -69,7 +71,7 @@ $(TOOLDIR)/$(1): Makefile
 endef
 
 $(eval $(call tool,gofumpt,mvdan.cc/gofumpt@latest))
-$(eval $(call tool,golangci-lint,github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55))
+$(eval $(call tool,golangci-lint,github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61))
 $(eval $(call tool,gomod,github.com/Helcaraxan/gomod@latest))
 
 .PHONY: tools
@@ -131,6 +133,21 @@ format: $(TOOLDIR)/gofumpt
 .PHONY: gen
 gen:
 	go generate $$(go list ./... | grep -v 'sources/' | grep -v 'builds/')
+
+.PHONY: nix-flake-update
+nix-flake-update:
+	nix flake update \
+	&& $(MAKE) flake-package-versions.txt
+
+.SILENT: flake-package-versions
+flake-package-versions:
+	nix develop --command -- bash -c \
+		'nix derivation show \
+			$$(echo $$PATH | tr ":" "\n" | grep "/nix/store" | sort -u) \
+			| jq -r ".[].name" | sort -u'
+
+flake-package-versions.txt: flake.nix flake.lock
+	$(MAKE) flake-package-versions > flake-package-versions.txt
 
 #
 # Dependencies

@@ -36,18 +36,40 @@ The build produced does have some limitations:
 
 ## Requirements
 
+Required with both Nix and Homebrew approaches:
+
 - [Xcode](https://apps.apple.com/gb/app/xcode/id497799835?mt=12)
-- [Homebrew](https://brew.sh/)
-- Ruby 2.3.0 or later is needed to execute the build script itself. macOS comes
-  with Ruby, check your version with `ruby --version`. If it's too old, you can
-  install a newer version with:
-  ```
-  brew install ruby
-  ```
-- All dependencies can all easily be installed by running:
-  ```
-  make bootstrap
-  ```
+
+### Nix
+
+The [Nix](https://nixos.org/) package manager is the preferred and most reliable
+way to install all dependencies required to build Emacs, by way of a Nix flake
+included in the project root.
+
+To install all required dependencies within the nix shell, run:
+
+```
+nix develop --command make bootstrap
+```
+
+### Homebrew
+
+If you do not have Nix installed, then the alternative way to manage and install
+build-time dependencies is via [Homebrew](https://brew.sh/).
+
+Ruby 3.3.x or later is also needed to execute the build script. Earlier versions
+may work, but are untested. Simplest way to install a recent Ruby version is via
+Homebrew:
+
+```
+brew install ruby
+```
+
+And finally, to install all built-time dependencies, run:
+
+```
+make bootstrap
+```
 
 ## Status
 
@@ -71,6 +93,24 @@ Nightly builds are built with GitHub Actions on GitHub-hosted runners, using
 
 ## Usage
 
+### Nix
+
+Ensure [Flakes](https://nixos.wiki/wiki/Flakes) are enabled, and enter the flake
+development environment with `nix develop`. Within this environment, you can
+execute the `./build-emacs-for-macos --help` to get started.
+
+Or you can run the build script via `nix develop`:
+
+```
+nix develop --command ./build-emacs-for-macos --help
+```
+
+### Homebrew
+
+Run `make boostrap` to ensure all Ruby and Homebrew dependencies are installed.
+
+### Build Script
+
 ```
 Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
@@ -78,8 +118,11 @@ Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
 available here: https://github.com/emacs-mirror/emacs
 
 Options:
+        --info                       Print environment info and detected library paths, then exit
+        --preview                    Print preview details about build and exit.
     -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 16)
         --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
+        --[no-]use-nix               Use Nix instead of Homebrew to find dependencies (default: enabled if IN_NIX_SHELL is set)
         --[no-]xwidgets              Enable/disable XWidgets if supported (default: enabled)
         --[no-]tree-sitter           Enable/disable tree-sitter if supported (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)

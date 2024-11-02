@@ -96,17 +96,26 @@ class OS
     @version ||= OSVersion.new
   end
 
+  def self.sdk_version
+    @sdk_version ||= SDKVersion.new
+  end
+
   def self.arch
     @arch ||= `uname -m`.strip
   end
 end
 
-class OSVersion
+class AbstractVersion
+  attr_reader :version
+
   def initialize
-    @version =
-      `sw_vers -productVersion`.match(
-        /(?<major>\d+)(?:\.(?<minor>\d+)(?:\.(?<patch>\d+))?)?/
-      )
+    @version = load_version.match(
+      /(?<major>\d+)(?:\.(?<minor>\d+)(?:\.(?<patch>\d+))?)?/
+    )
+  end
+
+  def load_version
+    raise NotImplementedError
   end
 
   def to_s
@@ -126,6 +135,21 @@ class OSVersion
   end
 end
 
+class OSVersion < AbstractVersion
+  def load_version
+    `sw_vers -productVersion`.strip
+  end
+end
+
+class SDKVersion < AbstractVersion
+  def load_version
+    ENV.fetch(
+      'MACOSX_DEPLOYMENT_TARGET',
+      `xcrun --show-sdk-version 2>/dev/null`.strip
+    ).strip
+  end
+end
+
 class Build
   include Output
   include System
@@ -142,12 +166,12 @@ class Build
     @root_dir = root_dir
     @ref = ref || 'master'
     @options = options
-    @gcc_info = GccInfo.new
+    @gcc_info = GccInfo.new(use_nix: options[:use_nix])
+
+    load_plan(options[:plan]) if options[:plan]
   end
 
   def build
-    load_plan(options[:plan]) if options[:plan]
-
     unless meta[:sha] && meta[:date]
       fatal 'Failed to get commit info from GitHub.'
     end
@@ -167,7 +191,7 @@ class Build
     CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(
       app,
-      brew_dir,
+      [brew_dir, '/nix/store'],
       extra_libs,
       relink_eln_files: options[:relink_eln]
     ).embed
@@ -175,6 +199,61 @@ class Build
     self_sign_app(app) if options[:self_sign]
 
     archive_build(build_dir) if options[:archive]
+  end
+
+  def print_info
+    # Force-enable native-comp to ensure all env vars are setup.
+    options[:native_comp] = true
+
+    puts YAML.dump(
+      {
+        'os' => OS.version.to_s,
+        'sdk' => OS.sdk_version.to_s,
+        'arch' => OS.arch,
+        'gcc' => {
+          'root' => gcc_info.root_dir,
+          'lib' => gcc_info.lib_dir,
+          'darwin_lib' => gcc_info.darwin_lib_dir,
+          'target_lib' => gcc_info.target_lib_dir,
+          'target_darwin_lib' => gcc_info.target_darwin_lib_dir,
+          'sanitized_target_darwin_lib_dir' =>
+          gcc_info.sanitized_target_darwin_lib_dir,
+          'version' => gcc_info.major_version
+        },
+        'libgccjit' => {
+          'root' => gcc_info.libgccjit_root_dir,
+          'lib' => gcc_info.libgccjit_lib_dir,
+          'version' => gcc_info.libgccjit_major_version
+        },
+        'env' => {
+          'CC' => compile_env['CC'],
+          'CFLAGS' => compile_env['CFLAGS']&.split,
+          'LDFLAGS' => compile_env['LDFLAGS']&.split,
+          'LIBRARY_PATH' => compile_env['LIBRARY_PATH']&.split(':'),
+          'PKG_CONFIG_PATH' => compile_env['PKG_CONFIG_PATH']&.split(':'),
+          'PATH' => compile_env['PATH']&.split(':')
+        }
+      }
+    )
+  end
+
+  def print_preview
+    puts YAML.dump(
+      {
+        'build_name' => build_name,
+        'emacs' => {
+          'ref' => meta[:ref],
+          'sha' => meta[:sha],
+          'date' => meta[:date]
+        },
+        'os_version' => OS.version.to_s,
+        'sdk_version' => OS.sdk_version.to_s,
+        'arch' => OS.arch,
+        'native_comp' => options[:native_comp],
+        'gcc_version' => gcc_info.major_version,
+        'libgccjit_version' => gcc_info.libgccjit_major_version
+      }
+    )
   end
 
   private
@@ -217,11 +296,16 @@ class Build
     @github_src_repo ||= options[:github_src_repo] || DEFAULT_GITHUB_REPO
   end
 
+  def use_nix?
+    !!options[:use_nix]
+  end
+
   def brew_dir
     @brew_dir ||= `brew --prefix`.chomp
   end
 
   def extra_libs
+    return [] if use_nix?
     return @extra_libs if @extra_libs
 
     libs = [
@@ -359,12 +443,146 @@ class Build
 
   def autogen
     FileUtils.cd(source_dir) do
+      if File.exist?('configure')
+        info 'configure script exists, skipping autogen.'
+        return
+      end
+
       if File.exist?('autogen/copy_autogen')
         run_cmd 'autogen/copy_autogen'
       elsif File.exist?('autogen.sh')
         run_cmd './autogen.sh'
       end
     end
+  end
+
+  # rubocop:disable Naming/MethodName,Naming/VariableName
+  def env_CFLAGS
+    return @env_CFLAGS if @env_CFLAGS
+
+    env = []
+
+    env << '-O2'
+
+    if options[:native_comp]
+      env += [
+        "-I#{File.join(gcc_info.root_dir, 'include')}",
+        "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}"
+      ]
+    end
+
+    env << '-march=native' if options[:native_march]
+
+    if options[:fd_setsize].respond_to?(:>=) && options[:fd_setsize] >= 1024
+      env += [
+        "-DFD_SETSIZE=#{options[:fd_setsize]}",
+        '-DDARWIN_UNLIMITED_SELECT'
+      ]
+    end
+
+    if use_nix? && ENV['NIX_CFLAGS_COMPILE']
+      env += ENV['NIX_CFLAGS_COMPILE'].split
+    end
+
+    @env_CFLAGS = env
+  end
+
+  def env_LDFLAGS
+    return @env_LDFLAGS if @env_LDFLAGS
+
+    env = []
+
+    # Ensure library re-linking and code signing will work after building.
+    env << '-Wl,-headerpad_max_install_names'
+
+    if options[:native_comp]
+      env += [
+        "-L#{gcc_info.lib_dir}",
+        "-L#{gcc_info.darwin_lib_dir}",
+        "-L#{gcc_info.libgccjit_lib_dir}",
+        "-I#{File.join(gcc_info.root_dir, 'include')}",
+        "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}"
+      ]
+    end
+
+    env += ENV['NIX_LDFLAGS'].split if use_nix? && ENV['NIX_LDFLAGS']
+
+    @env_LDFLAGS = env
+  end
+
+  def env_LIBRARY_PATH
+    return @env_LIBRARY_PATH if @env_LIBRARY_PATH
+
+    env = []
+
+    if options[:native_comp]
+      env += [
+        gcc_info.lib_dir,
+        gcc_info.darwin_lib_dir,
+        gcc_info.libgccjit_lib_dir
+      ]
+    end
+
+    env << '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
+
+    @env_LIBRARY_PATH = env
+  end
+
+  def env_PKG_CONFIG_PATH
+    return [] if use_nix?
+
+    @env_PKG_CONFIG_PATH ||= [
+      File.join(brew_dir, 'lib/pkgconfig'),
+      File.join(brew_dir, 'share/pkgconfig'),
+      File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
+      File.join(brew_dir, 'opt/libxml2/lib/pkgconfig'),
+      File.join(brew_dir, 'opt/ncurses/lib/pkgconfig'),
+      File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
+      File.join(
+        brew_dir,
+        'Homebrew/Library/Homebrew/os/mac/pkgconfig',
+        OS.version.to_s
+      )
+    ]
+  end
+
+  def env_PATH
+    return [] if use_nix?
+
+    @env_PATH ||= [
+      File.join(brew_dir, 'opt/make/libexec/gnubin'),
+      File.join(brew_dir, 'opt/coreutils/libexec/gnubin'),
+      File.join(brew_dir, 'opt/gnu-sed/libexec/gnubin'),
+      File.join(brew_dir, 'bin'),
+      File.join(brew_dir, 'opt/texinfo/bin')
+    ]
+  end
+  # rubocop:enable Naming/MethodName,Naming/VariableName
+
+  def compile_env
+    return @compile_env if @compile_env
+
+    env = {
+      'CC' => use_nix? ? 'clang' : '/usr/bin/clang',
+      'PATH' => [
+        env_PATH, ENV.fetch('PATH', nil)
+      ].flatten.compact.reject(&:empty?).join(':'),
+      'PKG_CONFIG_PATH' => [
+        env_PKG_CONFIG_PATH,
+        ENV.fetch('PKG_CONFIG_PATH', nil)
+      ].flatten.compact.reject(&:empty?).join(':')
+    }
+
+    if options[:native_comp]
+      env['CFLAGS'] = [env_CFLAGS, ENV.fetch('CFLAGS', nil)]
+                      .flatten.compact.reject(&:empty?).join(' ')
+      env['LDFLAGS'] = [env_LDFLAGS, ENV.fetch('LDFLAGS', nil)]
+                       .flatten.compact.reject(&:empty?).join(' ')
+      env['LIBRARY_PATH'] = [env_LIBRARY_PATH, ENV.fetch('LIBRARY_PATH', nil)]
+                            .flatten.compact.reject(&:empty?).join(':')
+    end
+
+    @compile_env = env
   end
 
   def compile_source(source)
@@ -384,71 +602,9 @@ class Build
         info 'Compiling with native-comp enabled'
         verify_native_comp
         gcc_info.verify_libgccjit
-
-        ENV['CFLAGS'] = [
-          "-I#{File.join(gcc_info.root_dir, 'include')}",
-          "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
-          '-O2',
-          (options[:native_march] ? '-march=native' : nil),
-          ENV.fetch('CFLAGS', nil)
-        ].compact.join(' ')
-
-        ENV['LDFLAGS'] = [
-          "-L#{gcc_info.lib_dir}",
-          "-L#{gcc_info.darwin_lib_dir}",
-          "-L#{gcc_info.libgccjit_lib_dir}",
-          "-I#{File.join(gcc_info.root_dir, 'include')}",
-          "-I#{File.join(gcc_info.libgccjit_root_dir, 'include')}",
-          # Ensure library re-linking and code signing will work after building.
-          '-Wl,-headerpad_max_install_names',
-          ENV.fetch('LDFLAGS', nil)
-        ].compact.join(' ')
-
-        ENV['LIBRARY_PATH'] = [
-          gcc_info.lib_dir,
-          gcc_info.darwin_lib_dir,
-          gcc_info.libgccjit_lib_dir,
-          ENV.fetch('LIBRARY_PATH', nil)
-        ].compact.join(':')
       end
 
-      if options[:fd_setsize].respond_to?(:>=) && options[:fd_setsize] >= 1024
-        ENV['CFLAGS'] = [
-          "-DFD_SETSIZE=#{options[:fd_setsize]}",
-          '-DDARWIN_UNLIMITED_SELECT',
-          ENV.fetch('CFLAGS', nil)
-        ].compact.join(' ')
-      end
-
-      ENV['CC'] = 'clang'
-      ENV['PKG_CONFIG_PATH'] = [
-        File.join(brew_dir, 'lib/pkgconfig'),
-        File.join(brew_dir, 'share/pkgconfig'),
-        File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
-        File.join(brew_dir, 'opt/libxml2/lib/pkgconfig'),
-        File.join(brew_dir, 'opt/ncurses/lib/pkgconfig'),
-        File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
-        File.join(
-          brew_dir,
-          'Homebrew/Library/Homebrew/os/mac/pkgconfig',
-          OS.version.to_s
-        ),
-        ENV.fetch('PKG_CONFIG_PATH', nil)
-      ].compact.join(':')
-
-      ENV['PATH'] = [
-        File.join(brew_dir, 'opt/make/libexec/gnubin'),
-        File.join(brew_dir, 'opt/coreutils/libexec/gnubin'),
-        File.join(brew_dir, 'opt/gnu-sed/libexec/gnubin'),
-        File.join(brew_dir, 'bin'),
-        File.join(brew_dir, 'opt/texinfo/bin'),
-        ENV.fetch('PATH', nil)
-      ].compact.join(':')
-
-      ENV['LIBRARY_PATH'] = [
-        ENV.fetch('LIBRARY_PATH', nil),
-        '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
-      ].compact.join(':')
+      compile_env.each { |k, v| ENV[k] = v }
 
       local_lisp_path = [
         ENV.fetch('EMACS_LOCAL_LISP_PATH', '').split(':'),
@@ -477,7 +633,7 @@ class Build
 
       # Disable aligned_alloc on Mojave and below. See issue:
       # https://github.com/daviderestivo/homebrew-emacs-head/issues/15
-      if OS.version.major <= 10 && OS.version.minor <= 14
+      if OS.sdk_version.major <= 10 && OS.sdk_version.minor <= 14
         info 'Force disabling of aligned_alloc on macOS Mojave (10.14.x) ' \
              'and earlier'
         disable_alligned_alloc
@@ -649,7 +805,7 @@ class Build
         meta[:date]&.strftime('%Y-%m-%d'),
         meta[:sha][0..6],
         meta[:ref],
-        "macOS-#{OS.version}",
+        "macOS-#{OS.sdk_version}",
         OS.arch
       ].compact.map { |v| v.gsub(/[^\w_-]+/, '-') }
 
@@ -972,6 +1128,16 @@ class AbstractEmbedder
   def resources_dir
     @resources_dir ||= File.join(app, 'Contents', 'Resources')
   end
+
+  private
+
+  def while_writable(file)
+    mode = File.stat(file).mode
+    File.chmod(0o775, file)
+    yield
+  ensure
+    File.chmod(mode, file) if File.exist?(file)
+  end
 end
 
 class CLIHelperEmbedder < AbstractEmbedder
@@ -1036,14 +1202,14 @@ class CSourcesEmbedder < AbstractEmbedder
 end
 
 class LibEmbedder < AbstractEmbedder
-  attr_reader :lib_source
+  attr_reader :lib_sources
   attr_reader :extra_libs
   attr_reader :relink_eln_files
 
-  def initialize(app, lib_source, extra_libs = [], relink_eln_files: true)
+  def initialize(app, sources = [], extra_libs = [], relink_eln_files: true)
     super(app)
 
-    @lib_source = lib_source
+    @lib_sources = sources
     @extra_libs = extra_libs
     @relink_eln_files = relink_eln_files
   end
@@ -1167,9 +1333,9 @@ class LibEmbedder < AbstractEmbedder
 
       debug "-- -- Resolved to: #{lib_filepath}" if linked_dylib != lib_filepath
 
-      # Only bundle libraries from lib_source.
-      unless lib_filepath.start_with?(lib_source)
-        debug "-- -- Skipping, not from lib_source: #{lib_source}"
+      # Only bundle libraries from lib_sources.
+      unless lib_sources.any? { |p| lib_filepath.start_with?(p) }
+        debug "-- -- Skipping, not from lib_sources: #{lib_sources.join(', ')}"
         next
       end
 
@@ -1219,7 +1385,15 @@ class LibEmbedder < AbstractEmbedder
       next if dylib_id.nil? || dylib_id == ''
 
       while_writable(target) do
-        MachO::Tools.change_dylib_id(target, dylib_id)
+        file = MachO.open(target)
+        file.change_dylib_id(dylib_id)
+
+        # Remove all rpaths except for @loader_path. Any other rpaths present in
+        # embedded libraries will potentially cause issues.
+        rpaths = file.rpaths.reject { |r| r == '@loader_path' }
+        rpaths.each { |r| file.delete_rpath(r) }
+
+        file.write!
       end
     end
 
@@ -1245,14 +1419,6 @@ class LibEmbedder < AbstractEmbedder
       while_writable(target_file) { mf.write! } if changed
     end
   end
-
-  def while_writable(file)
-    mode = File.stat(file).mode
-    File.chmod(0o775, file)
-    yield
-  ensure
-    File.chmod(mode, file) if File.exist?(file)
-  end
 end
 
 class GccLibEmbedder < AbstractEmbedder
@@ -1275,12 +1441,31 @@ class GccLibEmbedder < AbstractEmbedder
       fatal "No suitable GCC lib dir found in #{gcc_info.root_dir}"
     end
 
-    FileUtils.mkdir_p(File.dirname(target_dir))
-    run_cmd('cp', '-pRL', source_dir, target_dir)
-    FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
+    FileUtils.mkdir_p(target_dir)
+    run_cmd(
+      'rsync', '-rlptD',
+      # Exclude lib symlink which points at itself when using nix.
+      '--exclude', 'lib',
+      # Exclude gcc directory which holds apple-darwin libs, we copy those
+      # separately.
+      '--exclude', 'gcc',
+      File.join(source_dir, ''), target_dir
+    )
     run_cmd('chmod', '-R', 'u+w', target_dir)
-    if source_darwin_dir != target_darwin_dir
-      run_cmd('mv', source_darwin_dir, target_darwin_dir)
+    tidy_lib_rpaths(target_dir)
+
+    FileUtils.mkdir_p(target_darwin_dir)
+    run_cmd(
+      'rsync', '-rlptD',
+      File.join(source_darwin_dir, ''), target_darwin_dir
+    )
+    run_cmd('chmod', '-R', 'u+w', target_darwin_dir)
+    tidy_lib_rpaths(target_darwin_dir)
+
+    FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
+
+    if target_darwin_dir != sanitized_target_darwin_dir
+      run_cmd('mv', target_darwin_dir, sanitized_target_darwin_dir)
     end
 
     env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
@@ -1305,10 +1490,10 @@ class GccLibEmbedder < AbstractEmbedder
              (devtools-dir
               "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
              (gcc-dir (expand-file-name
-                       "<%= app_bundle_relative_lib_dir %>"
+                       "<%= app_bundle_target_lib_dir %>"
                        invocation-directory))
              (darwin-dir (expand-file-name
-                          "<%= app_bundle_relative_darwin_lib_dir %>"
+                          "<%= app_bundle_target_darwin_lib_dir %>"
                           invocation-directory))
              (lib-paths (list)))
 
@@ -1322,24 +1507,48 @@ class GccLibEmbedder < AbstractEmbedder
         (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":"))))
   ELISP
 
+  # Remove all rpaths from Mach-O library files except for @loader_path.
+  def tidy_lib_rpaths(directory)
+    Dir[File.join(directory, '**', '*.{dylib,so}')].each do |file_path|
+      next if File.symlink?(file_path)
+
+      begin
+        mf = MachO.open(file_path)
+      rescue MachO::NotAMachOError
+        next
+      end
+
+      rpaths = mf.rpaths.reject { |r| r == '@loader_path' }
+      next if rpaths.none?
+
+      debug "Tidying up rpaths from: #{relative_path(file_path)}"
+      rpaths.each { |r| mf.delete_rpath(r) }
+      mf.write!
+    end
+  end
+
   def embedded?
     Dir[File.join(target_dir, 'libgcc*')].any?
   end
 
   def target_dir
-    File.join(lib_dir, gcc_info.relative_lib_dir)
-  end
-
-  def source_darwin_dir
-    File.join(lib_dir, gcc_info.relative_darwin_lib_dir)
+    File.join(lib_dir, gcc_info.target_lib_dir)
   end
 
   def target_darwin_dir
-    File.join(lib_dir, gcc_info.sanitized_relative_darwin_lib_dir)
+    File.join(lib_dir, gcc_info.target_darwin_lib_dir)
+  end
+
+  def sanitized_target_darwin_dir
+    File.join(lib_dir, gcc_info.sanitized_target_darwin_lib_dir)
   end
 
   def source_dir
     gcc_info.lib_dir
+  end
+
+  def source_darwin_dir
+    gcc_info.darwin_lib_dir
   end
 
   def relative_dir(path, root)
@@ -1354,86 +1563,132 @@ end
 class GccInfo
   include Output
 
+  def initialize(use_nix: false)
+    @use_nix = use_nix
+  end
+
+  def use_nix?
+    @use_nix
+  end
+
   def root_dir
-    @root_dir ||= `brew --prefix gcc`.chomp
+    @root_dir ||=
+      if use_nix?
+        libgccjit_root_dir
+      else
+        `brew --prefix gcc`.chomp
+      end
   end
 
   def major_version
-    @major_version ||= File.basename(lib_dir)
+    @major_version ||=
+      if use_nix?
+        libgccjit_major_version
+      else
+        File.basename(lib_dir)
+      end
   end
 
   def lib_dir
     @lib_dir ||=
-      Dir[File.join(root_dir, 'lib/gcc/*/libgcc*')]
-      .map { |path| File.dirname(path) }
-      .select { |path| File.basename(path).match(/^\d+$/) }
-      .max_by { |path| File.basename(path).to_i }
-  end
-
-  def relative_lib_dir
-    @relative_lib_dir ||= relative_dir(lib_dir, File.join(root_dir, 'lib'))
-  end
-
-  def darwin_lib_dir
-    @darwin_lib_dir ||=
-      Dir[File.join(lib_dir, 'gcc/*apple-darwin*/*')].max_by do |path|
-        [
-          File.basename(File.dirname(path)).match(/darwin(\d+)$/)[1].to_i,
-          File.basename(path).split('.').map(&:to_i)
-        ]
+      if use_nix?
+        File.join(root_dir, 'lib')
+      else
+        Dir[File.join(root_dir, 'lib/gcc/*/libgcc*')]
+          .map { |path| File.dirname(path) }
+          .select { |path| File.basename(path).match(/^\d+$/) }
+          .max_by { |path| File.basename(path).to_i }
       end
   end
 
-  def relative_darwin_lib_dir
-    @relative_darwin_lib_dir ||=
-      relative_dir(darwin_lib_dir, File.join(root_dir, 'lib'))
+  def target_lib_dir
+    File.join('gcc', 'lib')
+  end
+
+  def darwin_lib_dir
+    return @darwin_lib_dir if @darwin_lib_dir
+
+    search_path = File.join(lib_dir, 'gcc/*apple-darwin*/*')
+
+    @darwin_lib_dir ||= Dir[search_path].max_by do |path|
+      vers = []
+
+      unless use_nix?
+        matches = File.basename(File.dirname(path)).match(/darwin(\d+)$/)
+        vers << matches[1].to_i if matches
+      end
+
+      vers << File.basename(path).split('.').map(&:to_i)
+      vers.flatten
+    end
+  end
+
+  def target_darwin_lib_dir
+    File.join('gcc', 'lib', 'apple-darwin')
   end
 
   # Sanitize folder name with full "MAJOR.MINOR.PATCH" version number to just
   # the MAJOR version. Apple's codesign CLI tool throws a "bundle format
   # unrecognized" error if there are any folders with two dots in their name
   # within the Emacs.app application bundle.
-  def sanitized_relative_darwin_lib_dir
-    @sanitized_relative_darwin_lib_dir ||=
+  def sanitized_target_darwin_lib_dir
+    @sanitized_target_darwin_lib_dir ||=
       File.join(
-        File.dirname(relative_darwin_lib_dir),
-        File.basename(relative_darwin_lib_dir).gsub('.', '_')
+        File.dirname(target_darwin_lib_dir),
+        File.basename(target_darwin_lib_dir).gsub('.', '_')
       )
   end
 
-  def app_bundle_relative_lib_dir
-    @app_bundle_relative_lib_dir ||=
+  def app_bundle_target_lib_dir
+    @app_bundle_target_lib_dir ||=
       relative_dir(
-        File.join(embedder.lib_dir, relative_lib_dir),
+        File.join(embedder.lib_dir, target_lib_dir),
         embedder.invocation_dir
       )
   end
 
-  def app_bundle_relative_darwin_lib_dir
-    @app_bundle_relative_darwin_lib_dir ||=
+  def app_bundle_target_darwin_lib_dir
+    @app_bundle_target_darwin_lib_dir ||=
       relative_dir(
-        File.join(embedder.lib_dir, sanitized_relative_darwin_lib_dir),
+        File.join(embedder.lib_dir, sanitized_target_darwin_lib_dir),
         embedder.invocation_dir
       )
   end
 
   def libgccjit_root_dir
-    @libgccjit_root_dir ||= `brew --prefix libgccjit`.chomp
+    @libgccjit_root_dir ||=
+      if use_nix?
+        ENV['NIX_LIBGCCJIT_ROOT']&.strip
+      else
+        `brew --prefix libgccjit`.chomp
+      end
   end
 
   def libgccjit_major_version
-    @libgccjit_major_version ||= File.basename(libgccjit_lib_dir.to_s)
+    @libgccjit_major_version ||=
+      if use_nix?
+        # rubocop:disable Style/SafeNavigationChainLength
+        ENV['NIX_LIBGCCJIT_VERSION']&.strip&.split('.')&.first
+        # rubocop:enable Style/SafeNavigationChainLength
+      else
+        File.basename(libgccjit_lib_dir.to_s)
+      end
   end
 
   def libgccjit_lib_dir
     @libgccjit_lib_dir ||=
-      Dir[
-        File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit*.dylib'),
-        File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*')
-      ]
-      .map { |path| File.dirname(path) }
-      .select { |path| File.basename(path).match(/^\d+$/) }
-      .max_by { |path| File.basename(path).to_i }
+      if use_nix?
+        Dir[File.join(libgccjit_root_dir, 'lib/libgccjit*.dylib')]
+          .map { |path| File.dirname(path) }.first
+      else
+        Dir[
+          File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit*.dylib'),
+          File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*'),
+          ]
+          .map { |path| File.dirname(path) }
+          .select { |path| File.basename(path).match(/^\d+$/) }
+          .max_by { |path| File.basename(path).to_i }
+      end
   end
 
   def verify_libgccjit
@@ -1445,6 +1700,11 @@ class GccInfo
             'libgccjit.so* files. Please try reinstalling libgccjit: ' \
             'brew reinstall libgccjit'
     end
+
+    # No need to verify gcc vs libgccjit for Nix, as we can pull everything we
+    # need from the libgccjit package. On homebrew we need to pull parts from
+    # gcc and parts from libgccjit, hence we need to ensure versions match.
+    return if use_nix?
 
     return if major_version == libgccjit_major_version
 
@@ -1472,6 +1732,8 @@ class GccInfo
 end
 
 if __FILE__ == $PROGRAM_NAME
+  use_nix_default = !ENV.fetch('IN_NIX_SHELL', '').empty?
+
   cli_options = {
     work_dir: File.expand_path(__dir__),
     native_full_aot: false,
@@ -1480,6 +1742,7 @@ if __FILE__ == $PROGRAM_NAME
     parallel: Etc.nprocessors,
     rsvg: true,
     dbus: true,
+    use_nix: use_nix_default,
     xwidgets: true,
     tree_sitter: true,
     fd_setsize: 10_000,
@@ -1503,6 +1766,16 @@ if __FILE__ == $PROGRAM_NAME
     DOC
 
     opts.on(
+      '--info',
+      'Print environment info and detected library paths, then exit'
+    ) { |v| cli_options[:info] = v }
+
+    opts.on(
+      '--preview',
+      'Print preview details about build and exit.'
+    ) { |v| cli_options[:preview] = v }
+
+    opts.on(
       '-j',
       '--parallel COUNT',
       'Compile using COUNT parallel processes ' \
@@ -1514,6 +1787,12 @@ if __FILE__ == $PROGRAM_NAME
       'Override detected git SHA of specified ' \
       'branch allowing builds of old commits'
     ) { |v| cli_options[:git_sha] = v }
+
+    opts.on(
+      '--[no-]use-nix',
+      'Use Nix instead of Homebrew to find dependencies ' \
+      '(default: enabled if IN_NIX_SHELL is set)'
+    ) { |v| cli_options[:use_nix] = v }
 
     opts.on(
       '--[no-]xwidgets',
@@ -1653,7 +1932,15 @@ if __FILE__ == $PROGRAM_NAME
 
     Output.log_level = cli_options[:log_level]
     work_dir = cli_options.delete(:work_dir)
-    Build.new(work_dir, ARGV.shift, cli_options).build
+    build = Build.new(work_dir, ARGV.shift, cli_options)
+
+    if cli_options[:info]
+      build.print_info
+    elsif cli_options[:preview]
+      build.print_preview
+    else
+      build.build
+    end
   rescue Error => e
     warn "ERROR: #{e.message}"
     exit 1
