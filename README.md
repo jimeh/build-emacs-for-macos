@@ -78,25 +78,32 @@ Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
 available here: https://github.com/emacs-mirror/emacs
 
 Options:
-    -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 8)
+    -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 16)
         --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
         --[no-]xwidgets              Enable/disable XWidgets if supported (default: enabled)
+        --[no-]tree-sitter           Enable/disable tree-sitter if supported (default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-march          Enable/disable -march=native CFLAG(default: disabled)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)
         --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: enabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
+        --[no-]dbus                  Enable/disable dbus support (default: enabled)
         --no-titlebar                Apply no-titlebar patch (default: disabled)
-        --posix-spawn                Apply posix-spawn patch (default: disabled)
+        --posix-spawn                Apply posix-spawn patch (deprecated)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
+        --[no-]poll                  Apply poll patch (deprecated)
+        --[no-]fd-setsize SIZE       Set an file descriptor (max open files) limit (default: 10000)
+        --github-src-repo REPO       Specify a GitHub repo to download source tarballs from (default: emacs-mirror/emacs)
         --[no-]github-auth           Make authenticated GitHub API requests if GITHUB_TOKEN environment variable is set.(default: enabled)
         --work-dir DIR               Specify a working directory where tarballs, sources, and builds will be stored and worked with
     -o, --output DIR                 Output directory for finished builds (default: <work-dir>/builds)
         --build-name NAME            Override generated build name
         --dist-include x,y,z         List of extra files to copy from Emacs source into build folder/archive (default: COPYING)
+        --[no-]self-sign             Enable/disable self-signing of Emacs.app (default: enabled)
         --[no-]archive               Enable/disable creating *.tbz archive (default: enabled)
         --[no-]archive-keep-build-dir
                                      Enable/disable keeping source folder for archive (default: disabled)
+        --log-level LEVEL            Build script log level (default: info)
         --plan FILE                  Follow given plan file, instead of using given git ref/sha
 ```
 
