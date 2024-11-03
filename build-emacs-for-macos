@@ -412,6 +412,14 @@ class Build
         ].compact.join(':')
       end
 
+      if options[:fd_setsize].respond_to?(:>=) && options[:fd_setsize] >= 1024
+        ENV['CFLAGS'] = [
+          "-DFD_SETSIZE=#{options[:fd_setsize]}",
+          '-DDARWIN_UNLIMITED_SELECT',
+          ENV.fetch('CFLAGS', nil)
+        ].compact.join(' ')
+      end
+
       ENV['CC'] = 'clang'
       ENV['PKG_CONFIG_PATH'] = [
         File.join(brew_dir, 'lib/pkgconfig'),
@@ -1474,6 +1482,7 @@ if __FILE__ == $PROGRAM_NAME
     dbus: true,
     xwidgets: true,
     tree_sitter: true,
+    fd_setsize: 10_000,
     github_src_repo: nil,
     github_auth: true,
     dist_include: ['COPYING'],
@@ -1514,7 +1523,7 @@ if __FILE__ == $PROGRAM_NAME
 
     opts.on(
       '--[no-]tree-sitter',
-      'Enable/disable tree-sitter if supported' \
+      'Enable/disable tree-sitter if supported ' \
       '(default: enabled)'
     ) { |v| cli_options[:tree_sitter] = v }
 
@@ -1570,6 +1579,11 @@ if __FILE__ == $PROGRAM_NAME
     opts.on('--[no-]poll', 'Apply poll patch (deprecated)') do
       warn '==> WARN: poll patch is deprecated and has no effect.'
     end
+
+    opts.on(
+      '--[no-]fd-setsize SIZE',
+      'Set an file descriptor (max open files) limit (default: 10000)'
+    ) { |v| cli_options[:fd_setsize] = v.respond_to?(:to_i) ? v.to_i : 0 }
 
     opts.on(
       '--github-src-repo REPO',
