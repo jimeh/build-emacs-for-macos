@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.49](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.48...v0.6.49) (2024-11-03)
+
+
+### Bug Fixes
+
+* **compile-options:** increase runtime max open files limit ([#115](https://github.com/jimeh/build-emacs-for-macos/issues/115)) ([ca8951c](https://github.com/jimeh/build-emacs-for-macos/commit/ca8951ccd350ecee5ad6c637caae0af1831a9eb5)), closes [#106](https://github.com/jimeh/build-emacs-for-macos/issues/106)
+* **patches:** tidy up patches, deprecate optional poll patch ([cfc5155](https://github.com/jimeh/build-emacs-for-macos/commit/cfc5155199486c4e3fae7edbc7262299b3c9955c))
+
 ## [0.6.48](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.47...v0.6.48) (2024-08-09)
 
 
