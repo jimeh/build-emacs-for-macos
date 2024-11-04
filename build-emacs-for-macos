@@ -196,6 +196,7 @@ class Build
       relink_eln_files: options[:relink_eln]
     ).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
+    EmbeddedLibrarySdkFixer.new(app).fix
     self_sign_app(app) if options[:self_sign]
 
     archive_build(build_dir) if options[:archive]
@@ -1126,6 +1127,16 @@ class AbstractEmbedder
   def resources_dir
     @resources_dir ||= File.join(app, 'Contents', 'Resources')
   end
+
+  private
+
+  def while_writable(file)
+    mode = File.stat(file).mode
+    File.chmod(0o775, file)
+    yield
+  ensure
+    File.chmod(mode, file) if File.exist?(file)
+  end
 end
 
 class CLIHelperEmbedder < AbstractEmbedder
@@ -1399,13 +1410,119 @@ class LibEmbedder < AbstractEmbedder
       while_writable(target_file) { mf.write! } if changed
     end
   end
+end
 
-  def while_writable(file)
-    mode = File.stat(file).mode
-    File.chmod(0o775, file)
-    yield
-  ensure
-    File.chmod(mode, file) if File.exist?(file)
+# This is a horrible hack attempt to fix a application signing verification bug
+# with the x86_64 builds. It seems that most of the Intel based libraries from
+# Nix uses `LC_VERSION_MIN_MACOSX`, most specify both `version` and `sdk`
+# values. However some don't specify a `sdk` value, and when checked with
+# `codeside -vv -d <path/to/file>`, it complains with a warning:
+#
+#     Library validation warning=OS X SDK version before 10.9 does not support Library Validation
+#
+# I suspect this is why the Intel builds fail signing verification. This is an
+# attempt to fix that. It uses `vtool` to force set the newer `LC_BUILD_VERSION`
+# load command's `minos` and `sdk` values to that of the old load command's
+# `version` value. But only if the old load command is present and missing an
+# `sdk` value.
+class EmbeddedLibrarySdkFixer < AbstractEmbedder
+  # SDK versions below 10.9 do not support Library signing, so let's ensure we
+  # set it to 10.9 or higher.
+  MIN_VERSION = 657_664
+  MIN_VERSION_STRING = '10.9.0'
+
+  def fix
+    debug 'Checking embedded libraries for ' \
+          'missing SDK version in Mach-O headers...'
+    Dir[File.join(frameworks_dir, '**', '*.{dylib,so,la}')].each do |file_path|
+      debug "-- Checking #{relative_path(file_path)}"
+      fix_macho(file_path)
+    end
+  end
+
+  def each_macho(file_path, &block)
+    mo = nil
+
+    begin
+      mo = MachO.open(file_path)
+    rescue MachO::NotAMachOError
+      debug '-- -- Skipping Mach-O SDK version check/fix, not a Mach-O file'
+      return
+    end
+
+    if mo.is_a?(MachO::FatFile)
+      mo.machos.each(&block)
+    else
+      yield(mo)
+    end
+  end
+
+  def fix_macho(file_path)
+    blank_legacy_sdk = false
+    legacy_version = nil
+    legacy_version_string = nil
+    lc_build_version = false
+
+    each_macho(file_path) do |mf|
+      mf.load_commands.each do |lc|
+        if !blank_legacy_sdk &&
+           lc.is_a?(MachO::LoadCommands::VersionMinCommand) &&
+           lc.sdk.zero? && !lc.version.zero?
+          blank_legacy_sdk = true
+          legacy_version = lc.version
+          legacy_version_string = lc.version_string
+        end
+
+        if lc.is_a?(MachO::LoadCommands::BuildVersionCommand)
+          lc_build_version = true
+        end
+      end
+    end
+
+    return unless blank_legacy_sdk && !lc_build_version && legacy_version_string
+
+    # If the legacy version is less than the minimum version, we set it to the
+    # minimum version.
+    if legacy_version < MIN_VERSION
+      legacy_version = MIN_VERSION
+      legacy_version_string = MIN_VERSION_STRING
+    end
+
+    debug '-- -- Adding LC_BUILD_VERSION to Mach-O header'
+    run_cmd(
+      vtool_path, '-set-build-version',
+      'macos', legacy_version_string, legacy_version_string,
+      '-replace', '-output', "#{file_path}.patched", file_path
+    )
+
+    while_writable(file_path) do
+      FileUtils.remove_file(file_path)
+      FileUtils.mv("#{file_path}.patched", file_path)
+    end
+
+    legacy_version
+  end
+
+  # Try and locate vtool.
+  def vtool_path
+    return @vtool_path if @vtool_path
+
+    # Default approach
+    path = `sh -c "xcrun -f vtool 2>/dev/null"`.strip
+    return @vtool_path = path unless path.empty?
+
+    # Unset DEVELOPER_DIR to revert to default dev tools and try again.
+    path = `sh -c "env DEVELOPER_DIR='' xcrun -f vtool 2>/dev/null"`.strip
+    return @vtool_path = path unless path.empty?
+
+    # Unset DEVELOPER_DIR and use full path to xcrun. This should escape out of
+    # the Nix environment and pull in the default vtool from macOS itself.
+    path = `sh -c "env DEVELOPER_DIR='' /usr/bin/xcrun -f vtool 2>/dev/null"`
+           .strip
+    return @vtool_path = path unless path.empty?
+
+    error 'Could not locate vtool, please ensure Xcode Command Line Tools ' \
+          'are installed'
   end
 end
 

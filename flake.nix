@@ -14,11 +14,12 @@
         {
           devShells.default = pkgs.mkShell {
             packages = with pkgs; [
+              apple-sdk_11
               autoconf
               clang
               coreutils
               curl
-              apple-sdk
+              darwin.DarwinTools # sw_vers
               dbus
               expat
               findutils
@@ -57,6 +58,8 @@
             ];
 
             shellHook = ''
+            export MACOSX_DEPLOYMENT_TARGET="11.0"
+            export DEVELOPER_DIR="${pkgs.apple-sdk_11}"
             export EMACS_BUILD_USE_NIX="true"
             export NIX_GCC_LIB_VERSION="${pkgs.gcc.cc.lib.version}"
             export NIX_GCC_LIB_ROOT="${pkgs.gcc.cc.lib.outPath}"
