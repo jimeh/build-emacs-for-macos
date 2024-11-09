@@ -7,7 +7,6 @@ linters-settings:
   gocyclo:
     min-complexity: 20
   govet:
-    check-shadowing: true
     enable-all: true
     disable:
       - fieldalignment
@@ -23,9 +22,9 @@ linters:
   disable-all: true
   enable:
     - bodyclose
+    - copyloopvar
     - dupl
     - errcheck
-    - exportloopref
     - funlen
     - gochecknoinits
     - goconst
@@ -72,12 +71,12 @@ issues:
     - source: "`yaml:"
       linters:
         - lll
-
-run:
-  skip-dirs:
+  exclude-dirs:
     - builds
     - sources
     - tarballs
+
+run:
   timeout: 2m
   allow-parallel-runners: true
   modules-download-mode: readonly

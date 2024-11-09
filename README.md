@@ -37,6 +37,18 @@ The build produced does have some limitations:
 ## Requirements
 
 - [Xcode](https://apps.apple.com/gb/app/xcode/id497799835?mt=12)
+
+# Nix
+
+The [Nix](https://nixos.org/) package manager is the preferred and most reliable
+way to install all dependencies required to build Emacs. Alternatively you can
+also use Homebrew.
+
+### Homebrew
+
+If you do not have Nix installed, then the alternative way to manage and install
+all dependencies is via Homebrew.
+
 - [Homebrew](https://brew.sh/)
 - Ruby 2.3.0 or later is needed to execute the build script itself. macOS comes
   with Ruby, check your version with `ruby --version`. If it's too old, you can
@@ -71,6 +83,24 @@ Nightly builds are built with GitHub Actions on GitHub-hosted runners, using
 
 ## Usage
 
+### Nix
+
+Ensure [Flakes](https://nixos.wiki/wiki/Flakes) are enabled, and enter the flake
+development environment with `nix develop`. Within this environment, you can
+execute the `./build-emacs-for-macos --help` to get started.
+
+Or you can run the build script via `nix develop`:
+
+```
+nix develop --command ./build-emacs-for-macos --help
+```
+
+### Homebrew
+
+Run `make boostrap` to ensure all Ruby and Homebrew dependencies are installed.
+
+### Build Script
+
 ```
 Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
 
@@ -78,10 +108,13 @@ Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
 available here: https://github.com/emacs-mirror/emacs
 
 Options:
+        --info                       Print environment info and detected library paths, then exit
+        --preview                    Print preview details about build and exit.
     -j, --parallel COUNT             Compile using COUNT parallel processes (detected: 16)
         --git-sha SHA                Override detected git SHA of specified branch allowing builds of old commits
+        --[no-]use-nix               Use Nix instead of Homebrew to find dependencies (default: enabled if EMACS_BUILD_USE_NIX is set to truthy value)
         --[no-]xwidgets              Enable/disable XWidgets if supported (default: enabled)
-        --[no-]tree-sitter           Enable/disable tree-sitter if supported (default: enabled)
+        --[no-]tree-sitter           Enable/disable tree-sitter if supported(default: enabled)
         --[no-]native-comp           Enable/disable native-comp (default: enabled if supported)
         --[no-]native-march          Enable/disable -march=native CFLAG(default: disabled)
         --[no-]native-full-aot       Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation (default: disabled)

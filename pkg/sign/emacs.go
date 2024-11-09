@@ -123,7 +123,7 @@ func signCLIHelper(ctx context.Context, appBundle string, opts *Options) error {
 // app bundle itself.
 func elnFiles(emacsApp string) ([]string, error) {
 	var files []string
-	walkDirFunc := func(path string, d fs.DirEntry, _err error) error {
+	walkDirFunc := func(path string, d fs.DirEntry, _ error) error {
 		if d.Type().IsRegular() && strings.HasSuffix(path, ".eln") &&
 			!strings.Contains(path, ".app/Contents/Frameworks/") {
 			files = append(files, path)

@@ -95,10 +95,17 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) { //nolint:funlen
 		releaseName = "Emacs." + version
 	}
 
+	// Attempt to get the macOS SDK version from the environment, if it's not
+	// available, use the version from the system.
+	targetMacOSVersion := osInfo.DistinctSDKVersion()
+	if targetMacOSVersion == "" {
+		targetMacOSVersion = osInfo.DistinctVersion()
+	}
+
 	buildName := fmt.Sprintf(
 		"Emacs.%s.%s.%s",
 		absoluteVersion,
-		sanitize.String(osInfo.Name+"-"+osInfo.DistinctVersion()),
+		sanitize.String(osInfo.Name+"-"+targetMacOSVersion),
 		sanitize.String(osInfo.Arch),
 	)
 	diskImage := buildName + ".dmg"
