@@ -196,7 +196,7 @@ class Build
       relink_eln_files: options[:relink_eln]
     ).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
-    EmbeddedLibrarySdkFixer.new(app).fix
+    # EmbeddedLibrarySdkFixer.new(app).fix
     self_sign_app(app) if options[:self_sign]
 
     archive_build(build_dir) if options[:archive]
