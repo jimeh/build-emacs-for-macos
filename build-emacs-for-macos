@@ -1384,7 +1384,15 @@ class LibEmbedder < AbstractEmbedder
       next if dylib_id.nil? || dylib_id == ''
 
       while_writable(target) do
-        MachO::Tools.change_dylib_id(target, dylib_id)
+        file = MachO.open(target)
+        file.change_dylib_id(dylib_id)
+
+        # Remove all rpaths except for @loader_path. Any other rpaths present in
+        # embedded libraries will potentially cause issues.
+        rpaths = file.rpaths.reject { |r| r == '@loader_path' }
+        rpaths.each { |r| file.delete_rpath(r) }
+
+        file.write!
       end
     end
 
@@ -1521,7 +1529,7 @@ class EmbeddedLibrarySdkFixer < AbstractEmbedder
            .strip
     return @vtool_path = path unless path.empty?
 
-    error 'Could not locate vtool, please ensure Xcode Command Line Tools ' \
+    fatal 'Could not locate vtool, please ensure Xcode Command Line Tools ' \
           'are installed'
   end
 end
@@ -1557,6 +1565,7 @@ class GccLibEmbedder < AbstractEmbedder
       File.join(source_dir, ''), target_dir
     )
     run_cmd('chmod', '-R', 'u+w', target_dir)
+    tidy_lib_rpaths(target_dir)
 
     FileUtils.mkdir_p(target_darwin_dir)
     run_cmd(
@@ -1564,6 +1573,7 @@ class GccLibEmbedder < AbstractEmbedder
       File.join(source_darwin_dir, ''), target_darwin_dir
     )
     run_cmd('chmod', '-R', 'u+w', target_darwin_dir)
+    tidy_lib_rpaths(target_darwin_dir)
 
     FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
 
@@ -1609,6 +1619,26 @@ class GccLibEmbedder < AbstractEmbedder
 
         (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":"))))
   ELISP
+
+  # Remove all rpaths from Mach-O library files except for @loader_path.
+  def tidy_lib_rpaths(directory)
+    Dir[File.join(directory, '**', '*.{dylib,so}')].each do |file_path|
+      next if File.symlink?(file_path)
+
+      begin
+        mf = MachO.open(file_path)
+      rescue MachO::NotAMachOError
+        next
+      end
+
+      rpaths = mf.rpaths.reject { |r| r == '@loader_path' }
+      next if rpaths.none?
+
+      debug "Tidying up rpaths from: #{relative_path(file_path)}"
+      rpaths.each { |r| mf.delete_rpath(r) }
+      mf.write!
+    end
+  end
 
   def embedded?
     Dir[File.join(target_dir, 'libgcc*')].any?
