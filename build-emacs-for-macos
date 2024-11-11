@@ -9,6 +9,7 @@ require 'fileutils'
 require 'json'
 require 'logger'
 require 'net/http'
+require 'open3'
 require 'optparse'
 require 'pathname'
 require 'time'
@@ -81,13 +82,42 @@ end
 module System
   include Output
 
-  def run_cmd(*args)
+  def run_cmd(*args, output_file: nil)
     debug "executing: #{args.join(' ')}"
-    cmd(*args)
+    cmd(*args, output_file: output_file)
   end
 
-  def cmd(*args)
-    system(*args) || fatal("Exit code: #{$CHILD_STATUS.exitstatus}")
+  def cmd(*args, output_file: nil)
+    if output_file.nil?
+      return system(*args) || fatal("Exit code: #{$CHILD_STATUS.exitstatus}")
+    end
+
+    # Handle output to both terminal and file
+    File.open(output_file, 'w') do |file|
+      Open3.popen3(*args) do |_stdin, stdout, stderr, wait_thread|
+        stdout_thread = Thread.new do
+          while (line = stdout.gets)
+            puts line
+            file.puts line
+            file.flush
+          end
+        end
+
+        stderr_thread = Thread.new do
+          while (line = stderr.gets)
+            $stderr.puts line # rubocop:disable Style/StderrPuts
+            file.puts line
+            file.flush
+          end
+        end
+
+        [stdout_thread, stderr_thread, wait_thread].map(&:join)
+        status = wait_thread.value
+        return true if status.success?
+
+        fatal("Exit code: #{status.exitstatus}")
+      end
+    end
   end
 end
 
@@ -629,7 +659,10 @@ class Build
       configure_flags << '--without-rsvg' if options[:rsvg] == false
       configure_flags << '--without-dbus' if options[:dbus] == false
 
-      run_cmd './configure', *configure_flags.compact
+      run_cmd(
+        './configure', *configure_flags.compact,
+        output_file: 'configure_output.txt'
+      )
 
       # Disable aligned_alloc on Mojave and below. See issue:
       # https://github.com/daviderestivo/homebrew-emacs-head/issues/15
@@ -1748,7 +1781,7 @@ if __FILE__ == $PROGRAM_NAME
     fd_setsize: 10_000,
     github_src_repo: nil,
     github_auth: true,
-    dist_include: ['COPYING'],
+    dist_include: ['COPYING', 'configure_output.txt'],
     self_sign: true,
     archive: true,
     archive_keep: false,
