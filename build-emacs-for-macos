@@ -502,6 +502,8 @@ class Build
     end
 
     env << '-march=native' if options[:native_march]
+    env << '-mtune=native' if options[:native_mtune]
+    env << '-fomit-frame-pointer' if options[:fomit_frame_pointer]
 
     if options[:fd_setsize].respond_to?(:>=) && options[:fd_setsize] >= 1024
       env += [
@@ -1846,10 +1848,32 @@ if __FILE__ == $PROGRAM_NAME
     ) { |v| cli_options[:native_comp] = v }
 
     opts.on(
+      '--optimize',
+      'Shorthand for --native-march --native-mtune --fomit-frame-pointer' \
+      '(default: disabled)'
+    ) do
+      cli_options[:native_march] = true
+      cli_options[:native_mtune] = true
+      cli_options[:fomit_frame_pointer] = true
+    end
+
+    opts.on(
       '--[no-]native-march',
       'Enable/disable -march=native CFLAG' \
       '(default: disabled)'
     ) { |v| cli_options[:native_march] = v }
+
+    opts.on(
+      '--[no-]native-mtune',
+      'Enable/disable -mtune=native CFLAG' \
+      '(default: disabled)'
+    ) { |v| cli_options[:native_mtune] = v }
+
+    opts.on(
+      '--[no-]fomit-frame-pointer',
+      'Enable/disable -fomit-frame-pointer CFLAG' \
+      '(default: disabled)'
+    ) { |v| cli_options[:fomit_frame_pointer] = v }
 
     opts.on(
       '--[no-]native-full-aot',
