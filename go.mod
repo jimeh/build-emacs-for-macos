@@ -1,6 +1,6 @@
 module github.com/jimeh/build-emacs-for-macos
 
-go 1.20
+go 1.23
 
 require (
 	github.com/bearer/gon v0.0.36
