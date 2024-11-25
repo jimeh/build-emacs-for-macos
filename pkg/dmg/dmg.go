@@ -110,6 +110,18 @@ func Create(ctx context.Context, opts *Options) (string, error) {
 		})
 	}
 
+	configureOutputFile := filepath.Join(sourceDir, "configure_output.txt")
+	fi, err = os.Stat(configureOutputFile)
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	} else if err == nil && fi.Mode().IsRegular() {
+		settings.Files = append(settings.Files, &dmgbuild.File{
+			Path: configureOutputFile,
+			PosX: 340,
+			PosY: 756,
+		})
+	}
+
 	if opts.Output != nil {
 		settings.Stdout = opts.Output
 		settings.Stderr = opts.Output
