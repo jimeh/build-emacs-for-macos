@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.50](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.49...v0.6.50) (2024-11-25)
+
+
+### Features
+
+* **build/options:** add --optimize and related flags ([#119](https://github.com/jimeh/build-emacs-for-macos/issues/119)) ([8267ac1](https://github.com/jimeh/build-emacs-for-macos/commit/8267ac166203c0c495520e6970650735702eac35))
+* **deps:** add support for Nix package manager ([#116](https://github.com/jimeh/build-emacs-for-macos/issues/116)) ([6e2b9aa](https://github.com/jimeh/build-emacs-for-macos/commit/6e2b9aa44ae1cbc3eec8ec7318ce9c9968e2d673))
+* **package:** produce and include configure output log ([#118](https://github.com/jimeh/build-emacs-for-macos/issues/118)) ([5c513ce](https://github.com/jimeh/build-emacs-for-macos/commit/5c513ce2e7536c57f43a49739b3f0f66d15f7b6d))
+
 ## [0.6.49](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.48...v0.6.49) (2024-11-03)
 
 
