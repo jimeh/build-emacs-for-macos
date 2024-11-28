@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.51](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.50...v0.6.51) (2024-11-28)
+
+
+### Bug Fixes
+
+* **build/embed:** include all Emacs C sources and related files in the Emacs.app bundle ([#120](https://github.com/jimeh/build-emacs-for-macos/issues/120)) ([ccb4f3f](https://github.com/jimeh/build-emacs-for-macos/commit/ccb4f3f438652c7ae98c202b8afed8861f40eeec))
+
 ## [0.6.50](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.49...v0.6.50) (2024-11-25)
 
 
