@@ -1136,8 +1136,12 @@ class AbstractEmbedder
     @app = app
   end
 
-  def relative_path(path)
-    Pathname.new(path).relative_path_from(Pathname.new(app)).to_s
+  def relative_path(base, path)
+    Pathname.new(path).relative_path_from(Pathname.new(base)).to_s
+  end
+
+  def relative_app_path(path)
+    relative_path(app, path)
   end
 
   def invocation_dir
@@ -1224,8 +1228,8 @@ class CSourcesEmbedder < AbstractEmbedder
       return
     end
 
-    debug "Patching '#{relative_path(site_start_el_file)}' to allow Emacs to " \
-          'find bundled C sources'
+    debug "Patching '#{relative_app_path(site_start_el_file)}' to allow " \
+          'Emacs to find bundled C sources'
     File.open(site_start_el_file, 'a') { |f| f.puts("\n#{PATH_PATCH}") }
   end
 
@@ -1300,7 +1304,7 @@ class LibEmbedder < AbstractEmbedder
 
     return if mf.rpaths.include?(rpath)
 
-    debug "Setting rpath for '#{relative_path(macho_file)}' to: #{rpath}"
+    debug "Setting rpath for '#{relative_app_path(macho_file)}' to: #{rpath}"
     mf.add_rpath(rpath)
     while_writable(macho_file) { mf.write! }
   end
@@ -1330,7 +1334,7 @@ class LibEmbedder < AbstractEmbedder
 
     if macho_file.start_with?(app)
       debug 'Calculating bundling instructions for: ' \
-            "#{relative_path(macho_file)}"
+            "#{relative_app_path(macho_file)}"
     else
       debug "Calculating bundling instructions for: #{macho_file}"
     end
@@ -1413,7 +1417,8 @@ class LibEmbedder < AbstractEmbedder
 
       next if File.exist?(target)
 
-      debug "Copying '#{source}' to: '#{relative_path(target)}' ('#{dylib_id}')"
+      debug "Copying '#{source}' to: " \
+            "'#{relative_app_path(target)}' ('#{dylib_id}')"
       FileUtils.mkdir_p(File.dirname(target))
       cmd('cp', '-pRL', source, target)
 
@@ -1434,7 +1439,7 @@ class LibEmbedder < AbstractEmbedder
 
     relink_files = relink.group_by { |r| r[:target_file] }
     relink_files.each do |target_file, relinks|
-      debug "Changing linked dylibs in: '#{relative_path(target_file)}'"
+      debug "Changing linked dylibs in: '#{relative_app_path(target_file)}'"
       mf = MachO.open(target_file)
       changed = false
 
@@ -1556,7 +1561,7 @@ class GccLibEmbedder < AbstractEmbedder
       rpaths = mf.rpaths.reject { |r| r == '@loader_path' }
       next if rpaths.none?
 
-      debug "Tidying up rpaths from: #{relative_path(file_path)}"
+      debug "Tidying up rpaths from: #{relative_app_path(file_path)}"
       rpaths.each { |r| mf.delete_rpath(r) }
       mf.write!
     end
@@ -1584,10 +1589,6 @@ class GccLibEmbedder < AbstractEmbedder
 
   def source_darwin_dir
     gcc_info.darwin_lib_dir
-  end
-
-  def relative_dir(path, root)
-    Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
   end
 
   def site_start_el_file
@@ -1676,17 +1677,17 @@ class GccInfo
 
   def app_bundle_target_lib_dir
     @app_bundle_target_lib_dir ||=
-      relative_dir(
-        File.join(embedder.lib_dir, target_lib_dir),
-        embedder.invocation_dir
+      relative_path(
+        embedder.invocation_dir,
+        File.join(embedder.lib_dir, target_lib_dir)
       )
   end
 
   def app_bundle_target_darwin_lib_dir
     @app_bundle_target_darwin_lib_dir ||=
-      relative_dir(
-        File.join(embedder.lib_dir, sanitized_target_darwin_lib_dir),
-        embedder.invocation_dir
+      relative_path(
+        embedder.invocation_dir,
+        File.join(embedder.lib_dir, sanitized_target_darwin_lib_dir)
       )
   end
 
@@ -1761,8 +1762,8 @@ class GccInfo
     @embedder ||= AbstractEmbedder.new(Dir.mktmpdir(%w[Emacs .app]))
   end
 
-  def relative_dir(path, root)
-    Pathname.new(path).relative_path_from(Pathname.new(root)).to_s
+  def relative_path(base, path)
+    Pathname.new(path).relative_path_from(Pathname.new(base)).to_s
   end
 end
 
