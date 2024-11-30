@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.52](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.51...v0.6.52) (2024-11-30)
+
+
+### Bug Fixes
+
+* **nix/flake:** rename flake-package-versions.txt to flake.pkgs ([d7723ee](https://github.com/jimeh/build-emacs-for-macos/commit/d7723ee766574b6597997de7c54fb7ed7f37965c))
+
 ## [0.6.51](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.50...v0.6.51) (2024-11-28)
 
 
