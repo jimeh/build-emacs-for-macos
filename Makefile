@@ -137,7 +137,7 @@ gen:
 .PHONY: nix-flake-update
 nix-flake-update:
 	nix flake update \
-	&& $(MAKE) flake-package-versions.txt
+	&& $(MAKE) flake.pkgs
 
 .SILENT: flake-package-versions
 flake-package-versions:
@@ -146,8 +146,8 @@ flake-package-versions:
 			$$(echo $$PATH | tr ":" "\n" | grep "/nix/store" | sort -u) \
 			| jq -r ".[].name" | sort -u'
 
-flake-package-versions.txt: flake.nix flake.lock
-	$(MAKE) flake-package-versions > flake-package-versions.txt
+flake.pkgs: flake.nix flake.lock
+	$(MAKE) flake-package-versions > "$@"
 
 #
 # Dependencies
