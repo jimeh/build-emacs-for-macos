@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.54](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.53...v0.6.54) (2024-12-01)
+
+
+### Features
+
+* **startup:** replace bundled site-start.el approach with a custom source patch ([#124](https://github.com/jimeh/build-emacs-for-macos/issues/124)) ([03ed54c](https://github.com/jimeh/build-emacs-for-macos/commit/03ed54ca78ce15b61f5c875f97410b3ff21ecd62))
+
 ## [0.6.53](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.52...v0.6.53) (2024-12-01)
 
 
