@@ -408,6 +408,7 @@ class Build
     fatal 'Tarball extraction failed.' unless result
 
     patches.each { |patch| apply_patch(patch, target) }
+    apply_macos_startup_patch(target)
 
     # Keep a copy of src after patches have been applied. This will be used to
     # embed C sources into the output Emacs.app bundle.
@@ -900,6 +901,93 @@ class Build
     File.write(filename, content)
   end
 
+  MACOS_STARTUP_EL_CONTENT = <<~ELISP
+    ;;; macos-startup.el --- macOS specific startup actions  -*- lexical-binding: t -*-
+
+    ;; Maintainer: Jim Myhrberg <contact@jimeh.me>
+    ;; Keywords: macos, internal
+    ;; Homepage: https://github.com/jimeh/build-emacs-for-macos
+
+    ;; This file is not part of GNU Emacs.
+
+    ;;; Commentary:
+
+    ;; This file contains macOS specific startup actions for self-contained
+    ;; macOS *.app bundles.  It enables native-compilation via a bundled
+    ;; libgccjit, and for bundled C-sources to be found for documentation
+    ;; purposes,
+
+    ;;; Code:
+
+    (defun macos-startup--in-app-bundle-p ()
+      "Check if invoked from a macOS .app bundle."
+      (and (eq system-type 'darwin)
+           invocation-directory
+           (string-match-p ".+\\.app/Contents/MacOS/?$" invocation-directory)))
+
+    (defun macos-startup--set-source-directory ()
+      "Set `source-directory' so that C-sources can be located."
+      (let* ((src-dir (expand-file-name "../Resources/src" invocation-directory)))
+        (when (file-directory-p src-dir)
+          (setq source-directory (file-name-directory src-dir)))))
+
+    (defun macos-startup--setup-library-path ()
+      "Configure LIBRARY_PATH env var for native compilation on macOS.
+
+    Ensures LIBRARY_PATH includes paths to the libgccjit and gcc libraries
+    which are bundled into the .app bundle.  This allows native compilation
+    to work without any external system dependencies aside from Xcode."
+      (let* ((new-paths
+              (list (expand-file-name "../Frameworks/gcc/lib" invocation-directory)
+                    (expand-file-name "../Frameworks/gcc/lib/apple-darwin" invocation-directory)
+                    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib"))
+             (valid-paths (delq nil (mapcar (lambda (path)
+                                              (when (file-directory-p path)
+                                                path))
+                                            new-paths)))
+             (existing-paths (split-string (or (getenv "LIBRARY_PATH") "") ":" t))
+             (unique-paths (delete-dups (append valid-paths existing-paths))))
+
+        (when unique-paths
+          (setenv "LIBRARY_PATH" (mapconcat 'identity unique-paths path-separator)))))
+
+    (defun macos-startup--init ()
+      "Perform macOS specific startup operations."
+      (when (macos-startup--in-app-bundle-p)
+        (macos-startup--set-source-directory)
+        (when (and (fboundp 'native-comp-available-p)
+                   (native-comp-available-p))
+          (macos-startup--setup-library-path))))
+
+    (add-hook 'after-pdump-load-hook #'macos-startup--init)
+
+    ;;; macos-startup.el ends here
+  ELISP
+
+  def apply_macos_startup_patch(target)
+    macos_startup_el = File.join(target, 'lisp', 'macos-startup.el')
+
+    unless File.exist?(macos_startup_el)
+      info 'Adding macos-startup.el to lisp sources...'
+      FileUtils.mkdir_p(File.dirname(macos_startup_el))
+      File.write(macos_startup_el, MACOS_STARTUP_EL_CONTENT)
+    end
+
+    loadup_el = File.join(target, 'lisp', 'loadup.el')
+    loadup_content = File.read(loadup_el)
+
+    return if loadup_content.include?('(load "macos-startup")')
+
+    info 'Patching loadup.el to load macos-startup.el...'
+    File.write(
+      loadup_el,
+      loadup_content.gsub(
+        '(load "startup")',
+        "(load \"startup\")\n(load \"macos-startup\")"
+      )
+    )
+  end
+
   def meta
     return @meta if @meta
 
@@ -1068,6 +1156,20 @@ class Build
       else
         apply_patch({ file: patch_file }, target)
       end
+    elsif patch[:source]
+      patch_dir = "#{target}/macos_patches"
+      run_cmd('mkdir', '-p', patch_dir)
+
+      patch_file = File.join(patch_dir, 'patch-{num}.diff')
+      num = 1
+      while File.exist?(patch_file.gsub('{num}', num.to_s.rjust(3, '0')))
+        num += 1
+      end
+      patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
+
+      File.write(patch_file, patch[:source])
+
+      apply_patch({ file: patch_file }, target)
     elsif patch[:replace]
       fatal 'Patch replace input error' unless patch[:replace].size == 3
 
@@ -1198,12 +1300,6 @@ class CLIHelperEmbedder < AbstractEmbedder
 end
 
 class CSourcesEmbedder < AbstractEmbedder
-  PATH_PATCH = <<~ELISP
-    ;; Allow Emacs to find bundled C sources.
-    (setq source-directory
-      (expand-file-name ".." (file-name-directory load-file-name)))
-  ELISP
-
   attr_reader :source_dir
 
   def initialize(app, source_dir)
@@ -1228,15 +1324,6 @@ class CSourcesEmbedder < AbstractEmbedder
         src_dir, target_dir, File.join('**', '*.{awk,c,cc,h,in,m,mk}')
       )
     end
-
-    if File.exist?(site_start_el_file) &&
-       File.read(site_start_el_file).include?(PATH_PATCH)
-      return
-    end
-
-    debug "Patching '#{relative_app_path(site_start_el_file)}' to allow " \
-          'Emacs to find bundled C sources'
-    File.open(site_start_el_file, 'a') { |f| f.puts("\n#{PATH_PATCH}") }
   end
 
   private
@@ -1251,10 +1338,6 @@ class CSourcesEmbedder < AbstractEmbedder
       FileUtils.mkdir_p(File.dirname(target))
       run_cmd('cp', '-pRL', f, target)
     end
-  end
-
-  def site_start_el_file
-    @site_start_el_file ||= File.join(resources_dir, 'lisp', 'site-start.el')
   end
 end
 
@@ -1521,48 +1604,12 @@ class GccLibEmbedder < AbstractEmbedder
 
     FileUtils.rm(Dir[File.join(target_dir, '**', '.DS_Store')], force: true)
 
-    if target_darwin_dir != sanitized_target_darwin_dir
-      run_cmd('mv', target_darwin_dir, sanitized_target_darwin_dir)
-    end
+    return unless target_darwin_dir != sanitized_target_darwin_dir
 
-    env_setup = ERB.new(NATIVE_COMP_ENV_VAR_TPL).result(gcc_info.get_binding)
-    if File.exist?(site_start_el_file) &&
-       File.read(site_start_el_file).include?(env_setup)
-      return
-    end
-
-    debug 'Setting up site-start.el for self-contained native-comp Emacs.app'
-    File.open(site_start_el_file, 'a') { |f| f.puts("\n#{env_setup}") }
+    run_cmd('mv', target_darwin_dir, sanitized_target_darwin_dir)
   end
 
   private
-
-  NATIVE_COMP_ENV_VAR_TPL = <<~ELISP
-    ;; Set LIBRARY_PATH to point at bundled GCC and Xcode Command Line Tools to
-    ;; ensure native-comp works.
-    (when (and (eq system-type 'darwin)
-               (string-match-p "\\.app\\/Contents\\/MacOS\\/?$"
-                               invocation-directory))
-      (let* ((library-path-env (getenv "LIBRARY_PATH"))
-             (devtools-dir
-              "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib")
-             (gcc-dir (expand-file-name
-                       "<%= app_bundle_target_lib_dir %>"
-                       invocation-directory))
-             (darwin-dir (expand-file-name
-                          "<%= app_bundle_target_darwin_lib_dir %>"
-                          invocation-directory))
-             (lib-paths (list)))
-
-        (if library-path-env
-            (push library-path-env lib-paths))
-        (if (file-directory-p devtools-dir)
-            (push devtools-dir lib-paths))
-        (push darwin-dir lib-paths)
-        (push gcc-dir lib-paths)
-
-        (setenv "LIBRARY_PATH" (mapconcat 'identity lib-paths ":"))))
-  ELISP
 
   # Remove all rpaths from Mach-O library files except for @loader_path.
   def tidy_lib_rpaths(directory)
@@ -1606,10 +1653,6 @@ class GccLibEmbedder < AbstractEmbedder
 
   def source_darwin_dir
     gcc_info.darwin_lib_dir
-  end
-
-  def site_start_el_file
-    @site_start_el_file ||= File.join(resources_dir, 'lisp', 'site-start.el')
   end
 end
 
