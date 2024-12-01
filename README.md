@@ -73,23 +73,26 @@ make bootstrap
 
 ## Status
 
-As of writing (2023-11-20) it works for me on my machine and for the nightly
+As of writing (2024-11-30) it works for me on my machine and for the nightly
 builds in [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds). Your luck
 may vary.
 
 I have successfully built:
 
-- `emacs-29.1` release tag.
-- `master` branch (Emacs 30.x).
+- `emacs-29.4` release tag.
+- `emacs-30.0.92` pretest tag.
+- `master` branch (Emacs 31.x).
 
 For reference, my machine is:
 
-- 14-inch MacBook Pro (2023), Apple M3 Pro (11-cores)
-- macOS Sonoma 14.1.1 (23B2082)
-- Xcode 15.0.1 (15A507)
+- 14-inch MacBook Pro (2023), Apple M3 Max (16-cores)
+- macOS Sonoma 15.1.1 (24B91)
+- Xcode 16.1 (16B40)
 
-Nightly builds are built with GitHub Actions on GitHub-hosted runners, using
-`macos-12` for Intel builds, and `macos-13-xlarge` for Apple Silicon builds.
+The [nightly builds](https://github.com/jimeh/emacs-builds) are built with
+GitHub Actions on GitHub-hosted runners, using `macos-13` for Intel builds, and
+`macos-14` for Apple Silicon builds. The build environment is managed with Nix,
+and targets the macOS 11 SDK.
 
 ## Usage
 
@@ -104,6 +107,11 @@ Or you can run the build script via `nix develop`:
 ```
 nix develop --command ./build-emacs-for-macos --help
 ```
+
+The Nix environment defaults to targeting the macOS 11 SDK, which makes Emacs
+builds compatible with macOS 11.3 or later. You can easily target later macOS
+SDKs. Versions 11 to 15 are available. For example, to target the macOS 12 SDK,
+run `nix develop .#macos12`
 
 ### Homebrew
 
@@ -171,10 +179,10 @@ as of writing) and build Emacs.app from it:
 ./build-emacs-for-macos
 ```
 
-To build the stable `emacs-29.1` release git tag run:
+To build the stable `emacs-29.4` release git tag run:
 
 ```
-./build-emacs-for-macos emacs-29.1
+./build-emacs-for-macos emacs-29.4
 ```
 
 All sources as downloaded as tarballs from the
