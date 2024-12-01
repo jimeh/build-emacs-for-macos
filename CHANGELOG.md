@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.53](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.52...v0.6.53) (2024-12-01)
+
+
+### Bug Fixes
+
+* **help:** correct formatting of help text output ([db72381](https://github.com/jimeh/build-emacs-for-macos/commit/db723817bf6c0ac85da1790a1d50fbea774cc0c0))
+
 ## [0.6.52](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.51...v0.6.52) (2024-11-30)
 
 
