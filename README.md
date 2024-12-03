@@ -146,6 +146,7 @@ Options:
         --posix-spawn                Apply posix-spawn patch (deprecated)
         --no-frame-refocus           Apply no-frame-refocus patch (default: disabled)
         --[no-]poll                  Apply poll patch (deprecated)
+    -p, --patch=URL                  Specify a custom patch file or URL to apply to the Emacs source (can be used multiple times)
         --[no-]fd-setsize SIZE       Set an file descriptor (max open files) limit (default: 10000)
         --github-src-repo REPO       Specify a GitHub repo to download source tarballs from (default: emacs-mirror/emacs)
         --[no-]github-auth           Make authenticated GitHub API requests if GITHUB_TOKEN environment variable is set.(default: enabled)
