@@ -79,6 +79,16 @@ module Output
   end
 end
 
+module Helpers
+  def valid_url?(uri)
+    uri = URI.parse(uri)
+    (uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)) &&
+      uri.host.respond_to?(:empty?) && !uri.host.empty?
+  rescue URI::InvalidURIError
+    false
+  end
+end
+
 module System
   include Output
 
@@ -183,6 +193,7 @@ end
 class Build
   include Output
   include System
+  include Helpers
 
   DEFAULT_GITHUB_REPO = 'emacs-mirror/emacs'
 
@@ -1126,6 +1137,20 @@ class Build
       }
     end
 
+    # Custom patches.
+    options[:patches].each do |patch_str|
+      patch = {}
+      if valid_url?(patch_str)
+        patch[:url] = patch_str
+      elsif File.exist?(patch_str)
+        patch[:file] = patch_str
+      else
+        fatal "Patch file or URL not found: #{patch_str}"
+      end
+
+      p << patch
+    end
+
     p.uniq
   end
 
@@ -1827,228 +1852,265 @@ class GccInfo
   end
 end
 
-if __FILE__ == $PROGRAM_NAME
-  use_nix_default = !ENV.fetch('IN_NIX_SHELL', '').empty?
+class CLIOptions
+  include Output
+  include Helpers
 
-  cli_options = {
-    work_dir: File.expand_path(__dir__),
-    native_full_aot: false,
-    relink_eln: true,
-    native_march: false,
-    parallel: Etc.nprocessors,
-    rsvg: true,
-    dbus: true,
-    use_nix: use_nix_default,
-    xwidgets: true,
-    tree_sitter: true,
-    fd_setsize: 10_000,
-    github_src_repo: nil,
-    github_auth: true,
-    dist_include: ['COPYING', 'configure_output.txt'],
-    self_sign: true,
-    archive: true,
-    archive_keep: false,
-    log_level: 'info'
-  }
-
-  parser = OptionParser.new do |opts|
-    opts.banner = <<~DOC
-      Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
-
-      Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
-      available here: https://github.com/emacs-mirror/emacs
-
-      Options:
-    DOC
-
-    opts.on(
-      '--info',
-      'Print environment info and detected library paths, then exit'
-    ) { |v| cli_options[:info] = v }
-
-    opts.on(
-      '--preview',
-      'Print preview details about build and exit.'
-    ) { |v| cli_options[:preview] = v }
-
-    opts.on(
-      '-j',
-      '--parallel COUNT',
-      'Compile using COUNT parallel processes ' \
-      "(detected: #{cli_options[:parallel]})"
-    ) { |v| cli_options[:parallel] = v }
-
-    opts.on(
-      '--git-sha SHA',
-      'Override detected git SHA of specified ' \
-      'branch allowing builds of old commits'
-    ) { |v| cli_options[:git_sha] = v }
-
-    opts.on(
-      '--[no-]use-nix',
-      'Use Nix instead of Homebrew to find dependencies ' \
-      '(default: enabled if IN_NIX_SHELL is set)'
-    ) { |v| cli_options[:use_nix] = v }
-
-    opts.on(
-      '--[no-]xwidgets',
-      'Enable/disable XWidgets if supported ' \
-      '(default: enabled)'
-    ) { |v| cli_options[:xwidgets] = v }
-
-    opts.on(
-      '--[no-]tree-sitter',
-      'Enable/disable tree-sitter if supported ' \
-      '(default: enabled)'
-    ) { |v| cli_options[:tree_sitter] = v }
-
-    opts.on(
-      '--[no-]native-comp',
-      'Enable/disable native-comp ' \
-      '(default: enabled if supported)'
-    ) { |v| cli_options[:native_comp] = v }
-
-    opts.on(
-      '--optimize',
-      'Shorthand for --native-march --native-mtune --fomit-frame-pointer ' \
-      '(default: disabled)'
-    ) do
-      cli_options[:native_march] = true
-      cli_options[:native_mtune] = true
-      cli_options[:fomit_frame_pointer] = true
-    end
-
-    opts.on(
-      '--[no-]native-march',
-      'Enable/disable -march=native CFLAG ' \
-      '(default: disabled)'
-    ) { |v| cli_options[:native_march] = v }
-
-    opts.on(
-      '--[no-]native-mtune',
-      'Enable/disable -mtune=native CFLAG ' \
-      '(default: disabled)'
-    ) { |v| cli_options[:native_mtune] = v }
-
-    opts.on(
-      '--[no-]fomit-frame-pointer',
-      'Enable/disable -fomit-frame-pointer CFLAG ' \
-      '(default: disabled)'
-    ) { |v| cli_options[:fomit_frame_pointer] = v }
-
-    opts.on(
-      '--[no-]native-full-aot',
-      'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
-      '(default: disabled)'
-    ) { |v| cli_options[:native_full_aot] = v }
-
-    opts.on(
-      '--[no-]relink-eln-files',
-      'Enable/disable re-linking shared libraries in bundled *.eln ' \
-      'files (default: enabled)'
-    ) { |v| cli_options[:relink_eln] = v }
-
-    opts.on(
-      '--[no-]rsvg',
-      'Enable/disable SVG image support via librsvg ' \
-      '(default: enabled)'
-    ) { |v| cli_options[:rsvg] = v }
-
-    opts.on(
-      '--[no-]dbus',
-      'Enable/disable dbus support (default: enabled)'
-    ) { |v| cli_options[:dbus] = v }
-
-    opts.on(
-      '--no-titlebar',
-      'Apply no-titlebar patch (default: disabled)'
-    ) { cli_options[:no_titlebar] = true }
-
-    opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
-      warn '==> WARN: posix-spawn patch is deprecated and has no effect.'
-    end
-
-    opts.on(
-      '--no-frame-refocus',
-      'Apply no-frame-refocus patch (default: disabled)'
-    ) { cli_options[:no_frame_refocus] = true }
-
-    opts.on('--[no-]poll', 'Apply poll patch (deprecated)') do
-      warn '==> WARN: poll patch is deprecated and has no effect.'
-    end
-
-    opts.on(
-      '--[no-]fd-setsize SIZE',
-      'Set an file descriptor (max open files) limit (default: 10000)'
-    ) { |v| cli_options[:fd_setsize] = v.respond_to?(:to_i) ? v.to_i : 0 }
-
-    opts.on(
-      '--github-src-repo REPO',
-      'Specify a GitHub repo to download source tarballs from ' \
-      '(default: emacs-mirror/emacs)'
-    ) { |v| cli_options[:github_src_repo] = v }
-
-    opts.on(
-      '--[no-]github-auth',
-      'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
-      'environment variable is set.' \
-      '(default: enabled)'
-    ) { |v| cli_options[:github_auth] = v }
-
-    opts.on(
-      '--work-dir DIR',
-      'Specify a working directory where tarballs, sources, and ' \
-      'builds will be stored and worked with'
-    ) { |v| cli_options[:work_dir] = v }
-
-    opts.on(
-      '-o DIR',
-      '--output DIR',
-      'Output directory for finished builds ' \
-      '(default: <work-dir>/builds)'
-    ) { |v| cli_options[:output] = v }
-
-    opts.on('--build-name NAME', 'Override generated build name') do |v|
-      cli_options[:build_name] = v
-    end
-
-    opts.on(
-      '--dist-include x,y,z',
-      'List of extra files to copy from Emacs source into build ' \
-      'folder/archive (default: COPYING)'
-    ) { |v| cli_options[:dist_include] = v }
-
-    opts.on(
-      '--[no-]self-sign',
-      'Enable/disable self-signing of Emacs.app (default: enabled)'
-    ) { |v| cli_options[:self_sign] = v }
-
-    opts.on(
-      '--[no-]archive',
-      'Enable/disable creating *.tbz archive (default: enabled)'
-    ) { |v| cli_options[:archive] = v }
-
-    opts.on(
-      '--[no-]archive-keep-build-dir',
-      'Enable/disable keeping source folder for archive ' \
-      '(default: disabled)'
-    ) { |v| cli_options[:archive_keep] = v }
-
-    opts.on(
-      '--log-level LEVEL',
-      'Build script log level (default: info)'
-    ) { |v| cli_options[:log_level] = v }
-
-    opts.on(
-      '--plan FILE',
-      'Follow given plan file, instead of using given git ref/sha'
-    ) { |v| cli_options[:plan] = v }
+  def self.parse(args)
+    inst = new
+    inst.parse!(args)
+    inst.options
   end
 
-  begin
-    parser.parse!
+  def parse!(args)
+    parser.parse!(args)
+  rescue OptionParser::InvalidOption => e
+    fatal e.message
+  end
 
-    Output.log_level = cli_options[:log_level]
+  def options
+    @options ||= defaults.dup.tap do |o|
+      o.each { |k, v| o[k] = v.dup if v.is_a?(Array) }
+    end
+  end
+
+  def defaults
+    {
+      work_dir: File.expand_path(__dir__),
+      native_full_aot: false,
+      relink_eln: true,
+      native_march: false,
+      parallel: Etc.nprocessors,
+      rsvg: true,
+      dbus: true,
+      use_nix: !ENV.fetch('IN_NIX_SHELL', '').empty?,
+      xwidgets: true,
+      tree_sitter: true,
+      fd_setsize: 10_000,
+      github_src_repo: nil,
+      github_auth: true,
+      dist_include: ['COPYING', 'configure_output.txt'],
+      self_sign: true,
+      archive: true,
+      archive_keep: false,
+      patches: [],
+      log_level: 'info'
+    }
+  end
+
+  def parser
+    @parser ||= OptionParser.new do |opts|
+      opts.banner = <<~DOC
+        Usage: ./build-emacs-for-macos [options] <branch/tag/sha>
+
+        Branch, tag, and SHA are from the emacs-mirror/emacs/emacs Github repo,
+        available here: https://github.com/emacs-mirror/emacs
+
+        Options:
+      DOC
+
+      opts.on(
+        '--info',
+        'Print environment info and detected library paths, then exit'
+      ) { |v| options[:info] = v }
+
+      opts.on(
+        '--preview',
+        'Print preview details about build and exit.'
+      ) { |v| options[:preview] = v }
+
+      opts.on(
+        '-j',
+        '--parallel COUNT',
+        'Compile using COUNT parallel processes ' \
+        "(detected: #{options[:parallel]})"
+      ) { |v| options[:parallel] = v }
+
+      opts.on(
+        '--git-sha SHA',
+        'Override detected git SHA of specified ' \
+        'branch allowing builds of old commits'
+      ) { |v| options[:git_sha] = v }
+
+      opts.on(
+        '--[no-]use-nix',
+        'Use Nix instead of Homebrew to find dependencies ' \
+        '(default: enabled if IN_NIX_SHELL is set)'
+      ) { |v| options[:use_nix] = v }
+
+      opts.on(
+        '--[no-]xwidgets',
+        'Enable/disable XWidgets if supported ' \
+        '(default: enabled)'
+      ) { |v| options[:xwidgets] = v }
+
+      opts.on(
+        '--[no-]tree-sitter',
+        'Enable/disable tree-sitter if supported ' \
+        '(default: enabled)'
+      ) { |v| options[:tree_sitter] = v }
+
+      opts.on(
+        '--[no-]native-comp',
+        'Enable/disable native-comp ' \
+        '(default: enabled if supported)'
+      ) { |v| options[:native_comp] = v }
+
+      opts.on(
+        '--optimize',
+        'Shorthand for --native-march --native-mtune --fomit-frame-pointer ' \
+        '(default: disabled)'
+      ) do
+        options[:native_march] = true
+        options[:native_mtune] = true
+        options[:fomit_frame_pointer] = true
+      end
+
+      opts.on(
+        '--[no-]native-march',
+        'Enable/disable -march=native CFLAG ' \
+        '(default: disabled)'
+      ) { |v| options[:native_march] = v }
+
+      opts.on(
+        '--[no-]native-mtune',
+        'Enable/disable -mtune=native CFLAG ' \
+        '(default: disabled)'
+      ) { |v| options[:native_mtune] = v }
+
+      opts.on(
+        '--[no-]fomit-frame-pointer',
+        'Enable/disable -fomit-frame-pointer CFLAG ' \
+        '(default: disabled)'
+      ) { |v| options[:fomit_frame_pointer] = v }
+
+      opts.on(
+        '--[no-]native-full-aot',
+        'Enable/disable NATIVE_FULL_AOT / Ahead of Time compilation ' \
+        '(default: disabled)'
+      ) { |v| options[:native_full_aot] = v }
+
+      opts.on(
+        '--[no-]relink-eln-files',
+        'Enable/disable re-linking shared libraries in bundled *.eln ' \
+        'files (default: enabled)'
+      ) { |v| options[:relink_eln] = v }
+
+      opts.on(
+        '--[no-]rsvg',
+        'Enable/disable SVG image support via librsvg ' \
+        '(default: enabled)'
+      ) { |v| options[:rsvg] = v }
+
+      opts.on(
+        '--[no-]dbus',
+        'Enable/disable dbus support (default: enabled)'
+      ) { |v| options[:dbus] = v }
+
+      opts.on(
+        '--no-titlebar',
+        'Apply no-titlebar patch (default: disabled)'
+      ) { options[:no_titlebar] = true }
+
+      opts.on('--posix-spawn', 'Apply posix-spawn patch (deprecated)') do
+        warn '==> WARN: posix-spawn patch is deprecated and has no effect.'
+      end
+
+      opts.on(
+        '--no-frame-refocus',
+        'Apply no-frame-refocus patch (default: disabled)'
+      ) { options[:no_frame_refocus] = true }
+
+      opts.on('--[no-]poll', 'Apply poll patch (deprecated)') do
+        warn '==> WARN: poll patch is deprecated and has no effect.'
+      end
+
+      opts.on(
+        '-p=URL', '--patch=URL',
+        'Specify a custom patch file or URL to apply to the Emacs source ' \
+        '(can be used multiple times)'
+      ) do |v|
+        if !valid_url?(v) && !File.exist?(v)
+          fatal "Patch is not a URL or file: #{v}"
+        end
+        options[:patches] << v
+      end
+
+      opts.on(
+        '--[no-]fd-setsize SIZE',
+        'Set an file descriptor (max open files) limit (default: 10000)'
+      ) { |v| options[:fd_setsize] = v.respond_to?(:to_i) ? v.to_i : 0 }
+
+      opts.on(
+        '--github-src-repo REPO',
+        'Specify a GitHub repo to download source tarballs from ' \
+        '(default: emacs-mirror/emacs)'
+      ) { |v| options[:github_src_repo] = v }
+
+      opts.on(
+        '--[no-]github-auth',
+        'Make authenticated GitHub API requests if GITHUB_TOKEN ' \
+        'environment variable is set.' \
+        '(default: enabled)'
+      ) { |v| options[:github_auth] = v }
+
+      opts.on(
+        '--work-dir DIR',
+        'Specify a working directory where tarballs, sources, and ' \
+        'builds will be stored and worked with'
+      ) { |v| options[:work_dir] = v }
+
+      opts.on(
+        '-o DIR',
+        '--output DIR',
+        'Output directory for finished builds ' \
+        '(default: <work-dir>/builds)'
+      ) { |v| options[:output] = v }
+
+      opts.on('--build-name NAME', 'Override generated build name') do |v|
+        options[:build_name] = v
+      end
+
+      opts.on(
+        '--dist-include x,y,z',
+        'List of extra files to copy from Emacs source into build ' \
+        'folder/archive (default: COPYING)'
+      ) { |v| options[:dist_include] = v }
+
+      opts.on(
+        '--[no-]self-sign',
+        'Enable/disable self-signing of Emacs.app (default: enabled)'
+      ) { |v| options[:self_sign] = v }
+
+      opts.on(
+        '--[no-]archive',
+        'Enable/disable creating *.tbz archive (default: enabled)'
+      ) { |v| options[:archive] = v }
+
+      opts.on(
+        '--[no-]archive-keep-build-dir',
+        'Enable/disable keeping source folder for archive ' \
+        '(default: disabled)'
+      ) { |v| options[:archive_keep] = v }
+
+      opts.on(
+        '--log-level LEVEL',
+        'Build script log level (default: info)'
+      ) { |v| options[:log_level] = v }
+
+      opts.on(
+        '--plan FILE',
+        'Follow given plan file, instead of using given git ref/sha'
+      ) { |v| options[:plan] = v }
+    end
+  end
+end
+
+if __FILE__ == $PROGRAM_NAME
+  begin
+    cli_options = CLIOptions.parse(ARGV)
+
+    Output.log_level = cli_options.delete(:log_level)
     work_dir = cli_options.delete(:work_dir)
     build = Build.new(work_dir, ARGV.shift, cli_options)
 
