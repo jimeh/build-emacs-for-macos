@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.56](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.55...v0.6.56) (2024-12-03)
+
+
+### Features
+
+* **options:** add --patch option which accepts file path or URL ([#127](https://github.com/jimeh/build-emacs-for-macos/issues/127)) ([66ccd9c](https://github.com/jimeh/build-emacs-for-macos/commit/66ccd9c6fd077d558eae484cdbab831486fbfd58))
+
+
+### Bug Fixes
+
+* **patches:** improve chance of successful patch application by using -l ([d396165](https://github.com/jimeh/build-emacs-for-macos/commit/d396165808ab5852566e7ff6bcc23d47ddfdfdee))
+
 ## [0.6.55](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.54...v0.6.55) (2024-12-03)
 
 
