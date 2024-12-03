@@ -1159,7 +1159,9 @@ class Build
 
     if patch[:file]
       info 'Applying patch...'
-      FileUtils.cd(target) { run_cmd('patch', '-f', '-p1', '-i', patch[:file]) }
+      FileUtils.cd(target) do
+        run_cmd('patch', '-f', '-p1', '-l', '-i', patch[:file])
+      end
     elsif patch[:url]
       patch_dir = "#{target}/macos_patches"
       run_cmd('mkdir', '-p', patch_dir)
