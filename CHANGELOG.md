@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.55](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.54...v0.6.55) (2024-12-03)
+
+
+### Features
+
+* **nix/deps:** update nixpkgs from 24.11-beta to 24.11 ([e030fee](https://github.com/jimeh/build-emacs-for-macos/commit/e030fee6704618b7ddefea7424dff4e94f43e84d))
+
 ## [0.6.54](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.53...v0.6.54) (2024-12-01)
 
 
