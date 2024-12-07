@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.57](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.56...v0.6.57) (2024-12-07)
+
+
+### Features
+
+* **patches/alpha-background:** add experimental alpha-background patch ([#129](https://github.com/jimeh/build-emacs-for-macos/issues/129)) ([c53c398](https://github.com/jimeh/build-emacs-for-macos/commit/c53c398cace6479a9c188e46196462791960abee)), closes [#111](https://github.com/jimeh/build-emacs-for-macos/issues/111)
+
 ## [0.6.56](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.55...v0.6.56) (2024-12-03)
 
 
