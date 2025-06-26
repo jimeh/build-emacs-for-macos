@@ -161,6 +161,7 @@ Options:
                                      Enable/disable keeping source folder for archive (default: disabled)
         --log-level LEVEL            Build script log level (default: info)
         --plan FILE                  Follow given plan file, instead of using given git ref/sha
+        --clean-macho-binary FILE    Tool to clean duplicate RPATHs from given Mach-O binary.
 ```
 
 Resulting applications are saved to the `builds` directory in a bzip2 compressed
