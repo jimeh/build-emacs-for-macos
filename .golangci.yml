@@ -1,25 +1,9 @@
-linters-settings:
-  funlen:
-    lines: 100
-    statements: 150
-  goconst:
-    min-occurrences: 5
-  gocyclo:
-    min-complexity: 20
-  govet:
-    enable-all: true
-    disable:
-      - fieldalignment
-  lll:
-    line-length: 80
-    tab-width: 4
-  maligned:
-    suggest-new: true
-  misspell:
-    locale: US
-
+version: "2"
+run:
+  modules-download-mode: readonly
+  allow-parallel-runners: true
 linters:
-  disable-all: true
+  default: none
   enable:
     - bodyclose
     - copyloopvar
@@ -30,12 +14,8 @@ linters:
     - goconst
     - gocritic
     - gocyclo
-    - gofumpt
-    - goimports
-    - goprintffuncname
     - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - lll
@@ -47,36 +27,69 @@ linters:
     - revive
     - sqlclosecheck
     - staticcheck
-    - typecheck
     - unconvert
     - unused
     - whitespace
-
-issues:
-  exclude:
-    - Using the variable on range scope `tt` in function literal
-    - Using the variable on range scope `tc` in function literal
-  exclude-rules:
-    - path: "_test\\.go"
-      linters:
-        - funlen
-        - dupl
-        - goconst
-    - source: "^//go:generate "
-      linters:
-        - lll
-    - source: "`json:"
-      linters:
-        - lll
-    - source: "`yaml:"
-      linters:
-        - lll
-  exclude-dirs:
-    - builds
-    - sources
-    - tarballs
-
-run:
-  timeout: 2m
-  allow-parallel-runners: true
-  modules-download-mode: readonly
+  settings:
+    funlen:
+      lines: 100
+      statements: 150
+    goconst:
+      min-occurrences: 5
+    gocyclo:
+      min-complexity: 20
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+    lll:
+      line-length: 80
+      tab-width: 4
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - funlen
+          - goconst
+        path: _test\.go
+      - linters:
+          - lll
+        source: "^//go:generate "
+      - linters:
+          - lll
+        source: "`json:"
+      - linters:
+          - lll
+        source: "`yaml:"
+      - path: (.+)\.go$
+        text: Using the variable on range scope `tt` in function literal
+      - path: (.+)\.go$
+        text: Using the variable on range scope `tc` in function literal
+    paths:
+      - builds
+      - sources
+      - tarballs
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - builds
+      - sources
+      - tarballs
+      - third_party$
+      - builtin$
+      - examples$
