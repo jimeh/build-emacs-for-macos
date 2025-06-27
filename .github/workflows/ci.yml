@@ -53,3 +53,6 @@ jobs:
       pull-requests: write
     steps:
       - uses: jimeh/release-please-manifest-action@v2
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
