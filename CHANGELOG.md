@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.59](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.58...v0.6.59) (2025-06-27)
+
+
+### Bug Fixes
+
+* **builder/plan:** append test build name to release name ([#138](https://github.com/jimeh/build-emacs-for-macos/issues/138)) ([e888540](https://github.com/jimeh/build-emacs-for-macos/commit/e8885400e66bdb9304f99d9b072aa4dec4e83f4b))
+
 ## [0.6.58](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.57...v0.6.58) (2025-06-27)
 
 
