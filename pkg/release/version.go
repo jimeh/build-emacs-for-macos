@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 )
 
 // Errors
@@ -18,8 +17,9 @@ var (
 )
 
 var (
-	stableVersion = regexp.MustCompile(`^\d+\.\d+(?:[a-z]+)?$`)
-	stableGitRef  = regexp.MustCompile(`^emacs-(\d+\.\d+(?:[a-z]+)?)$`)
+	stableVersion  = regexp.MustCompile(`^\d+\.\d+(?:[a-z]+)?(-\d+)?$`)
+	pretestVersion = regexp.MustCompile(`-pretest(-\d+)?$`)
+	stableGitRef   = regexp.MustCompile(`^emacs-(\d+\.\d+(?:[a-z]+)?)$`)
 )
 
 func VersionToName(version string) (string, error) {
@@ -28,7 +28,7 @@ func VersionToName(version string) (string, error) {
 	}
 
 	if stableVersion.MatchString(version) ||
-		strings.HasSuffix(version, "-pretest") {
+		pretestVersion.MatchString(version) {
 		return "Emacs-" + version, nil
 	}
 
