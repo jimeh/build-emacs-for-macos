@@ -38,6 +38,10 @@ func planCmd() *cli2.Command {
 				Name:  "sha",
 				Usage: "override commit SHA of specified git branch/tag",
 			},
+			&cli2.IntFlag{
+				Name:  "build-variant",
+				Usage: "build variant to add to the end of the version string",
+			},
 			&cli2.StringFlag{
 				Name:    "format",
 				Aliases: []string{"f"},
@@ -90,6 +94,7 @@ func planAction(c *cli2.Context, opts *Options) error {
 		EmacsRepo:     c.String("emacs-repo"),
 		Ref:           ref,
 		SHAOverride:   c.String("sha"),
+		BuildVariant:  c.Int("build-variant"),
 		OutputDir:     c.String("output-dir"),
 		TestBuild:     c.String("test-build"),
 		TestBuildType: plan.Prerelease,
