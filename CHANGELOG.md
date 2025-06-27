@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.58](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.57...v0.6.58) (2025-06-27)
+
+
+### Features
+
+* **builder/plan:** add build variant flag ([#137](https://github.com/jimeh/build-emacs-for-macos/issues/137)) ([ca8b874](https://github.com/jimeh/build-emacs-for-macos/commit/ca8b874be2c8c52cd7dcb05ff1348469e16c74ba))
+
+
+### Bug Fixes
+
+* **deps:** work around duplicate RPATHs in libgccjit from Nix ([#134](https://github.com/jimeh/build-emacs-for-macos/issues/134)) ([3cf1977](https://github.com/jimeh/build-emacs-for-macos/commit/3cf1977def02d1f3732b1051bc07a923557f9edd))
+
 ## [0.6.57](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.56...v0.6.57) (2024-12-07)
 
 
