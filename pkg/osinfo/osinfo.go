@@ -65,10 +65,7 @@ func (s *OSInfo) distinctVersion(version string) string {
 		return parts[0]
 	}
 
-	max := len(parts)
-	if max > 2 {
-		max = 2
-	}
+	end := min(len(parts), 2)
 
-	return strings.Join(parts[0:max], ".")
+	return strings.Join(parts[0:end], ".")
 }

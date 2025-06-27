@@ -10,11 +10,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.61
+          version: v2.1
         env:
           VERBOSE: "true"
 
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
       - name: Check if mods are tidy
         run: make check-tidy
 
@@ -36,14 +36,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
       - name: Run tests
         run: make test
         env:
           VERBOSE: "true"
 
   release-please:
+    name: Release Please
     runs-on: ubuntu-latest
-    if: github.ref_name == 'main' || github.ref_name == 'master'
+    if: ${{ github.ref_name == 'main' || github.ref_name == 'master' }}
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: jimeh/release-please-manifest-action@v1
+      - uses: jimeh/release-please-manifest-action@v2

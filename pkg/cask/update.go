@@ -287,7 +287,7 @@ func (s *Updater) createRepoFile(
 	s.logger.Info(
 		"new commit created",
 		"commit", contResp.GetSHA(), "message", contResp.GetMessage(),
-		"url", contResp.Commit.GetHTMLURL(),
+		"url", contResp.GetHTMLURL(),
 	)
 
 	return nil
@@ -354,7 +354,7 @@ func (s *Updater) updateRepoFile(
 	s.logger.Info(
 		"new commit created",
 		"commit", contResp.GetSHA(), "message", contResp.GetMessage(),
-		"url", contResp.Commit.GetHTMLURL(),
+		"url", contResp.GetHTMLURL(),
 	)
 
 	return true, nil
