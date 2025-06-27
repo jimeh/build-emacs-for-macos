@@ -35,6 +35,7 @@ type Options struct {
 	EmacsRepo     string
 	Ref           string
 	SHAOverride   string
+	BuildVariant  int
 	OutputDir     string
 	TestBuild     string
 	TestBuildType TestBuildType
@@ -93,6 +94,12 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) { //nolint:funlen
 	default:
 		version = absoluteVersion
 		releaseName = "Emacs." + version
+	}
+
+	if opts.BuildVariant != 0 {
+		variant := strconv.Itoa(opts.BuildVariant)
+		absoluteVersion += "-" + variant
+		releaseName += "-" + variant
 	}
 
 	// Attempt to get the macOS SDK version from the environment, if it's not
