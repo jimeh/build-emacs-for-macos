@@ -146,7 +146,7 @@ func Create(ctx context.Context, opts *Options) (*Plan, error) { //nolint:funlen
 
 		plan.Build.Name += ".test." + testName
 		plan.Release.Title = "Test Builds (" + testName + ")"
-		plan.Release.Name = "test-builds"
+		plan.Release.Name = "test-builds-" + testName
 
 		plan.Release.Prerelease = false
 		plan.Release.Draft = true
