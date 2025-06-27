@@ -1,6 +1,8 @@
 ---
 name: CI
 on: [push]
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -47,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.ref_name == 'main' || github.ref_name == 'master' }}
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
     steps:
       - uses: jimeh/release-please-manifest-action@v2
