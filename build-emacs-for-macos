@@ -12,6 +12,7 @@ require 'net/http'
 require 'open3'
 require 'optparse'
 require 'pathname'
+require 'set'
 require 'time'
 require 'tmpdir'
 require 'uri'
@@ -506,7 +507,7 @@ class Build
   def env_CFLAGS
     return @env_CFLAGS if @env_CFLAGS
 
-    env = []
+    env = ENV.fetch('CFLAGS', nil)&.split || []
 
     env << '-O2'
 
@@ -532,13 +533,28 @@ class Build
       env += ENV['NIX_CFLAGS_COMPILE'].split
     end
 
-    @env_CFLAGS = env
+    # Group "-isystem <path>" flags together as a single flag. This allows us to
+    # de-duplicate CFLAGS from NIX_CFLAGS_COMPILE.
+    new_env = []
+    isystem_flag = false
+    env.each do |flag|
+      if flag.strip == '-isystem'
+        isystem_flag = true
+      elsif isystem_flag
+        new_env << "-isystem #{flag}"
+        isystem_flag = false
+      else
+        new_env << flag
+      end
+    end
+
+    @env_CFLAGS = new_env.compact.reject(&:empty?).uniq
   end
 
   def env_LDFLAGS
     return @env_LDFLAGS if @env_LDFLAGS
 
-    env = []
+    env = ENV.fetch('LDFLAGS', nil)&.split || []
 
     # Ensure library re-linking and code signing will work after building.
     env << '-Wl,-headerpad_max_install_names'
@@ -555,13 +571,13 @@ class Build
 
     env += ENV['NIX_LDFLAGS'].split if use_nix? && ENV['NIX_LDFLAGS']
 
-    @env_LDFLAGS = env
+    @env_LDFLAGS = env.compact.reject(&:empty?).uniq
   end
 
   def env_LIBRARY_PATH
     return @env_LIBRARY_PATH if @env_LIBRARY_PATH
 
-    env = []
+    env = ENV.fetch('LIBRARY_PATH', nil)&.split || []
 
     if options[:native_comp]
       env += [
@@ -573,37 +589,45 @@ class Build
 
     env << '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
 
-    @env_LIBRARY_PATH = env
+    @env_LIBRARY_PATH = env.compact.reject(&:empty?).uniq
   end
 
   def env_PKG_CONFIG_PATH
-    return [] if use_nix?
+    env = ENV.fetch('PKG_CONFIG_PATH', nil)&.split || []
 
-    @env_PKG_CONFIG_PATH ||= [
-      File.join(brew_dir, 'lib/pkgconfig'),
-      File.join(brew_dir, 'share/pkgconfig'),
-      File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
-      File.join(brew_dir, 'opt/libxml2/lib/pkgconfig'),
-      File.join(brew_dir, 'opt/ncurses/lib/pkgconfig'),
-      File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
-      File.join(
-        brew_dir,
-        'Homebrew/Library/Homebrew/os/mac/pkgconfig',
-        OS.version.to_s
-      )
-    ]
+    return env if use_nix?
+
+    @env_PKG_CONFIG_PATH = (
+      [
+        File.join(brew_dir, 'lib/pkgconfig'),
+        File.join(brew_dir, 'share/pkgconfig'),
+        File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
+        File.join(brew_dir, 'opt/libxml2/lib/pkgconfig'),
+        File.join(brew_dir, 'opt/ncurses/lib/pkgconfig'),
+        File.join(brew_dir, 'opt/zlib/lib/pkgconfig'),
+        File.join(
+          brew_dir,
+          'Homebrew/Library/Homebrew/os/mac/pkgconfig',
+          OS.version.to_s
+        )
+      ] + env
+    ).compact.reject(&:empty?).uniq
   end
 
   def env_PATH
-    return [] if use_nix?
+    env = ENV.fetch('PATH', nil)&.split || []
 
-    @env_PATH ||= [
-      File.join(brew_dir, 'opt/make/libexec/gnubin'),
-      File.join(brew_dir, 'opt/coreutils/libexec/gnubin'),
-      File.join(brew_dir, 'opt/gnu-sed/libexec/gnubin'),
-      File.join(brew_dir, 'bin'),
-      File.join(brew_dir, 'opt/texinfo/bin')
-    ]
+    return env if use_nix?
+
+    @env_PATH = (
+      [
+        File.join(brew_dir, 'opt/make/libexec/gnubin'),
+        File.join(brew_dir, 'opt/coreutils/libexec/gnubin'),
+        File.join(brew_dir, 'opt/gnu-sed/libexec/gnubin'),
+        File.join(brew_dir, 'bin'),
+        File.join(brew_dir, 'opt/texinfo/bin')
+      ] + env
+    ).compact.reject(&:empty?).uniq
   end
   # rubocop:enable Naming/MethodName,Naming/VariableName
 
@@ -612,22 +636,14 @@ class Build
 
     env = {
       'CC' => use_nix? ? 'clang' : '/usr/bin/clang',
-      'PATH' => [
-        env_PATH, ENV.fetch('PATH', nil)
-      ].flatten.compact.reject(&:empty?).join(':'),
-      'PKG_CONFIG_PATH' => [
-        env_PKG_CONFIG_PATH,
-        ENV.fetch('PKG_CONFIG_PATH', nil)
-      ].flatten.compact.reject(&:empty?).join(':')
+      'PATH' => env_PATH.join(':'),
+      'PKG_CONFIG_PATH' => env_PKG_CONFIG_PATH.join(':')
     }
 
     if options[:native_comp]
-      env['CFLAGS'] = [env_CFLAGS, ENV.fetch('CFLAGS', nil)]
-                      .flatten.compact.reject(&:empty?).join(' ')
-      env['LDFLAGS'] = [env_LDFLAGS, ENV.fetch('LDFLAGS', nil)]
-                       .flatten.compact.reject(&:empty?).join(' ')
-      env['LIBRARY_PATH'] = [env_LIBRARY_PATH, ENV.fetch('LIBRARY_PATH', nil)]
-                            .flatten.compact.reject(&:empty?).join(':')
+      env['CFLAGS'] = env_CFLAGS.join(' ')
+      env['LDFLAGS'] = env_LDFLAGS.join(' ')
+      env['LIBRARY_PATH'] = env_LIBRARY_PATH.join(':')
     end
 
     @compile_env = env
@@ -1701,6 +1717,7 @@ end
 
 class GccInfo
   include Output
+  include System
 
   def initialize(use_nix: false)
     @use_nix = use_nix
@@ -1823,7 +1840,7 @@ class GccInfo
         Dir[
           File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit*.dylib'),
           File.join(libgccjit_root_dir, 'lib/gcc/*/libgccjit.so*'),
-          ]
+        ]
           .map { |path| File.dirname(path) }
           .select { |path| File.basename(path).match(/^\d+$/) }
           .max_by { |path| File.basename(path).to_i }
@@ -1840,10 +1857,15 @@ class GccInfo
             'brew reinstall libgccjit'
     end
 
-    # No need to verify gcc vs libgccjit for Nix, as we can pull everything we
-    # need from the libgccjit package. On homebrew we need to pull parts from
-    # gcc and parts from libgccjit, hence we need to ensure versions match.
-    return if use_nix?
+    if use_nix?
+      Dir[File.join(libgccjit_lib_dir, 'libgccjit*.dylib')]
+        .each { |path| clean_macho_binary(path) }
+
+      # No need to verify gcc vs libgccjit for Nix, as we can pull everything we
+      # need from the libgccjit package. On homebrew we need to pull parts from
+      # gcc and parts from libgccjit, hence we need to ensure versions match.
+      return
+    end
 
     return if major_version == libgccjit_major_version
 
@@ -1867,6 +1889,190 @@ class GccInfo
 
   def relative_path(base, path)
     Pathname.new(path).relative_path_from(Pathname.new(base)).to_s
+  end
+
+  def clean_macho_binary(path)
+    debug "Checking for duplicate RPATHs in #{path}"
+    macho_cleaner = MachOCleaner.new(path)
+    return unless macho_cleaner.has_duplicate_rpaths?
+
+    begin
+      info "Removing duplicate RPATHs from #{path}"
+      macho_cleaner.clean!
+      debug 'Cleaned duplicate RPATHs successfully!'
+    rescue MachOCleaner::PermissionError => e
+      warn "Could not remove duplicate RPATHs from #{path}: #{e.message}"
+      if ENV['USER'] == 'root'
+        fatal "Could not remove duplicate RPATHs from #{path}: #{e.message}"
+      else
+        warn '================================================================='
+        warn "Attempting to clean duplicate RPATHs from #{path} as root"
+        warn '================================================================='
+        run_cmd('sudo', $PROGRAM_NAME, '--clean-macho-binary', path)
+      end
+    end
+  end
+end
+
+# MachOCleaner is a class that cleans up a Mach-O file by removing all duplicate
+# RPATH load commands. This ensures compatibility with macOS 15.4 and later,
+# which refuses to load binaries and shared libraries with duplicate RPATHs.
+class MachOCleaner
+  include Output
+  include System
+
+  class PermissionError < StandardError
+    def initialize(file, message = nil)
+      @file = file
+      super(message || "Insufficient permissions to modify #{file}")
+    end
+
+    attr_reader :file
+  end
+
+  attr_reader :file
+
+  def initialize(file_path, backup: true)
+    @file = file_path
+    @backup = backup
+
+    validate_file!
+  end
+
+  def backup?
+    @backup
+  end
+
+  # Main cleaning method - removes duplicate RPATH commands
+  def clean!
+    duplicate_paths = find_duplicate_rpaths(macho_object)
+    return if duplicate_paths.empty?
+
+    backup_file! if backup?
+
+    while_writable(@file) do
+      duplicate_paths.each do |rpath|
+        remove_rpath_with_install_name_tool!(rpath)
+      end
+    end
+  end
+
+  # Check if file has duplicate RPATH commands
+  def has_duplicate_rpaths?
+    count_duplicate_rpaths(macho_object).positive?
+  end
+
+  # Return total number of RPATH commands
+  def rpath_count
+    count_rpaths(macho_object)
+  end
+
+  # Return number of duplicate RPATH commands
+  def duplicate_rpath_count
+    count_duplicate_rpaths(macho_object)
+  end
+
+  private
+
+  # Validate that the file exists and is readable
+  def validate_file!
+    fatal "File does not exist: #{@file}" unless File.exist?(@file)
+    return if File.readable?(@file)
+
+    fatal "File is not readable: #{@file}"
+  end
+
+  # Load and memoize the Mach-O object
+  def macho_object
+    return @macho_object if @macho_object
+
+    begin
+      @macho_object = MachO.open(@file)
+    rescue MachO::MachOError => e
+      fatal "Not a valid Mach-O file: #{@file} (#{e.message})"
+    end
+
+    unless @macho_object.respond_to?(:rpaths)
+      fatal "Unsupported Mach-O file type: #{@file}"
+    end
+
+    @macho_object
+  end
+
+  def backup_file!
+    backup_file = "#{@file}.bak"
+    if File.exist?(backup_file)
+      debug "Backup file already exists: #{backup_file}"
+      return
+    end
+
+    FileUtils.cp(@file, backup_file)
+    debug "Backed up #{@file} to #{backup_file}"
+  rescue Errno::EPERM, Errno::EACCES => e
+    raise PermissionError.new(
+      backup_file, "Cannot create backup file: #{e.message}"
+    )
+  end
+
+  # Temporarily make file writable, execute block, then restore permissions
+  def while_writable(file)
+    # Check if file is already writable to avoid unnecessary permission changes
+    if File.writable?(file)
+      yield
+      return
+    end
+
+    original_mode = File.stat(file).mode
+
+    begin
+      File.chmod(0o755, file)
+    rescue Errno::EPERM, Errno::EACCES => e
+      raise PermissionError.new(
+        file, "Cannot change file permissions: #{e.message}"
+      )
+    end
+
+    yield
+  ensure
+    if File.exist?(file) && original_mode
+      begin
+        File.chmod(original_mode, file)
+      rescue Errno::EPERM, Errno::EACCES
+        # Log warning but don't fail - file was already modified successfully
+        warn "Warning: Could not restore original permissions for #{file}"
+      end
+    end
+  end
+
+  # Find duplicate RPATH commands in a Mach-O file
+  def find_duplicate_rpaths(macho_file)
+    seen = Set.new
+    duplicates = []
+
+    macho_file.rpaths.each do |rpath|
+      if seen.include?(rpath)
+        duplicates << rpath
+      else
+        seen.add(rpath)
+      end
+    end
+
+    duplicates
+  end
+
+  # Remove an RPATH using install_name_tool
+  def remove_rpath_with_install_name_tool!(rpath)
+    run_cmd('install_name_tool', '-delete_rpath', rpath, @file)
+  end
+
+  # Count total RPATH commands in a Mach-O file
+  def count_rpaths(macho_file)
+    macho_file.rpaths.size
+  end
+
+  # Count duplicate RPATH commands in a Mach-O file
+  def count_duplicate_rpaths(macho_file)
+    find_duplicate_rpaths(macho_file).size
   end
 end
 
@@ -1912,7 +2118,8 @@ class CLIOptions
       archive: true,
       archive_keep: false,
       patches: [],
-      log_level: 'info'
+      log_level: 'info',
+      clean_macho_binary: nil
     }
   end
 
@@ -2128,6 +2335,11 @@ class CLIOptions
         '--plan FILE',
         'Follow given plan file, instead of using given git ref/sha'
       ) { |v| options[:plan] = v }
+
+      opts.on(
+        '--clean-macho-binary FILE',
+        'Tool to clean duplicate RPATHs from given Mach-O binary.'
+      ) { |v| options[:clean_macho_binary] = v }
     end
   end
 end
@@ -2144,6 +2356,17 @@ if __FILE__ == $PROGRAM_NAME
       build.print_info
     elsif cli_options[:preview]
       build.print_preview
+    elsif cli_options[:clean_macho_binary]
+      macho_cleaner = MachOCleaner.new(cli_options[:clean_macho_binary])
+
+      if macho_cleaner.has_duplicate_rpaths?
+        build.info 'Removing duplicate RPATHs from ' \
+                   "#{cli_options[:clean_macho_binary]}..."
+        macho_cleaner.clean!
+        build.info 'Cleaned duplicate RPATHs successfully!'
+      else
+        build.info 'No duplicate RPATHs found.'
+      end
     else
       build.build
     end
