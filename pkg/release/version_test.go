@@ -31,6 +31,27 @@ func TestVersionToName(t *testing.T) {
 			want: "Emacs.2021-07-01.1b88404.master",
 		},
 		{
+			name: "nightly with variant",
+			args: args{
+				version: "2021-07-01.1b88404.master-1",
+			},
+			want: "Emacs.2021-07-01.1b88404.master-1",
+		},
+		{
+			name: "pretest",
+			args: args{
+				version: "30.0.93-pretest",
+			},
+			want: "Emacs-30.0.93-pretest",
+		},
+		{
+			name: "pretest with variant",
+			args: args{
+				version: "30.0.93-pretest-1",
+			},
+			want: "Emacs-30.0.93-pretest-1",
+		},
+		{
 			name: "stable",
 			args: args{
 				version: "27.2",
@@ -43,6 +64,20 @@ func TestVersionToName(t *testing.T) {
 				version: "23.3b",
 			},
 			want: "Emacs-23.3b",
+		},
+		{
+			name: "stable with variant",
+			args: args{
+				version: "23.3-1",
+			},
+			want: "Emacs-23.3-1",
+		},
+		{
+			name: "stable with letter and variant",
+			args: args{
+				version: "23.3b-1",
+			},
+			want: "Emacs-23.3b-1",
 		},
 	}
 	for _, tt := range tests {
