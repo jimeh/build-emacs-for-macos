@@ -164,11 +164,11 @@ class AbstractVersion
   end
 
   def major
-    @major ||= @version[:major]&.to_i
+    @major ||= (@version && @version[:major]) ? @version[:major].to_i : 0
   end
 
   def minor
-    @minor ||= @version[:minor]&.to_i
+    @minor ||= (@version && @version[:minor]) ? @version[:minor].to_i : 0
   end
 
   def patch
