@@ -150,9 +150,11 @@ class AbstractVersion
   attr_reader :version
 
   def initialize
-    @version = load_version.match(
+    str = load_version.strip
+    @version = str.match(
       /(?<major>\d+)(?:\.(?<minor>\d+)(?:\.(?<patch>\d+))?)?/
     )
+    warn "Parsed OS version string: '#{str}' => #{@version ? @version[0] : 'NIL'}"
   end
 
   def load_version
@@ -172,7 +174,7 @@ class AbstractVersion
   end
 
   def patch
-    @patch ||= @version[:patch]&.to_i
+    @patch ||= (@version && @version[:patch]) ? @version[:patch].to_i : 0
   end
 end
 
