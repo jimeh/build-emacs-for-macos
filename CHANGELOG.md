@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.61](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.60...v0.6.61) (2025-08-13)
+
+
+### Bug Fixes
+
+* **emacs-31-builds:** disable fix-window-role patch after it was merged upstream ([7aa4058](https://github.com/jimeh/build-emacs-for-macos/commit/7aa405812802abbd2b78d8c98aee7fca23a2eab2))
+
 ## [0.6.60](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.59...v0.6.60) (2025-06-27)
 
 
