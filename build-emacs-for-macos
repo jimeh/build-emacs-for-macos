@@ -1073,11 +1073,24 @@ class Build
 
     # Enabled by default patches.
 
-    if (26..31).include?(effective_version)
+    if (26..30).include?(effective_version)
       p << {
         url:
           'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
           "patches/emacs-#{effective_version}/fix-window-role.patch"
+      }
+    end
+
+    # The fix-window-role patch was merged into Emacs 31 on 2025-07-31 with
+    # commit 6e1054a40bf6df1429a2b16fdd0d7652dae4d537. Hence builds for commits
+    # before then need the patch from the last commit in emacs-plus before it
+    # was removed.
+    if effective_version == 31 && meta[:date] < Time.parse('2025-07-31')
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
+        '3e95d573d5f13aba7808193b66312b38a7c66851/' \
+        'patches/emacs-31/fix-window-role.patch'
       }
     end
 
