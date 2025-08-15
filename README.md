@@ -141,7 +141,7 @@ Options:
         --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: enabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --[no-]dbus                  Enable/disable dbus support (default: enabled)
-        --[no-]alpha-background      Enable/disable experimental alpha-background patch when building Emacs 30.x - 31.x (default: disabled)
+        --[no-]alpha-background      Enable/disable experimental alpha-background patch (default: enabled)
         --no-frame-refocus           Apply no-frame-refocus patch when building Emacs 27.x - 31.x (default: disabled)
         --no-titlebar                Apply no-titlebar patch when building Emacs 27.x - 28.x (default: disabled)
         --[no-]xwidgets              Enable/disable XWidgets when building Emacs 27.x (default: disabled)

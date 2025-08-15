@@ -1175,9 +1175,9 @@ class Build
         }
       elsif (30..31).include?(effective_version)
         p << {
-          url:
-          "https://github.com/emacs-mirror/emacs/compare/#{meta[:sha]}" \
-          '...jonrubens:emacs:ns-alpha-background.patch'
+          file: File.join(
+            __dir__, 'patches', 'emacs-30', '0001-Add-alpha_background-feature-for-NS-MacOS.patch'
+          )
         }
       end
     end
