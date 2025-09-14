@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.63](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.62...v0.6.63) (2025-09-14)
+
+
+### Features
+
+* **icon:** add support for custom application icons via --icon-uri option ([607076a](https://github.com/jimeh/build-emacs-for-macos/commit/607076a91bf0f227d16c9404f01a64144290685a))
+* **icon:** add support for Tahoe icons with --tahoe-icon-uri and --tahoe-icon-name options ([b5ed388](https://github.com/jimeh/build-emacs-for-macos/commit/b5ed3887c172540de4a6190072b1e15f5d5efe2c))
+
 ## [0.6.62](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.61...v0.6.62) (2025-09-14)
 
 
