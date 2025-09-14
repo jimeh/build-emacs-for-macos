@@ -156,6 +156,8 @@ Options:
         --build-name NAME            Override generated build name
         --dist-include x,y,z         List of extra files to copy from Emacs source into build folder/archive (default: COPYING)
         --icon-uri URI               Local path or URL to a .icns file to replace the default app icon
+        --tahoe-icon-uri URI         Local path or URL to an Assets.car file for macOS 26 icons. Requires --tahoe-icon-name.
+        --tahoe-icon-name NAME       Name of the icon in Assets.car to set as CFBundleIconName
         --[no-]self-sign             Enable/disable self-signing of Emacs.app (default: enabled)
         --[no-]archive               Enable/disable creating *.tbz archive (default: enabled)
         --[no-]archive-keep-build-dir

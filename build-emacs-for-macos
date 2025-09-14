@@ -229,7 +229,14 @@ class Build
 
     handle_native_lisp(app)
 
-    IconEmbedder.new(app, options[:icon_uri]).embed if options[:icon_uri]
+    if options[:icon_uri] || options[:tahoe_icon_uri] || options[:tahoe_icon_name]
+      IconEmbedder.new(
+        app,
+        icon_uri: options[:icon_uri],
+        tahoe_icon_uri: options[:tahoe_icon_uri],
+        tahoe_icon_name: options[:tahoe_icon_name]
+      ).embed
+    end
     CLIHelperEmbedder.new(app).embed
     CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(
@@ -1417,53 +1424,92 @@ end
 class IconEmbedder < AbstractEmbedder
   include Helpers
 
-  def initialize(app, icon_uri)
+  def initialize(app, icon_uri: nil, tahoe_icon_uri: nil, tahoe_icon_name: nil)
     super(app)
-
     @icon_uri = icon_uri
+    @tahoe_icon_uri = tahoe_icon_uri
+    @tahoe_icon_name = tahoe_icon_name
   end
 
   def embed
-    return if @icon_uri.nil? || @icon_uri.strip.empty?
-
-    source = resolve_source(@icon_uri)
-
-    unless File.extname(source).downcase == '.icns'
-      fatal 'Icon must be a .icns file'
-    end
-
-    target = File.join(resources_dir, 'Emacs.icns')
-    info 'Replacing application icon...'
-    run_cmd('cp', '-pRL', source, target)
+    handle_icns if present?(@icon_uri)
+    handle_tahoe if present?(@tahoe_icon_uri)
   ensure
-    cleanup_download_tmpdir(source)
+    cleanup_tmpdir
   end
 
   private
 
-  def resolve_source(uri)
-    if valid_url?(uri)
-      download_icon(uri)
-    else
-      path = File.expand_path(uri)
-      fatal "Icon file does not exist: #{path}" unless File.exist?(path)
-      path
-    end
+  def present?(val)
+    !val.nil? && !val.strip.empty?
   end
 
-  def download_icon(url)
-    @download_tmpdir = Dir.mktmpdir(%w[emacs-icon .tmp])
-    path = File.join(@download_tmpdir, 'icon.icns')
-    info "Downloading icon from: #{url}"
+  def handle_icns
+    source = resolve_source(@icon_uri, '.icns', 'icon.icns')
+    target = File.join(resources_dir, 'Emacs.icns')
+    info 'Replacing application icon (Emacs.icns)...'
+    run_cmd('cp', '-pRL', source, target)
+    source
+  end
+
+  def handle_tahoe
+    fatal '--tahoe-icon-name is required with --tahoe-icon-uri' \
+      unless present?(@tahoe_icon_name)
+
+    source = resolve_source(@tahoe_icon_uri, '.car', 'Assets.car')
+    target = File.join(resources_dir, 'Assets.car')
+    info 'Placing Tahoe Assets.car into Resources...'
+    run_cmd('cp', '-pRL', source, target)
+
+    set_cf_bundle_icon_name(@tahoe_icon_name)
+    source
+  end
+
+  def set_cf_bundle_icon_name(name)
+    info 'Setting CFBundleIconName in Info.plist...'
+    info_plist = File.join(app, 'Contents', 'Info.plist')
+    fatal "Info.plist not found: #{info_plist}" unless File.exist?(info_plist)
+
+    # Use plutil which adds/replaces the key as needed
+    run_cmd(
+      'plutil', '-replace', 'CFBundleIconName', '-string',
+      name, info_plist
+    )
+  end
+
+  def resolve_source(uri, expected_ext, download_name)
+    file_path = if valid_url?(uri)
+                  download_file(uri, download_name)
+                else
+                  local = File.expand_path(uri)
+                  unless File.exist?(local)
+                    fatal "File does not exist: #{local}"
+                  end
+                  local
+                end
+
+    ext = File.extname(file_path).downcase
+    fatal "Unexpected file type: #{ext} (expected #{expected_ext})" \
+      unless ext == expected_ext
+
+    file_path
+  end
+
+  def tmpdir
+    @tmpdir ||= Dir.mktmpdir(%w[emacs-assets .tmp])
+  end
+
+  def download_file(url, name)
+    path = File.join(tmpdir, name)
+    info "Downloading asset from: #{url}"
     run_cmd('curl', '-L#', url, '-o', path)
     path
   end
 
-  def cleanup_download_tmpdir(source)
-    return unless @download_tmpdir && source
-    return unless source.start_with?(@download_tmpdir)
+  def cleanup_tmpdir
+    return unless @tmpdir
 
-    FileUtils.rm_rf(@download_tmpdir)
+    FileUtils.rm_rf(@tmpdir)
   end
 end
 
@@ -2155,6 +2201,14 @@ class CLIOptions
 
   def parse!(args)
     parser.parse!(args)
+
+    if options[:tahoe_icon_uri] &&
+       (
+         options[:tahoe_icon_name].nil? ||
+         options[:tahoe_icon_name].strip.empty?
+       )
+      fatal '--tahoe-icon-name is required when --tahoe-icon-uri is specified'
+    end
   rescue OptionParser::InvalidOption => e
     fatal e.message
   end
@@ -2182,6 +2236,8 @@ class CLIOptions
       github_auth: true,
       dist_include: ['COPYING', 'configure_output.txt'],
       icon_uri: nil,
+      tahoe_icon_uri: nil,
+      tahoe_icon_name: nil,
       self_sign: true,
       archive: true,
       archive_keep: false,
@@ -2382,6 +2438,17 @@ class CLIOptions
         '--icon-uri URI',
         'Local path or URL to a .icns file to replace the default app icon'
       ) { |v| options[:icon_uri] = v }
+
+      opts.on(
+        '--tahoe-icon-uri URI',
+        'Local path or URL to an Assets.car file for macOS 26 icons. ' \
+        'Requires --tahoe-icon-name.'
+      ) { |v| options[:tahoe_icon_uri] = v }
+
+      opts.on(
+        '--tahoe-icon-name NAME',
+        'Name of the icon in Assets.car to set as CFBundleIconName'
+      ) { |v| options[:tahoe_icon_name] = v }
 
       opts.on(
         '--[no-]self-sign',
