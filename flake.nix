@@ -2,7 +2,7 @@
   description = "Development environment flake";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -63,9 +63,9 @@
                 mailutils
                 nettle
                 pkg-config
-                python3
+                python313Packages.dmgbuild
                 rsync
-                ruby_3_3
+                ruby
                 sqlite
                 texinfo
                 time
