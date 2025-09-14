@@ -141,7 +141,7 @@ Options:
         --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: enabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --[no-]dbus                  Enable/disable dbus support (default: enabled)
-        --[no-]alpha-background      Enable/disable experimental alpha-background patch when building Emacs 30.x - 31.x (default: disabled)
+        --alpha-background           Apply experimental alpha-background patch when building Emacs 30.x - 31.x (default: disabled)
         --no-frame-refocus           Apply no-frame-refocus patch when building Emacs 27.x - 31.x (default: disabled)
         --no-titlebar                Apply no-titlebar patch when building Emacs 27.x - 28.x (default: disabled)
         --[no-]xwidgets              Enable/disable XWidgets when building Emacs 27.x (default: disabled)
@@ -155,6 +155,7 @@ Options:
     -o, --output DIR                 Output directory for finished builds (default: <work-dir>/builds)
         --build-name NAME            Override generated build name
         --dist-include x,y,z         List of extra files to copy from Emacs source into build folder/archive (default: COPYING)
+        --icon-uri URI               Local path or URL to a .icns file to replace the default app icon
         --[no-]self-sign             Enable/disable self-signing of Emacs.app (default: enabled)
         --[no-]archive               Enable/disable creating *.tbz archive (default: enabled)
         --[no-]archive-keep-build-dir

@@ -229,6 +229,7 @@ class Build
 
     handle_native_lisp(app)
 
+    IconEmbedder.new(app, options[:icon_uri]).embed if options[:icon_uri]
     CLIHelperEmbedder.new(app).embed
     CSourcesEmbedder.new(app, @source_dir).embed
     LibEmbedder.new(
@@ -1413,6 +1414,59 @@ class CSourcesEmbedder < AbstractEmbedder
   end
 end
 
+class IconEmbedder < AbstractEmbedder
+  include Helpers
+
+  def initialize(app, icon_uri)
+    super(app)
+
+    @icon_uri = icon_uri
+  end
+
+  def embed
+    return if @icon_uri.nil? || @icon_uri.strip.empty?
+
+    source = resolve_source(@icon_uri)
+
+    unless File.extname(source).downcase == '.icns'
+      fatal 'Icon must be a .icns file'
+    end
+
+    target = File.join(resources_dir, 'Emacs.icns')
+    info 'Replacing application icon...'
+    run_cmd('cp', '-pRL', source, target)
+  ensure
+    cleanup_download_tmpdir(source)
+  end
+
+  private
+
+  def resolve_source(uri)
+    if valid_url?(uri)
+      download_icon(uri)
+    else
+      path = File.expand_path(uri)
+      fatal "Icon file does not exist: #{path}" unless File.exist?(path)
+      path
+    end
+  end
+
+  def download_icon(url)
+    @download_tmpdir = Dir.mktmpdir(%w[emacs-icon .tmp])
+    path = File.join(@download_tmpdir, 'icon.icns')
+    info "Downloading icon from: #{url}"
+    run_cmd('curl', '-L#', url, '-o', path)
+    path
+  end
+
+  def cleanup_download_tmpdir(source)
+    return unless @download_tmpdir && source
+    return unless source.start_with?(@download_tmpdir)
+
+    FileUtils.rm_rf(@download_tmpdir)
+  end
+end
+
 class LibEmbedder < AbstractEmbedder
   attr_reader :lib_sources
   attr_reader :extra_libs
@@ -2127,6 +2181,7 @@ class CLIOptions
       github_src_repo: nil,
       github_auth: true,
       dist_include: ['COPYING', 'configure_output.txt'],
+      icon_uri: nil,
       self_sign: true,
       archive: true,
       archive_keep: false,
@@ -2322,6 +2377,11 @@ class CLIOptions
         'List of extra files to copy from Emacs source into build ' \
         'folder/archive (default: COPYING)'
       ) { |v| options[:dist_include] = v }
+
+      opts.on(
+        '--icon-uri URI',
+        'Local path or URL to a .icns file to replace the default app icon'
+      ) { |v| options[:icon_uri] = v }
 
       opts.on(
         '--[no-]self-sign',
