@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.62](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.61...v0.6.62) (2025-09-14)
+
+
+### Features
+
+* **deps/nix:** upgrade build-time dependencies ([2086a77](https://github.com/jimeh/build-emacs-for-macos/commit/2086a773ae6bf5f4c2e6863d1b06a85acc082e6d))
+
 ## [0.6.61](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.60...v0.6.61) (2025-08-13)
 
 
