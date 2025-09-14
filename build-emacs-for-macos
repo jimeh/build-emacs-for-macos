@@ -1907,7 +1907,7 @@ class GccInfo
   def clean_macho_binary(path)
     debug "Checking for duplicate RPATHs in #{path}"
     macho_cleaner = MachOCleaner.new(path)
-    return unless macho_cleaner.has_duplicate_rpaths?
+    return unless macho_cleaner.duplicate_rpaths?
 
     begin
       info "Removing duplicate RPATHs from #{path}"
@@ -1971,7 +1971,7 @@ class MachOCleaner
   end
 
   # Check if file has duplicate RPATH commands
-  def has_duplicate_rpaths?
+  def duplicate_rpaths?
     count_duplicate_rpaths(macho_object).positive?
   end
 
@@ -2372,7 +2372,7 @@ if __FILE__ == $PROGRAM_NAME
     elsif cli_options[:clean_macho_binary]
       macho_cleaner = MachOCleaner.new(cli_options[:clean_macho_binary])
 
-      if macho_cleaner.has_duplicate_rpaths?
+      if macho_cleaner.duplicate_rpaths?
         build.info 'Removing duplicate RPATHs from ' \
                    "#{cli_options[:clean_macho_binary]}..."
         macho_cleaner.clean!
