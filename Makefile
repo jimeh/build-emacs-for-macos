@@ -141,10 +141,10 @@ nix-flake-update:
 
 .SILENT: flake-package-versions
 flake-package-versions:
-	nix develop --command -- bash -c \
+	nix develop --command bash -c \
 		'nix derivation show \
 			$$(echo $$PATH | tr ":" "\n" | grep "/nix/store" | sort -u) \
-			| jq -r ".[].name" | sort -u'
+			| jq -r ".derivations[].name" | sort -u'
 
 flake.pkgs: flake.nix flake.lock
 	$(MAKE) flake-package-versions > "$@"
