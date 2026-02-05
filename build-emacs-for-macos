@@ -1102,6 +1102,19 @@ class Build
       }
     end
 
+    if effective_version == 30
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        'patches/emacs-30/fix-macos-tahoe-scrolling.patch'
+      }
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        'patches/emacs-30/treesit-compatibility.patch'
+      }
+    end
+
     if (27..31).include?(effective_version)
       p << {
         url:
