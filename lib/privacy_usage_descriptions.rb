@@ -8,19 +8,19 @@ class PrivacyUsageDescriptions
   class Error < StandardError
   end
 
-  # These descriptions intentionally identify the program running within
-  # Emacs. Emacs cannot know the program's specific reason for requesting a
-  # resource, which is the same constraint faced by terminal applications.
+  # File-access descriptions mention both Emacs and hosted programs because
+  # opening a file is core Emacs behavior. Other descriptions retain the
+  # terminal-style wording for requests typically made by hosted programs.
   DESCRIPTIONS = {
     # Access to other application bundles, available on macOS 13 and later.
     'NSAppBundlesUsageDescription' =>
-      'A program running within Emacs would like to access files inside ' \
-      'other applications.',
+      'Emacs or a program running within it would like to access files ' \
+      'inside other applications.',
 
     # Access to other applications' sandbox containers, macOS 14 and later.
     'NSAppDataUsageDescription' =>
-      'A program running within Emacs would like to access files in other ' \
-      "applications' data containers.",
+      'Emacs or a program running within it would like to access files in ' \
+      "other applications' data containers.",
 
     # Sending Apple events for automation, required since macOS 10.14.
     'NSAppleEventsUsageDescription' =>
@@ -67,23 +67,23 @@ class PrivacyUsageDescriptions
     # Protected Desktop access, available since macOS 10.15. The description
     # is optional but gives the system a useful prompt instead of a default.
     'NSDesktopFolderUsageDescription' =>
-      'A program running within Emacs would like to access files in your ' \
+      'Emacs or a program running within it would like to access files in ' \
       'Desktop folder.',
 
     # Protected Documents access, available since macOS 10.15.
     'NSDocumentsFolderUsageDescription' =>
-      'A program running within Emacs would like to access files in your ' \
+      'Emacs or a program running within it would like to access files in ' \
       'Documents folder.',
 
     # Protected Downloads access, available since macOS 10.15.
     'NSDownloadsFolderUsageDescription' =>
-      'A program running within Emacs would like to access files in your ' \
+      'Emacs or a program running within it would like to access files in ' \
       'Downloads folder.',
 
     # Access to files managed by a File Provider, macOS 10.15 and later.
     'NSFileProviderDomainUsageDescription' =>
-      'A program running within Emacs would like to access files managed by ' \
-      'file providers.',
+      'Emacs or a program running within it would like to access files ' \
+      'managed by file providers.',
 
     # Local-network privacy prompts, available on macOS 11 and later.
     'NSLocalNetworkUsageDescription' =>
@@ -118,7 +118,7 @@ class PrivacyUsageDescriptions
 
     # Protected network-volume access, available since macOS 10.15.
     'NSNetworkVolumesUsageDescription' =>
-      'A program running within Emacs would like to access files on network ' \
+      'Emacs or a program running within it would like to access files on ' \
       'volumes.',
 
     # Add-only Photo Library access is available on macOS 11 and later. Apple
@@ -144,7 +144,7 @@ class PrivacyUsageDescriptions
 
     # Protected removable-volume access, available since macOS 10.15.
     'NSRemovableVolumesUsageDescription' =>
-      'A program running within Emacs would like to access files on ' \
+      'Emacs or a program running within it would like to access files on ' \
       'removable volumes.',
 
     # Speech recognition access, required since macOS 10.15.

@@ -11,11 +11,11 @@ require_relative '../lib/privacy_usage_descriptions'
 class PrivacyUsageDescriptionsTest < Minitest::Test
   EXPECTED_DESCRIPTIONS = {
     'NSAppBundlesUsageDescription' =>
-      'A program running within Emacs would like to access files inside ' \
-      'other applications.',
+      'Emacs or a program running within it would like to access files ' \
+      'inside other applications.',
     'NSAppDataUsageDescription' =>
-      'A program running within Emacs would like to access files in other ' \
-      "applications' data containers.",
+      'Emacs or a program running within it would like to access files in ' \
+      "other applications' data containers.",
     'NSAppleEventsUsageDescription' =>
       'A program running within Emacs would like to control other ' \
       'applications using Apple events.',
@@ -38,17 +38,17 @@ class PrivacyUsageDescriptionsTest < Minitest::Test
     'NSContactsUsageDescription' =>
       'A program running within Emacs would like to access your contacts.',
     'NSDesktopFolderUsageDescription' =>
-      'A program running within Emacs would like to access files in your ' \
+      'Emacs or a program running within it would like to access files in ' \
       'Desktop folder.',
     'NSDocumentsFolderUsageDescription' =>
-      'A program running within Emacs would like to access files in your ' \
+      'Emacs or a program running within it would like to access files in ' \
       'Documents folder.',
     'NSDownloadsFolderUsageDescription' =>
-      'A program running within Emacs would like to access files in your ' \
+      'Emacs or a program running within it would like to access files in ' \
       'Downloads folder.',
     'NSFileProviderDomainUsageDescription' =>
-      'A program running within Emacs would like to access files managed by ' \
-      'file providers.',
+      'Emacs or a program running within it would like to access files ' \
+      'managed by file providers.',
     'NSLocalNetworkUsageDescription' =>
       'A program running within Emacs would like to access devices on your ' \
       'local network.',
@@ -65,7 +65,7 @@ class PrivacyUsageDescriptionsTest < Minitest::Test
     'NSMotionUsageDescription' =>
       'A program running within Emacs would like to access motion data.',
     'NSNetworkVolumesUsageDescription' =>
-      'A program running within Emacs would like to access files on network ' \
+      'Emacs or a program running within it would like to access files on ' \
       'volumes.',
     'NSPhotoLibraryAddUsageDescription' =>
       'A program running within Emacs would like to add items to your photo ' \
@@ -78,7 +78,7 @@ class PrivacyUsageDescriptionsTest < Minitest::Test
     'NSRemindersUsageDescription' =>
       'A program running within Emacs would like to access your reminders.',
     'NSRemovableVolumesUsageDescription' =>
-      'A program running within Emacs would like to access files on ' \
+      'Emacs or a program running within it would like to access files on ' \
       'removable volumes.',
     'NSSpeechRecognitionUsageDescription' =>
       'A program running within Emacs would like to use speech recognition.',
