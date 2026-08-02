@@ -38,12 +38,16 @@ bundle exec rubocop               # Lint (with development group)
 
 ### Ruby Build Script (`build-emacs-for-macos`)
 
-Single-file Ruby script (~2500 lines) that:
+Ruby build script (~2500 lines), with small supporting classes in `lib/`, that:
 
 - Downloads source tarballs from emacs-mirror/emacs on GitHub
 - Configures and compiles Emacs with native-comp, tree-sitter support
 - Creates self-contained .app bundles by embedding/relinking dependencies
 - Uses `ruby-macho` gem for Mach-O binary manipulation (RPATH handling)
+- Adds the privacy descriptions defined in `lib/privacy_usage_descriptions.rb`
+  before self-signing. Keep this step before all signing, and keep
+  legacy/current key pairs together so the default macOS 11.3+ deployment
+  range remains covered.
 
 ### Go CLI (`cmd/emacs-builder/`)
 
@@ -66,6 +70,7 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 
 ```bash
 make test                         # All Go tests
+make test-ruby                    # Privacy usage-description Ruby tests
 go test ./pkg/release/...         # Single package
 go test -run TestName ./pkg/...   # Single test
 ```

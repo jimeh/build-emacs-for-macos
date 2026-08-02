@@ -20,6 +20,8 @@ require 'yaml'
 
 require 'macho'
 
+require_relative 'lib/privacy_usage_descriptions'
+
 class Error < StandardError
 end
 
@@ -246,6 +248,7 @@ class Build
       relink_eln_files: options[:relink_eln]
     ).embed
     GccLibEmbedder.new(app, gcc_info).embed if options[:native_comp]
+    embed_privacy_usage_descriptions(app)
     self_sign_app(app) if options[:self_sign]
 
     archive_build(build_dir) if options[:archive]
@@ -893,6 +896,16 @@ class Build
 
   def self_sign_app(app)
     cmd('codesign', '--force', '--deep', '-s', '-', app)
+  end
+
+  def embed_privacy_usage_descriptions(app)
+    info 'Adding privacy usage descriptions to Info.plist...'
+    editor = PrivacyUsageDescriptions::PlutilEditor.new do |*args|
+      run_cmd(*args)
+    end
+    PrivacyUsageDescriptions.new(app, editor: editor).embed
+  rescue PrivacyUsageDescriptions::Error => e
+    fatal e.message
   end
 
   def archive_build(build_dir)

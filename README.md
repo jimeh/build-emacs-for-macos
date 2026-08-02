@@ -22,6 +22,17 @@ Use this script at your own risk.
 Nightly and stable binary builds produced with this build script are available
 from [jimeh/emacs-builds](https://github.com/jimeh/emacs-builds).
 
+## Privacy Permissions
+
+Every Emacs.app produced by this project includes macOS privacy usage
+descriptions for protected resources commonly accessed by Emacs Lisp and child
+processes. The descriptions cover both legacy and current macOS keys across the
+supported deployment range and are embedded before the application is signed.
+
+These descriptions allow macOS to explain a permission request and display its
+normal consent prompt. They do not grant access or bypass the user's privacy
+settings.
+
 ## Limitations
 
 The build produced does have some limitations:
