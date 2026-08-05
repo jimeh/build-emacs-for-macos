@@ -55,6 +55,9 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 
 - `cli/`: Commands (plan, sign, sign-files, notarize, package, release, cask)
 - `sign/`: macOS code signing via `codesign`
+  - Keep Hardened Runtime resource entitlements aligned with the corresponding
+    privacy usage descriptions. Developer ID-signed builds need both to request
+    access to audio input, camera, contacts, calendars, location, and Photos.
 - `notarize/`: Apple notarization workflow via `notarytool`
 - `release/`: GitHub release management
 - `dmgbuild/`: DMG creation using Python dmgbuild
