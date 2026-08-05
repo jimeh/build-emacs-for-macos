@@ -83,6 +83,9 @@ go test -run TestName ./pkg/...   # Single test
 Go tests use `_test.go` suffix alongside source files. Ruby specs live in
 `spec/` and run with RSpec.
 
+Keep GitHub Actions dependencies pinned to full commit SHAs with version
+comments. Update and verify them with `pinact run -update`.
+
 ## Working Directories
 
 - `sources/`: Downloaded/extracted Emacs source (gitignored)
