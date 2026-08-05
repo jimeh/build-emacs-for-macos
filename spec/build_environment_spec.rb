@@ -1,15 +1,14 @@
 # frozen_string_literal: true
 
-require 'minitest/autorun'
 require 'fileutils'
 require 'tmpdir'
 
+require_relative 'spec_helper'
+
 load File.expand_path('../build-emacs-for-macos', __dir__)
 
-class BuildEnvironmentTest < Minitest::Test
-  GccInfo = Struct.new(:lib_dir, :darwin_lib_dir, :libgccjit_lib_dir)
-
-  def test_nix_native_build_uses_a_compatible_system_ncurses_stub
+RSpec.describe 'Build environment' do
+  it 'uses a compatible system ncurses stub for Nix native builds' do
     with_build_environment(use_nix: true) do |build, root_dir, sdk_lib_dir|
       File.write(
         File.join(sdk_lib_dir, 'libncurses.tbd'),
@@ -19,31 +18,28 @@ class BuildEnvironmentTest < Minitest::Test
       library_path = build.send(:env_LIBRARY_PATH)
       stub_dir = File.join(root_dir, 'sdk-stubs')
 
-      assert_includes library_path, stub_dir
-      refute_includes library_path, sdk_lib_dir
-      assert_equal "targets: [ arm64-macos, x86_64-macos ]\n",
-                   File.read(File.join(stub_dir, 'libncurses.tbd'))
-    end
-  end
-
-  def test_non_nix_native_build_includes_command_line_tools_library_path
-    with_build_environment(use_nix: false) do |build, _root_dir, sdk_lib_dir|
-      assert_includes build.send(:env_LIBRARY_PATH), sdk_lib_dir
-    end
-  end
-
-  def test_nix_build_reports_a_missing_system_ncurses_stub
-    with_build_environment(use_nix: true) do |build, _root_dir, sdk_lib_dir|
-      error = assert_raises(Error) { build.send(:env_LIBRARY_PATH) }
-
-      assert_equal(
-        "macOS system ncurses stub not found: #{sdk_lib_dir}/libncurses.tbd",
-        error.message
+      expect(library_path).to include(stub_dir)
+      expect(library_path).not_to include(sdk_lib_dir)
+      expect(File.read(File.join(stub_dir, 'libncurses.tbd'))).to eq(
+        "targets: [ arm64-macos, x86_64-macos ]\n"
       )
     end
   end
 
-  private
+  it 'includes the Command Line Tools library path for non-Nix builds' do
+    with_build_environment(use_nix: false) do |build, _root_dir, sdk_lib_dir|
+      expect(build.send(:env_LIBRARY_PATH)).to include(sdk_lib_dir)
+    end
+  end
+
+  it 'reports a missing system ncurses stub for Nix builds' do
+    with_build_environment(use_nix: true) do |build, _root_dir, sdk_lib_dir|
+      expect { build.send(:env_LIBRARY_PATH) }.to raise_error(
+        Error,
+        "macOS system ncurses stub not found: #{sdk_lib_dir}/libncurses.tbd"
+      )
+    end
+  end
 
   def with_build_environment(use_nix:)
     Dir.mktmpdir('build-environment-test') do |root_dir|
@@ -67,7 +63,9 @@ class BuildEnvironmentTest < Minitest::Test
       )
       build.instance_variable_set(
         :@gcc_info,
-        GccInfo.new('/gcc/lib', '/gcc/lib/darwin', '/libgccjit/lib')
+        Struct.new(:lib_dir, :darwin_lib_dir, :libgccjit_lib_dir).new(
+          '/gcc/lib', '/gcc/lib/darwin', '/libgccjit/lib'
+        )
       )
       build.define_singleton_method(:command_line_tools_library_path) do
         sdk_lib_dir

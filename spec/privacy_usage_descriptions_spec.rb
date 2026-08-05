@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require 'json'
-require 'minitest/autorun'
-require 'open3'
 require 'fileutils'
+require 'json'
+require 'open3'
 require 'tmpdir'
 
+require_relative 'spec_helper'
 require_relative '../lib/privacy_usage_descriptions'
 
-class PrivacyUsageDescriptionsTest < Minitest::Test
+module PrivacyUsageDescriptionsSpecHelpers
   EXPECTED_DESCRIPTIONS = {
     'NSAppBundlesUsageDescription' =>
       'Emacs or a program running within it would like to access files ' \
@@ -98,53 +98,65 @@ class PrivacyUsageDescriptionsTest < Minitest::Test
       values[key] = value
     end
   end
+end
 
-  def test_defines_the_expected_privacy_descriptions
-    assert_equal EXPECTED_DESCRIPTIONS, PrivacyUsageDescriptions::DESCRIPTIONS
+RSpec.describe PrivacyUsageDescriptions do
+  it 'defines the expected privacy descriptions' do
+    expect(described_class::DESCRIPTIONS).to eq(
+      PrivacyUsageDescriptionsSpecHelpers::EXPECTED_DESCRIPTIONS
+    )
   end
 
-  def test_embeds_descriptions_without_removing_unrelated_properties
+  it 'embeds descriptions without removing unrelated properties' do
     with_info_plist do |app, _info_plist|
-      editor = MemoryEditor.new(
+      editor = PrivacyUsageDescriptionsSpecHelpers::MemoryEditor.new(
         'CFBundleName' => 'Emacs',
         'NSCameraUsageDescription' => 'Upstream description'
       )
 
-      PrivacyUsageDescriptions.new(app, editor: editor).embed
+      described_class.new(app, editor: editor).embed
 
-      assert_equal 'Emacs', editor.values['CFBundleName']
-      assert_equal EXPECTED_DESCRIPTIONS.merge('CFBundleName' => 'Emacs'),
-                   editor.values
+      expect(editor.values['CFBundleName']).to eq('Emacs')
+      expect(editor.values).to eq(
+        PrivacyUsageDescriptionsSpecHelpers::EXPECTED_DESCRIPTIONS.merge(
+          'CFBundleName' => 'Emacs'
+        )
+      )
     end
   end
 
-  def test_rejects_an_app_without_an_info_plist
+  it 'rejects an app without an Info.plist' do
     Dir.mktmpdir('privacy-descriptions-test') do |dir|
-      error = assert_raises(PrivacyUsageDescriptions::Error) do
-        PrivacyUsageDescriptions.new(File.join(dir, 'Emacs.app'),
-                                     editor: MemoryEditor.new).embed
-      end
-
-      assert_match(/Info\.plist not found/, error.message)
+      expect do
+        described_class.new(
+          File.join(dir, 'Emacs.app'),
+          editor: PrivacyUsageDescriptionsSpecHelpers::MemoryEditor.new
+        ).embed
+      end.to raise_error(described_class::Error, /Info\.plist not found/)
     end
   end
 
-  def test_plutil_editor_replaces_string_values
+  it 'replaces string values with plutil' do
     command = nil
-    editor = PrivacyUsageDescriptions::PlutilEditor.new do |*args|
+    editor = described_class::PlutilEditor.new do |*args|
       command = args
     end
 
-    editor.replace_string('/tmp/Emacs.app/Contents/Info.plist',
-                          'NSCameraUsageDescription', 'Camera reason')
+    editor.replace_string(
+      '/tmp/Emacs.app/Contents/Info.plist',
+      'NSCameraUsageDescription',
+      'Camera reason'
+    )
 
-    assert_equal [
-      'plutil', '-replace', 'NSCameraUsageDescription', '-string',
-      'Camera reason', '/tmp/Emacs.app/Contents/Info.plist'
-    ], command
+    expect(command).to eq([
+                            'plutil', '-replace',
+                            'NSCameraUsageDescription', '-string',
+                            'Camera reason',
+                            '/tmp/Emacs.app/Contents/Info.plist'
+                          ])
   end
 
-  def test_real_plutil_produces_the_expected_manifest
+  it 'produces the expected manifest with the real plutil' do
     skip 'macOS plutil integration test' unless RUBY_PLATFORM.include?('darwin')
 
     with_info_plist do |app, info_plist|
@@ -152,22 +164,22 @@ class PrivacyUsageDescriptionsTest < Minitest::Test
         _stdout, stderr, status = Open3.capture3(*args)
         raise stderr unless status.success?
       end
-      editor = PrivacyUsageDescriptions::PlutilEditor.new(&runner)
+      editor = described_class::PlutilEditor.new(&runner)
 
-      PrivacyUsageDescriptions.new(app, editor: editor).embed
+      described_class.new(app, editor: editor).embed
 
       stdout, stderr, status =
         Open3.capture3('plutil', '-convert', 'json', '-o', '-', info_plist)
-      assert status.success?, stderr
+      expect(status).to be_success, stderr
 
       values = JSON.parse(stdout)
-      assert_equal 'Emacs', values.delete('CFBundleName')
-      assert_equal EXPECTED_DESCRIPTIONS, values
-      assert(values.values.all? { |value| value.is_a?(String) })
+      expect(values.delete('CFBundleName')).to eq('Emacs')
+      expect(values).to eq(
+        PrivacyUsageDescriptionsSpecHelpers::EXPECTED_DESCRIPTIONS
+      )
+      expect(values.values).to all(be_a(String))
     end
   end
-
-  private
 
   def with_info_plist
     Dir.mktmpdir('privacy-descriptions-test') do |dir|

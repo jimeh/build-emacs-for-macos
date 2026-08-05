@@ -73,13 +73,15 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 ## Testing
 
 ```bash
-make test                         # All Go tests
+make test                         # All Go and Ruby tests
+make test-go                      # Go tests
 make test-ruby                    # Privacy usage-description Ruby tests
 go test ./pkg/release/...         # Single package
 go test -run TestName ./pkg/...   # Single test
 ```
 
-Tests use `_test.go` suffix alongside source files.
+Go tests use `_test.go` suffix alongside source files. Ruby specs live in
+`spec/` and run with RSpec.
 
 ## Working Directories
 

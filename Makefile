@@ -125,8 +125,7 @@ test-go:
 	CGO_ENABLED=1 go test $(V) -count=1 -race $(TESTARGS) $(TEST)
 
 test-ruby:
-	ruby -Itest -e \
-		'Dir["test/**/*_test.rb"].sort.each { |f| require File.expand_path(f) }'
+	bundle exec rspec
 
 .PHONY: lint
 lint: $(TOOLDIR)/golangci-lint

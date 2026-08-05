@@ -31,21 +31,30 @@ jobs:
       - name: Check if mods are tidy
         run: make check-tidy
 
-  test:
-    name: Test
+  test-go:
+    name: Go Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Run Go tests
+        run: make test-go
+        env:
+          VERBOSE: "true"
+
+  test-ruby:
+    name: Ruby Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
-      - name: Run tests
-        run: make test
-        env:
-          VERBOSE: "true"
+          bundler-cache: true
+      - name: Run Ruby tests
+        run: make test-ruby
 
   release-please:
     name: Release Please
