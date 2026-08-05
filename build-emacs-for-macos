@@ -598,9 +598,44 @@ class Build
       ]
     end
 
-    env << '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
+    # Nix supplies libc and framework stubs matched to its linker, but not the
+    # system ncurses stub that Emacs needs. Expose a compatible copy of only
+    # that stub so newer host SDK libraries cannot shadow Nix's libraries.
+    env << if use_nix?
+             nix_system_library_stub_dir
+           else
+             command_line_tools_library_path
+           end
 
     @env_LIBRARY_PATH = env.compact.reject(&:empty?).uniq
+  end
+
+  def nix_system_library_stub_dir
+    return @nix_system_library_stub_dir if @nix_system_library_stub_dir
+
+    source = File.join(command_line_tools_library_path, 'libncurses.tbd')
+    unless File.file?(source)
+      fatal "macOS system ncurses stub not found: #{source}"
+    end
+
+    target_dir = File.join(root_dir, 'sdk-stubs')
+    FileUtils.mkdir_p(target_dir)
+
+    contents = File.read(source)
+    if host_arch == 'arm64'
+      contents = contents.gsub('arm64e-macos', 'arm64-macos')
+    end
+    File.write(File.join(target_dir, 'libncurses.tbd'), contents)
+
+    @nix_system_library_stub_dir = target_dir
+  end
+
+  def command_line_tools_library_path
+    '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib'
+  end
+
+  def host_arch
+    OS.arch
   end
 
   def env_PKG_CONFIG_PATH

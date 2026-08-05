@@ -65,6 +65,10 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 - Multi-SDK support: macOS 11-15, 26 via `.#macos{11,12,13,14,15,26}`
 - Excludes ncurses intentionally (links against system version for TUI)
 - Sets `MACOSX_DEPLOYMENT_TARGET`, `DEVELOPER_DIR`, `NIX_LIBGCCJIT_*`
+- Keep the full host Command Line Tools SDK out of the Nix build-time
+  `LIBRARY_PATH`; expose only the sanitized system ncurses stub. Nix supplies
+  the remaining libraries matched to its linker, while newer host SDK stubs
+  may be incompatible with that toolchain.
 
 ## Testing
 
