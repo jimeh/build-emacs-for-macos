@@ -38,12 +38,16 @@ bundle exec rubocop               # Lint (with development group)
 
 ### Ruby Build Script (`build-emacs-for-macos`)
 
-Single-file Ruby script (~2500 lines) that:
+Ruby build script (~2500 lines), with small supporting classes in `lib/`, that:
 
 - Downloads source tarballs from emacs-mirror/emacs on GitHub
 - Configures and compiles Emacs with native-comp, tree-sitter support
 - Creates self-contained .app bundles by embedding/relinking dependencies
 - Uses `ruby-macho` gem for Mach-O binary manipulation (RPATH handling)
+- Adds the privacy descriptions defined in `lib/privacy_usage_descriptions.rb`
+  before self-signing. Keep this step before all signing, and keep
+  legacy/current key pairs together so the default macOS 11.3+ deployment
+  range remains covered.
 
 ### Go CLI (`cmd/emacs-builder/`)
 
@@ -51,6 +55,9 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 
 - `cli/`: Commands (plan, sign, sign-files, notarize, package, release, cask)
 - `sign/`: macOS code signing via `codesign`
+  - Keep Hardened Runtime resource entitlements aligned with the corresponding
+    privacy usage descriptions. Developer ID-signed builds need both to request
+    access to audio input, camera, contacts, calendars, location, and Photos.
 - `notarize/`: Apple notarization workflow via `notarytool`
 - `release/`: GitHub release management
 - `dmgbuild/`: DMG creation using Python dmgbuild
@@ -61,16 +68,26 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 - Multi-SDK support: macOS 11-15, 26 via `.#macos{11,12,13,14,15,26}`
 - Excludes ncurses intentionally (links against system version for TUI)
 - Sets `MACOSX_DEPLOYMENT_TARGET`, `DEVELOPER_DIR`, `NIX_LIBGCCJIT_*`
+- Keep the full host Command Line Tools SDK out of the Nix build-time
+  `LIBRARY_PATH`; expose only the sanitized system ncurses stub. Nix supplies
+  the remaining libraries matched to its linker, while newer host SDK stubs
+  may be incompatible with that toolchain.
 
 ## Testing
 
 ```bash
-make test                         # All Go tests
+make test                         # All Go and Ruby tests
+make test-go                      # Go tests
+make test-ruby                    # Privacy usage-description Ruby tests
 go test ./pkg/release/...         # Single package
 go test -run TestName ./pkg/...   # Single test
 ```
 
-Tests use `_test.go` suffix alongside source files.
+Go tests use `_test.go` suffix alongside source files. Ruby specs live in
+`spec/` and run with RSpec.
+
+Keep GitHub Actions dependencies pinned to full commit SHAs with version
+comments. Update and verify them with `pinact run -update`.
 
 ## Working Directories
 

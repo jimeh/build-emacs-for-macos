@@ -118,9 +118,14 @@ clean:
 	rm -rf $(BINARY) $(TOOLS)
 	rm -f ./go.mod.tidy-check ./go.sum.tidy-check
 
-.PHONY: test
-test:
+.PHONY: test test-go test-ruby
+test: test-go test-ruby
+
+test-go:
 	CGO_ENABLED=1 go test $(V) -count=1 -race $(TESTARGS) $(TEST)
+
+test-ruby:
+	bundle exec rspec
 
 .PHONY: lint
 lint: $(TOOLDIR)/golangci-lint

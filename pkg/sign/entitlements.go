@@ -16,6 +16,16 @@ var DefaultEmacsEntitlements = []string{
 	"com.apple.security.cs.disable-library-validation",
 	"com.apple.security.cs.allow-dyld-environment-variables",
 	"com.apple.security.automation.apple-events",
+
+	// Hardened Runtime restricts access to these resources unless the app's
+	// signature carries the matching entitlement. The Info.plist usage
+	// descriptions separately provide the text displayed in permission prompts.
+	"com.apple.security.device.audio-input",
+	"com.apple.security.device.camera",
+	"com.apple.security.personal-information.addressbook",
+	"com.apple.security.personal-information.calendars",
+	"com.apple.security.personal-information.location",
+	"com.apple.security.personal-information.photos-library",
 }
 
 //go:embed entitlements.tpl
