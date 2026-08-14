@@ -639,12 +639,14 @@ class Build
   end
 
   def env_PKG_CONFIG_PATH
-    env = ENV.fetch('PKG_CONFIG_PATH', nil)&.split || []
+    env = ENV.fetch('PKG_CONFIG_PATH', nil)&.split(File::PATH_SEPARATOR) || []
+    tree_sitter_path = tree_sitter_pkg_config_path if options[:tree_sitter]
 
-    return env if use_nix?
+    return [tree_sitter_path, *env].compact.uniq if use_nix?
 
     @env_PKG_CONFIG_PATH = (
       [
+        tree_sitter_path,
         File.join(brew_dir, 'lib/pkgconfig'),
         File.join(brew_dir, 'share/pkgconfig'),
         File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
@@ -658,6 +660,23 @@ class Build
         )
       ] + env
     ).compact.reject(&:empty?).uniq
+  end
+
+  def tree_sitter_pkg_config_path
+    if use_nix?
+      suffix = effective_version >= 31 ? '026' : '025'
+      variable = "NIX_TREE_SITTER_#{suffix}_ROOT"
+      root = ENV.fetch(variable, nil)
+      if root.nil? || root.empty?
+        fatal "#{variable} is required for Emacs #{effective_version} " \
+              'Tree-sitter builds'
+      end
+
+      return File.join(root, 'lib/pkgconfig')
+    end
+
+    formula = effective_version >= 31 ? 'tree-sitter' : 'tree-sitter@0.25'
+    File.join(brew_dir, 'opt', formula, 'lib/pkgconfig')
   end
 
   def env_PATH
@@ -1119,8 +1138,10 @@ class Build
         29
       when /^emacs-30.*/
         30
-      else
+      when /^emacs-31.*/
         31
+      else
+        32
       end
   end
 
@@ -1141,7 +1162,7 @@ class Build
     # commit 6e1054a40bf6df1429a2b16fdd0d7652dae4d537. Hence builds for commits
     # before then need the patch from the last commit in emacs-plus before it
     # was removed.
-    if effective_version == 31 && meta[:date] < Time.parse('2025-07-31')
+    if effective_version == 31 && meta[:date] < Time.utc(2025, 7, 31)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
@@ -1150,7 +1171,7 @@ class Build
       }
     end
 
-    if (27..31).include?(effective_version)
+    if (27..32).include?(effective_version)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -1158,11 +1179,27 @@ class Build
       }
     end
 
-    if (29..31).include?(effective_version)
+    if (29..32).include?(effective_version)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
         "patches/emacs-#{effective_version}/round-undecorated-frame.patch"
+      }
+    end
+
+    if (30..32).include?(effective_version)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/fix-ns-x-colors.patch"
+      }
+    end
+
+    if effective_version == 30
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        'patches/emacs-30/fix-macos-tahoe-scrolling.patch'
       }
     end
 
@@ -1198,7 +1235,7 @@ class Build
 
     # Optional patches.
 
-    if options[:no_frame_refocus] && (27..31).include?(effective_version)
+    if options[:no_frame_refocus] && (27..29).include?(effective_version)
       p << {
         url:
           'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -2401,12 +2438,12 @@ class CLIOptions
       opts.on(
         '--alpha-background',
         'Apply experimental alpha-background patch when building Emacs ' \
-        '30.x - 31.x (default: disabled)'
+        '29.x - 31.x (default: disabled)'
       ) { |v| options[:alpha_background] = v }
 
       opts.on(
         '--no-frame-refocus',
-        'Apply no-frame-refocus patch when building Emacs 27.x - 31.x ' \
+        'Apply no-frame-refocus patch when building Emacs 27.x - 29.x ' \
         '(default: disabled)'
       ) { options[:no_frame_refocus] = true }
 

@@ -66,6 +66,7 @@ sqlite-3.48.0
 texinfo-7.2
 time-1.9
 tree-sitter-0.25.3
+tree-sitter-runtime-0.26.12
 which-2.23
 xcbuild-0.1.1-unstable-2019-11-20
 xz-5.8.1
