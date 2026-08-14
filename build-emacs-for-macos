@@ -357,6 +357,15 @@ class Build
     @brew_dir ||= `brew --prefix`.chomp
   end
 
+  def brew_prefix(formula)
+    stdout, _stderr, status = Open3.capture3(
+      'brew', '--prefix', '--installed', formula
+    )
+    fatal "Homebrew formula is not installed: #{formula}" unless status.success?
+
+    stdout.strip
+  end
+
   def extra_libs
     return [] if use_nix?
     return @extra_libs if @extra_libs
@@ -676,7 +685,7 @@ class Build
     end
 
     formula = effective_version >= 31 ? 'tree-sitter' : 'tree-sitter@0.25'
-    File.join(brew_dir, 'opt', formula, 'lib/pkgconfig')
+    File.join(brew_prefix(formula), 'lib/pkgconfig')
   end
 
   def env_PATH
