@@ -94,14 +94,16 @@ RSpec.describe 'Build environment' do
 
   it 'selects versioned Homebrew Tree-sitter pkg-config metadata ' \
      'by Emacs major' do
+    allow(OS).to receive(:version).and_raise('OS.version must not be used')
+
     with_build_environment(use_nix: false, ref: 'emacs-30.2') do |build, *, **|
-      expect(build.send(:env_PKG_CONFIG_PATH).first).to eq(
+      expect(build.send(:tree_sitter_pkg_config_path)).to eq(
         '/homebrew/opt/tree-sitter@0.25/lib/pkgconfig'
       )
     end
 
     with_build_environment(use_nix: false, ref: 'emacs-31') do |build, *, **|
-      expect(build.send(:env_PKG_CONFIG_PATH).first).to eq(
+      expect(build.send(:tree_sitter_pkg_config_path)).to eq(
         '/homebrew/opt/tree-sitter/lib/pkgconfig'
       )
     end
