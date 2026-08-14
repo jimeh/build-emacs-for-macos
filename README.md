@@ -131,7 +131,7 @@ macOS 11.3 and later.
 
 ### Homebrew
 
-Run `make boostrap` to ensure all Ruby and Homebrew dependencies are installed.
+Run `make bootstrap` to ensure all Ruby and Homebrew dependencies are installed.
 The Brewfile installs both `tree-sitter@0.25` and the current `tree-sitter`
 formula, and the build selects between them using the same Emacs version policy
 as Nix.

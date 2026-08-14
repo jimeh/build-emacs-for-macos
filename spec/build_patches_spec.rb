@@ -63,12 +63,11 @@ RSpec.describe 'Emacs patch selection' do
     end
 
     it 'does not apply Tree-sitter compatibility source patches' do
-      patch_urls = (29..32).flat_map do |version|
-        patches = build_for("emacs-#{version}").send(:build_patches)
-        patches.map { |patch| patch[:url] }.compact
+      sources = (29..32).flat_map do |version|
+        patch_sources(build_for("emacs-#{version}"))
       end
 
-      expect(patch_urls).not_to include(a_string_matching(/treesit/i))
+      expect(sources).not_to include(a_string_matching(/treesit/i))
     end
   end
 
@@ -99,12 +98,12 @@ RSpec.describe 'Emacs patch selection' do
     it 'does not attempt the alpha-background comparison patch on Emacs 32' do
       build = build_for('emacs-32', alpha_background: true)
 
-      expect(patch_urls(build)).not_to include(a_string_matching(/alpha/))
+      expect(patch_sources(build)).not_to include(a_string_matching(/alpha/))
     end
 
     it 'retains alpha-background support for Emacs 29 through 31' do
       selected_versions = (29..32).select do |version|
-        patch_urls(build_for("emacs-#{version}", alpha_background: true))
+        patch_sources(build_for("emacs-#{version}", alpha_background: true))
           .any? { |url| url.include?('alpha') }
       end
 
@@ -130,10 +129,10 @@ RSpec.describe 'Emacs patch selection' do
   end
 
   def patch_basenames(build)
-    patch_urls(build).map { |url| File.basename(URI.parse(url).path) }
+    patch_sources(build).map { |source| File.basename(URI.parse(source).path) }
   end
 
-  def patch_urls(build)
+  def patch_sources(build)
     build.send(:build_patches).map do |patch|
       patch[:url] || patch[:file]
     end.compact
