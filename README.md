@@ -125,7 +125,7 @@ SDKs. Versions 11 to 15 are available. For example, to target the macOS 12 SDK,
 run `nix develop .#macos12`
 
 The build selects Tree-sitter 0.25.x for Emacs 29 and 30, and Tree-sitter
-0.26.x for Emacs 31 and later. Both versions are built with the pinned Nixpkgs
+0.27.x for Emacs 31 and later. Both versions are built with the pinned Nixpkgs
 25.05 Darwin toolchain so their bundled libraries remain compatible with
 macOS 11.3 and later.
 

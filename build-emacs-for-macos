@@ -673,7 +673,7 @@ class Build
 
   def tree_sitter_pkg_config_path
     if use_nix?
-      suffix = effective_version >= 31 ? '026' : '025'
+      suffix = effective_version >= 31 ? '027' : '025'
       variable = "NIX_TREE_SITTER_#{suffix}_ROOT"
       root = ENV.fetch(variable, nil)
       if root.nil? || root.empty?
@@ -1209,6 +1209,14 @@ class Build
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
         'patches/emacs-30/fix-macos-tahoe-scrolling.patch'
+      }
+    end
+
+    if (31..32).include?(effective_version)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/fix-ns-scroll-crash.patch"
       }
     end
 

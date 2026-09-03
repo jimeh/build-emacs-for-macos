@@ -69,7 +69,7 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 - Excludes ncurses intentionally (links against system version for TUI)
 - Sets `MACOSX_DEPLOYMENT_TARGET`, `DEVELOPER_DIR`, `NIX_LIBGCCJIT_*`
 - Provides Tree-sitter 0.25 for Emacs 29/30 and a project-local Tree-sitter
-  0.26 C runtime for Emacs 31+. Keep the 0.26 runtime on the pinned Nixpkgs
+  0.27 C runtime for Emacs 31+. Keep the 0.27 runtime on the pinned Nixpkgs
   25.05 Darwin stdenv: Nixpkgs 25.11 and later default to a macOS 14 deployment
   target, which would break the bundle's macOS 11.3 compatibility.
 - Keep the full host Command Line Tools SDK out of the Nix build-time

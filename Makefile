@@ -151,7 +151,7 @@ flake-package-versions:
 			$$({ \
 				echo $$PATH | tr ":" "\n" | grep "/nix/store"; \
 				echo $$NIX_TREE_SITTER_025_ROOT; \
-				echo $$NIX_TREE_SITTER_026_ROOT; \
+				echo $$NIX_TREE_SITTER_027_ROOT; \
 			} | sort -u) \
 			| jq -r ".derivations[].name" | sort -u'
 

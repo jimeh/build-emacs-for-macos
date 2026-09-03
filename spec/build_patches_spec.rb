@@ -41,11 +41,13 @@ RSpec.describe 'Emacs patch selection' do
         system-appearance.patch
         round-undecorated-frame.patch
         fix-ns-x-colors.patch
+        fix-ns-scroll-crash.patch
       ],
       'emacs-32' => %w[
         system-appearance.patch
         round-undecorated-frame.patch
         fix-ns-x-colors.patch
+        fix-ns-scroll-crash.patch
       ]
     }.each do |ref, expected|
       it "selects the exact default patch set for #{ref}" do

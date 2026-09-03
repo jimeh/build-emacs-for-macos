@@ -55,7 +55,7 @@ RSpec.describe 'Build environment' do
   it 'uses Tree-sitter 0.25 pkg-config metadata for Nix Emacs 30 builds' do
     ENV['PKG_CONFIG_PATH'] = '/existing/pkgconfig'
     ENV['NIX_TREE_SITTER_025_ROOT'] = '/nix/tree-sitter-0.25'
-    ENV['NIX_TREE_SITTER_026_ROOT'] = '/nix/tree-sitter-0.26'
+    ENV['NIX_TREE_SITTER_027_ROOT'] = '/nix/tree-sitter-0.27'
 
     with_build_environment(use_nix: true, ref: 'emacs-30.2') do |build, *, **|
       expected = [
@@ -66,14 +66,14 @@ RSpec.describe 'Build environment' do
     end
   end
 
-  it 'uses Tree-sitter 0.26 pkg-config metadata for Nix Emacs 31+ builds' do
+  it 'uses Tree-sitter 0.27 pkg-config metadata for Nix Emacs 31+ builds' do
     ENV['PKG_CONFIG_PATH'] = '/existing/pkgconfig'
     ENV['NIX_TREE_SITTER_025_ROOT'] = '/nix/tree-sitter-0.25'
-    ENV['NIX_TREE_SITTER_026_ROOT'] = '/nix/tree-sitter-0.26'
+    ENV['NIX_TREE_SITTER_027_ROOT'] = '/nix/tree-sitter-0.27'
 
     with_build_environment(use_nix: true, ref: 'emacs-32') do |build, *, **|
       expected = [
-        '/nix/tree-sitter-0.26/lib/pkgconfig',
+        '/nix/tree-sitter-0.27/lib/pkgconfig',
         '/existing/pkgconfig'
       ]
       expect(build.send(:env_PKG_CONFIG_PATH)).to eq(expected)
@@ -82,7 +82,7 @@ RSpec.describe 'Build environment' do
 
   it 'reports a missing selected Nix Tree-sitter root' do
     ENV.delete('NIX_TREE_SITTER_025_ROOT')
-    ENV['NIX_TREE_SITTER_026_ROOT'] = '/nix/tree-sitter-0.26'
+    ENV['NIX_TREE_SITTER_027_ROOT'] = '/nix/tree-sitter-0.27'
 
     with_build_environment(use_nix: true, ref: 'emacs-30.2') do |build, *, **|
       expect { build.send(:env_PKG_CONFIG_PATH) }.to raise_error(

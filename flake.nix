@@ -17,15 +17,15 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        treeSitterRuntime026 = pkgs.stdenv.mkDerivation rec {
+        treeSitterRuntime027 = pkgs.stdenv.mkDerivation rec {
           pname = "tree-sitter-runtime";
-          version = "0.26.12";
+          version = "0.27.0";
 
           src = pkgs.fetchFromGitHub {
             owner = "tree-sitter";
             repo = "tree-sitter";
             rev = "v${version}";
-            hash = "sha256-Fyp3eyvvP8NFVgGt+RxBA1Q2ujNVXgGr6SvDCMDas0Q=";
+            hash = "sha256-X5Hd0zcw7hxj7w7Jp1QBxLzsRSH9NgV2KquEvGdo3pE=";
           };
 
           nativeBuildInputs = [ pkgs.gnumake ];
@@ -39,7 +39,7 @@
           '';
 
           meta = {
-            description = "Tree-sitter 0.26 C runtime";
+            description = "Tree-sitter 0.27 C runtime";
             homepage = "https://tree-sitter.github.io/tree-sitter/";
             license = pkgs.lib.licenses.mit;
             platforms = pkgs.lib.platforms.unix;
@@ -126,7 +126,7 @@
               export NIX_LIBGCCJIT_VERSION="${pkgs.libgccjit.version}"
               export NIX_LIBGCCJIT_ROOT="${pkgs.libgccjit.outPath}"
               export NIX_TREE_SITTER_025_ROOT="${pkgs.tree-sitter}"
-              export NIX_TREE_SITTER_026_ROOT="${treeSitterRuntime026}"
+              export NIX_TREE_SITTER_027_ROOT="${treeSitterRuntime027}"
               export BUNDLE_WITHOUT=development
             '';
           };
@@ -140,7 +140,7 @@
         );
       in
       {
-        packages.tree-sitter-runtime-026 = treeSitterRuntime026;
+        packages.tree-sitter-runtime-027 = treeSitterRuntime027;
 
         devShells = versionShells // {
           default = mkDevShell { };
