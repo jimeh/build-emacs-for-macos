@@ -48,6 +48,9 @@ Ruby build script (~2500 lines), with small supporting classes in `lib/`, that:
   before self-signing. Keep this step before all signing, and keep
   legacy/current key pairs together so the default macOS 11.3+ deployment
   range remains covered.
+- Resolve the Emacs major version from `configure.ac` when building a raw SHA,
+  a `--git-sha` override, or a plan. Patch and Tree-sitter selection must follow
+  the resolved source version rather than the nominal `master` ref.
 
 ### Go CLI (`cmd/emacs-builder/`)
 

@@ -1136,22 +1136,45 @@ class Build
 
   def effective_version
     @effective_version ||=
-      case ref
-      when /^emacs-26.*/
-        26
-      when /^emacs-27.*/
-        27
-      when /^emacs-28.*/
-        28
-      when /^emacs-29.*/
-        29
-      when /^emacs-30.*/
-        30
-      when /^emacs-31.*/
-        31
+      if options[:git_sha] || options[:plan]
+        source_major_version(meta[:sha])
       else
-        32
+        case ref
+        when /^emacs-26.*/
+          26
+        when /^emacs-27.*/
+          27
+        when /^emacs-28.*/
+          28
+        when /^emacs-29.*/
+          29
+        when /^emacs-30.*/
+          30
+        when /^emacs-31.*/
+          31
+        when /^emacs-32.*/, 'master'
+          32
+        else
+          source_major_version(meta[:sha])
+        end
       end
+  end
+
+  def source_major_version(sha)
+    encoded_sha = URI.encode_www_form_component(sha)
+    source_json = github_api_get(
+      "/repos/#{github_src_repo}/contents/configure.ac?ref=#{encoded_sha}"
+    )
+    fatal "Failed to get Emacs version from: #{sha}" if source_json.nil?
+
+    source = JSON.parse(source_json)
+    configure_ac = source.fetch('content').delete("\n").unpack1('m0')
+    match = configure_ac.match(
+      /^AC_INIT\(\[GNU Emacs\],\s*\[(?<major>\d+)/
+    )
+    fatal "Failed to detect Emacs version from: #{sha}" if match.nil?
+
+    match[:major].to_i
   end
 
   def build_patches

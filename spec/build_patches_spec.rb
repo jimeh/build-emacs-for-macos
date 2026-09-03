@@ -21,6 +21,48 @@ RSpec.describe 'Emacs patch selection' do
         expect(build_for(ref).send(:effective_version)).to eq(version)
       end
     end
+
+    {
+      'a positional raw SHA' => ['deadbeef', {}],
+      'a --git-sha override on master' => ['master', { git_sha: 'deadbeef' }]
+    }.each do |description, (ref, options)|
+      it "detects the source version for #{description}" do
+        build = build_for(ref, use_nix: true, **options)
+        configure_ac = [
+          "AC_INIT([GNU Emacs], [30.2], [bug-gnu-emacs@gnu.org], [],\n"
+        ].pack('m0')
+        allow(build).to receive(:github_api_get)
+          .with(
+            '/repos/emacs-mirror/emacs/contents/configure.ac?ref=test-sha'
+          )
+          .and_return({ content: configure_ac }.to_json)
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch)
+          .with('NIX_TREE_SITTER_025_ROOT', nil)
+          .and_return('/nix/tree-sitter-0.25')
+
+        expect(build.send(:effective_version)).to eq(30)
+        expect(build.send(:tree_sitter_pkg_config_path)).to eq(
+          '/nix/tree-sitter-0.25/lib/pkgconfig'
+        )
+        patches = patch_basenames(build)
+        expect(patches).to include('fix-macos-tahoe-scrolling.patch')
+        expect(patches).not_to include('fix-ns-scroll-crash.patch')
+      end
+    end
+
+    it 'reports an unresolved source version' do
+      build = build_for('deadbeef')
+      source = ['AC_INIT([Not Emacs], [1.0])'].pack('m0')
+      allow(build).to receive(:github_api_get).and_return(
+        { content: source }.to_json
+      )
+
+      expect { build.send(:effective_version) }.to raise_error(
+        Error,
+        'Failed to detect Emacs version from: test-sha'
+      )
+    end
   end
 
   describe 'default emacs-plus patches' do
