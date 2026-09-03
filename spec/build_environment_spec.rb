@@ -157,6 +157,10 @@ RSpec.describe 'Build environment' do
       build.instance_variable_set(:@root_dir, root_dir)
       build.instance_variable_set(:@ref, ref)
       build.instance_variable_set(
+        :@effective_version,
+        ref.match(/emacs-(\d+)/)[1].to_i
+      )
+      build.instance_variable_set(
         :@options,
         { native_comp: true, tree_sitter: true, use_nix: use_nix }
       )

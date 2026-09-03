@@ -221,7 +221,8 @@ class Build
     end
 
     tarball = download_tarball(meta[:sha])
-    @source_dir = extract_tarball(tarball, build_patches)
+    @source_dir, extracted = extract_tarball(tarball)
+    prepare_source(@source_dir, build_patches) if extracted
 
     autogen
     detect_native_comp if options[:native_comp].nil?
@@ -424,7 +425,7 @@ class Build
     target
   end
 
-  def extract_tarball(filename, patches = [])
+  def extract_tarball(filename)
     FileUtils.mkdir_p(sources_dir)
 
     dirname = File.basename(filename).gsub(/\.\w+$/, '')
@@ -432,21 +433,23 @@ class Build
 
     if File.exist?(target)
       info "#{dirname} source tree exists, attempting to use."
-      return target
+      return [target, false]
     end
 
     info 'Extracting tarball...'
     result = run_cmd('tar', '-xzf', filename, '-C', sources_dir)
     fatal 'Tarball extraction failed.' unless result
 
+    [target, true]
+  end
+
+  def prepare_source(target, patches)
     patches.each { |patch| apply_patch(patch, target) }
     apply_macos_startup_patch(target)
 
     # Keep a copy of src after patches have been applied. This will be used to
     # embed C sources into the output Emacs.app bundle.
     cmd('cp', '-a', File.join(target, 'src'), File.join(target, 'src.orig'))
-
-    target
   end
 
   def configure_help
@@ -1136,31 +1139,24 @@ class Build
 
   def effective_version
     @effective_version ||=
-      if options[:git_sha] || options[:plan]
-        source_major_version(meta[:sha])
+      if source_dir
+        source_major_version_from_file(
+          File.join(source_dir, 'configure.ac')
+        )
       else
-        case ref
-        when /^emacs-26.*/
-          26
-        when /^emacs-27.*/
-          27
-        when /^emacs-28.*/
-          28
-        when /^emacs-29.*/
-          29
-        when /^emacs-30.*/
-          30
-        when /^emacs-31.*/
-          31
-        when /^emacs-32.*/, 'master'
-          32
-        else
-          source_major_version(meta[:sha])
-        end
+        source_major_version_from_github(meta[:sha])
       end
   end
 
-  def source_major_version(sha)
+  def source_major_version_from_file(filename)
+    unless File.file?(filename)
+      fatal "Failed to get Emacs version from: #{filename}"
+    end
+
+    parse_source_major_version(File.read(filename), filename)
+  end
+
+  def source_major_version_from_github(sha)
     encoded_sha = URI.encode_www_form_component(sha)
     source_json = github_api_get(
       "/repos/#{github_src_repo}/contents/configure.ac?ref=#{encoded_sha}"
@@ -1169,10 +1165,14 @@ class Build
 
     source = JSON.parse(source_json)
     configure_ac = source.fetch('content').delete("\n").unpack1('m0')
+    parse_source_major_version(configure_ac, sha)
+  end
+
+  def parse_source_major_version(configure_ac, source)
     match = configure_ac.match(
       /^AC_INIT\(\[GNU Emacs\],\s*\[(?<major>\d+)/
     )
-    fatal "Failed to detect Emacs version from: #{sha}" if match.nil?
+    fatal "Failed to detect Emacs version from: #{source}" if match.nil?
 
     match[:major].to_i
   end

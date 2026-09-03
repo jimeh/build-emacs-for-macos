@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'time'
+require 'tmpdir'
 
 require_relative 'spec_helper'
 
@@ -10,32 +11,18 @@ end
 
 RSpec.describe 'Emacs patch selection' do
   describe 'effective version detection' do
-    {
-      'emacs-29.4' => 29,
-      'emacs-30' => 30,
-      'emacs-31' => 31,
-      'emacs-32' => 32,
-      'master' => 32
-    }.each do |ref, version|
-      it "detects #{ref} as Emacs #{version}" do
-        expect(build_for(ref).send(:effective_version)).to eq(version)
-      end
-    end
-
-    {
-      'a positional raw SHA' => ['deadbeef', {}],
-      'a --git-sha override on master' => ['master', { git_sha: 'deadbeef' }]
-    }.each do |description, (ref, options)|
-      it "detects the source version for #{description}" do
-        build = build_for(ref, use_nix: true, **options)
-        configure_ac = [
+    it 'detects the version from the extracted source during builds' do
+      Dir.mktmpdir('emacs-source') do |source_dir|
+        File.write(
+          File.join(source_dir, 'configure.ac'),
           "AC_INIT([GNU Emacs], [30.2], [bug-gnu-emacs@gnu.org], [],\n"
-        ].pack('m0')
-        allow(build).to receive(:github_api_get)
-          .with(
-            '/repos/emacs-mirror/emacs/contents/configure.ac?ref=test-sha'
-          )
-          .and_return({ content: configure_ac }.to_json)
+        )
+        build = build_for(
+          'emacs-32', version: nil, use_nix: true, source_dir: source_dir
+        )
+        allow(build).to receive(:github_api_get) do
+          raise 'GitHub API should not be used when source is available'
+        end
         allow(ENV).to receive(:fetch).and_call_original
         allow(ENV).to receive(:fetch)
           .with('NIX_TREE_SITTER_025_ROOT', nil)
@@ -51,8 +38,38 @@ RSpec.describe 'Emacs patch selection' do
       end
     end
 
+    {
+      'a known release ref' => ['emacs-30.2', {}],
+      'a positional raw SHA' => ['deadbeef', {}],
+      'a --git-sha override on master' => ['master', { git_sha: 'deadbeef' }]
+    }.each do |description, (ref, options)|
+      it "fetches the source version for #{description} without local source" do
+        build = build_for(ref, version: nil, use_nix: true, **options)
+        configure_ac = [
+          "AC_INIT([GNU Emacs], [31.0.50], [bug-gnu-emacs@gnu.org], [],\n"
+        ].pack('m0')
+        allow(build).to receive(:github_api_get)
+          .with(
+            '/repos/emacs-mirror/emacs/contents/configure.ac?ref=test-sha'
+          )
+          .and_return({ content: configure_ac }.to_json)
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch)
+          .with('NIX_TREE_SITTER_027_ROOT', nil)
+          .and_return('/nix/tree-sitter-0.27')
+
+        expect(build.send(:effective_version)).to eq(31)
+        expect(build.send(:tree_sitter_pkg_config_path)).to eq(
+          '/nix/tree-sitter-0.27/lib/pkgconfig'
+        )
+        patches = patch_basenames(build)
+        expect(patches).not_to include('fix-macos-tahoe-scrolling.patch')
+        expect(patches).to include('fix-ns-scroll-crash.patch')
+      end
+    end
+
     it 'reports an unresolved source version' do
-      build = build_for('deadbeef')
+      build = build_for('deadbeef', version: nil)
       source = ['AC_INIT([Not Emacs], [1.0])'].pack('m0')
       allow(build).to receive(:github_api_get).and_return(
         { content: source }.to_json
@@ -155,9 +172,17 @@ RSpec.describe 'Emacs patch selection' do
     end
   end
 
-  def build_for(ref, date: Time.parse('2025-08-01'), **options)
+  def build_for(
+    ref,
+    date: Time.parse('2025-08-01'),
+    source_dir: nil,
+    version: ref[/emacs-(\d+)/, 1]&.to_i || (32 if ref == 'master'),
+    **options
+  )
     Build.allocate.tap do |build|
       build.instance_variable_set(:@ref, ref)
+      build.instance_variable_set(:@source_dir, source_dir) if source_dir
+      build.instance_variable_set(:@effective_version, version) if version
       build.instance_variable_set(
         :@options,
         {
