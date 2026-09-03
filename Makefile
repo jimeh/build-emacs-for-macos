@@ -148,10 +148,14 @@ nix-flake-update:
 flake-package-versions:
 	nix develop --command bash -c \
 		'nix derivation show \
-			$$(echo $$PATH | tr ":" "\n" | grep "/nix/store" | sort -u) \
+			$$({ \
+				echo $$PATH | tr ":" "\n" | grep "/nix/store"; \
+				echo $$NIX_TREE_SITTER_025_ROOT; \
+				echo $$NIX_TREE_SITTER_027_ROOT; \
+			} | sort -u) \
 			| jq -r ".derivations[].name" | sort -u'
 
-flake.pkgs: flake.nix flake.lock
+flake.pkgs: flake.nix flake.lock Makefile
 	$(MAKE) flake-package-versions > "$@"
 
 #

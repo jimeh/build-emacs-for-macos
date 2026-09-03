@@ -48,6 +48,11 @@ Ruby build script (~2500 lines), with small supporting classes in `lib/`, that:
   before self-signing. Keep this step before all signing, and keep
   legacy/current key pairs together so the default macOS 11.3+ deployment
   range remains covered.
+- Resolve the Emacs major version from the extracted source tree's
+  `configure.ac` for all builds. When no source tree is available, such as for
+  `--info`, fetch `configure.ac` through the GitHub API. Do not infer the source
+  version from the ref name. Patch and Tree-sitter selection must follow the
+  resolved source version.
 
 ### Go CLI (`cmd/emacs-builder/`)
 
@@ -68,6 +73,10 @@ Uses `urfave/cli/v2` framework. Key packages in `pkg/`:
 - Multi-SDK support: macOS 11-15, 26 via `.#macos{11,12,13,14,15,26}`
 - Excludes ncurses intentionally (links against system version for TUI)
 - Sets `MACOSX_DEPLOYMENT_TARGET`, `DEVELOPER_DIR`, `NIX_LIBGCCJIT_*`
+- Provides Tree-sitter 0.25 for Emacs 29/30 and a project-local Tree-sitter
+  0.27 C runtime for Emacs 31+. Keep the 0.27 runtime on the pinned Nixpkgs
+  25.05 Darwin stdenv: Nixpkgs 25.11 and later default to a macOS 14 deployment
+  target, which would break the bundle's macOS 11.3 compatibility.
 - Keep the full host Command Line Tools SDK out of the Nix build-time
   `LIBRARY_PATH`; expose only the sanitized system ncurses stub. Nix supplies
   the remaining libraries matched to its linker, while newer host SDK stubs

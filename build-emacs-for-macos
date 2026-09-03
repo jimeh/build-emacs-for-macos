@@ -221,7 +221,8 @@ class Build
     end
 
     tarball = download_tarball(meta[:sha])
-    @source_dir = extract_tarball(tarball, build_patches)
+    @source_dir, extracted = extract_tarball(tarball)
+    prepare_source(@source_dir, build_patches) if extracted
 
     autogen
     detect_native_comp if options[:native_comp].nil?
@@ -357,6 +358,15 @@ class Build
     @brew_dir ||= `brew --prefix`.chomp
   end
 
+  def brew_prefix(formula)
+    stdout, _stderr, status = Open3.capture3(
+      'brew', '--prefix', '--installed', formula
+    )
+    fatal "Homebrew formula is not installed: #{formula}" unless status.success?
+
+    stdout.strip
+  end
+
   def extra_libs
     return [] if use_nix?
     return @extra_libs if @extra_libs
@@ -415,7 +425,7 @@ class Build
     target
   end
 
-  def extract_tarball(filename, patches = [])
+  def extract_tarball(filename)
     FileUtils.mkdir_p(sources_dir)
 
     dirname = File.basename(filename).gsub(/\.\w+$/, '')
@@ -423,21 +433,23 @@ class Build
 
     if File.exist?(target)
       info "#{dirname} source tree exists, attempting to use."
-      return target
+      return [target, false]
     end
 
     info 'Extracting tarball...'
     result = run_cmd('tar', '-xzf', filename, '-C', sources_dir)
     fatal 'Tarball extraction failed.' unless result
 
+    [target, true]
+  end
+
+  def prepare_source(target, patches)
     patches.each { |patch| apply_patch(patch, target) }
     apply_macos_startup_patch(target)
 
     # Keep a copy of src after patches have been applied. This will be used to
     # embed C sources into the output Emacs.app bundle.
     cmd('cp', '-a', File.join(target, 'src'), File.join(target, 'src.orig'))
-
-    target
   end
 
   def configure_help
@@ -639,12 +651,14 @@ class Build
   end
 
   def env_PKG_CONFIG_PATH
-    env = ENV.fetch('PKG_CONFIG_PATH', nil)&.split || []
+    env = ENV.fetch('PKG_CONFIG_PATH', nil)&.split(File::PATH_SEPARATOR) || []
+    tree_sitter_path = tree_sitter_pkg_config_path if options[:tree_sitter]
 
-    return env if use_nix?
+    return [tree_sitter_path, *env].compact.uniq if use_nix?
 
     @env_PKG_CONFIG_PATH = (
       [
+        tree_sitter_path,
         File.join(brew_dir, 'lib/pkgconfig'),
         File.join(brew_dir, 'share/pkgconfig'),
         File.join(brew_dir, 'opt/expat/lib/pkgconfig'),
@@ -658,6 +672,23 @@ class Build
         )
       ] + env
     ).compact.reject(&:empty?).uniq
+  end
+
+  def tree_sitter_pkg_config_path
+    if use_nix?
+      suffix = effective_version >= 31 ? '027' : '025'
+      variable = "NIX_TREE_SITTER_#{suffix}_ROOT"
+      root = ENV.fetch(variable, nil)
+      if root.nil? || root.empty?
+        fatal "#{variable} is required for Emacs #{effective_version} " \
+              'Tree-sitter builds'
+      end
+
+      return File.join(root, 'lib/pkgconfig')
+    end
+
+    formula = effective_version >= 31 ? 'tree-sitter' : 'tree-sitter@0.25'
+    File.join(brew_prefix(formula), 'lib/pkgconfig')
   end
 
   def env_PATH
@@ -1108,20 +1139,42 @@ class Build
 
   def effective_version
     @effective_version ||=
-      case ref
-      when /^emacs-26.*/
-        26
-      when /^emacs-27.*/
-        27
-      when /^emacs-28.*/
-        28
-      when /^emacs-29.*/
-        29
-      when /^emacs-30.*/
-        30
+      if source_dir
+        source_major_version_from_file(
+          File.join(source_dir, 'configure.ac')
+        )
       else
-        31
+        source_major_version_from_github(meta[:sha])
       end
+  end
+
+  def source_major_version_from_file(filename)
+    unless File.file?(filename)
+      fatal "Failed to get Emacs version from: #{filename}"
+    end
+
+    parse_source_major_version(File.read(filename), filename)
+  end
+
+  def source_major_version_from_github(sha)
+    encoded_sha = URI.encode_www_form_component(sha)
+    source_json = github_api_get(
+      "/repos/#{github_src_repo}/contents/configure.ac?ref=#{encoded_sha}"
+    )
+    fatal "Failed to get Emacs version from: #{sha}" if source_json.nil?
+
+    source = JSON.parse(source_json)
+    configure_ac = source.fetch('content').delete("\n").unpack1('m0')
+    parse_source_major_version(configure_ac, sha)
+  end
+
+  def parse_source_major_version(configure_ac, source)
+    match = configure_ac.match(
+      /^AC_INIT\(\[GNU Emacs\],\s*\[(?<major>\d+)/
+    )
+    fatal "Failed to detect Emacs version from: #{source}" if match.nil?
+
+    match[:major].to_i
   end
 
   def build_patches
@@ -1141,7 +1194,7 @@ class Build
     # commit 6e1054a40bf6df1429a2b16fdd0d7652dae4d537. Hence builds for commits
     # before then need the patch from the last commit in emacs-plus before it
     # was removed.
-    if effective_version == 31 && meta[:date] < Time.parse('2025-07-31')
+    if effective_version == 31 && meta[:date] < Time.utc(2025, 7, 31)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
@@ -1150,7 +1203,7 @@ class Build
       }
     end
 
-    if (27..31).include?(effective_version)
+    if (27..32).include?(effective_version)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -1158,11 +1211,35 @@ class Build
       }
     end
 
-    if (29..31).include?(effective_version)
+    if (29..32).include?(effective_version)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
         "patches/emacs-#{effective_version}/round-undecorated-frame.patch"
+      }
+    end
+
+    if (30..32).include?(effective_version)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/fix-ns-x-colors.patch"
+      }
+    end
+
+    if effective_version == 30
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        'patches/emacs-30/fix-macos-tahoe-scrolling.patch'
+      }
+    end
+
+    if (31..32).include?(effective_version)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+        "patches/emacs-#{effective_version}/fix-ns-scroll-crash.patch"
       }
     end
 
@@ -1198,7 +1275,7 @@ class Build
 
     # Optional patches.
 
-    if options[:no_frame_refocus] && (27..31).include?(effective_version)
+    if options[:no_frame_refocus] && (27..29).include?(effective_version)
       p << {
         url:
           'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -2401,12 +2478,12 @@ class CLIOptions
       opts.on(
         '--alpha-background',
         'Apply experimental alpha-background patch when building Emacs ' \
-        '30.x - 31.x (default: disabled)'
+        '29.x - 31.x (default: disabled)'
       ) { |v| options[:alpha_background] = v }
 
       opts.on(
         '--no-frame-refocus',
-        'Apply no-frame-refocus patch when building Emacs 27.x - 31.x ' \
+        'Apply no-frame-refocus patch when building Emacs 27.x - 29.x ' \
         '(default: disabled)'
       ) { options[:no_frame_refocus] = true }
 

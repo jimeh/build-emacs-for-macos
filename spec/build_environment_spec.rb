@@ -5,9 +5,20 @@ require 'tmpdir'
 
 require_relative 'spec_helper'
 
-load File.expand_path('../build-emacs-for-macos', __dir__)
+unless defined?(Build)
+  load File.expand_path('../build-emacs-for-macos', __dir__)
+end
 
 RSpec.describe 'Build environment' do
+  around do |example|
+    original_env = ENV.to_h
+    begin
+      example.run
+    ensure
+      ENV.replace(original_env)
+    end
+  end
+
   it 'uses a compatible system ncurses stub for Nix native builds' do
     with_build_environment(use_nix: true) do |build, root_dir, sdk_lib_dir|
       File.write(
@@ -41,12 +52,98 @@ RSpec.describe 'Build environment' do
     end
   end
 
-  def with_build_environment(use_nix:)
+  it 'uses Tree-sitter 0.25 pkg-config metadata for Nix Emacs 30 builds' do
+    ENV['PKG_CONFIG_PATH'] = '/existing/pkgconfig'
+    ENV['NIX_TREE_SITTER_025_ROOT'] = '/nix/tree-sitter-0.25'
+    ENV['NIX_TREE_SITTER_027_ROOT'] = '/nix/tree-sitter-0.27'
+
+    with_build_environment(use_nix: true, ref: 'emacs-30.2') do |build, *, **|
+      expected = [
+        '/nix/tree-sitter-0.25/lib/pkgconfig',
+        '/existing/pkgconfig'
+      ]
+      expect(build.send(:env_PKG_CONFIG_PATH)).to eq(expected)
+    end
+  end
+
+  it 'uses Tree-sitter 0.27 pkg-config metadata for Nix Emacs 31+ builds' do
+    ENV['PKG_CONFIG_PATH'] = '/existing/pkgconfig'
+    ENV['NIX_TREE_SITTER_025_ROOT'] = '/nix/tree-sitter-0.25'
+    ENV['NIX_TREE_SITTER_027_ROOT'] = '/nix/tree-sitter-0.27'
+
+    with_build_environment(use_nix: true, ref: 'emacs-32') do |build, *, **|
+      expected = [
+        '/nix/tree-sitter-0.27/lib/pkgconfig',
+        '/existing/pkgconfig'
+      ]
+      expect(build.send(:env_PKG_CONFIG_PATH)).to eq(expected)
+    end
+  end
+
+  it 'reports a missing selected Nix Tree-sitter root' do
+    ENV.delete('NIX_TREE_SITTER_025_ROOT')
+    ENV['NIX_TREE_SITTER_027_ROOT'] = '/nix/tree-sitter-0.27'
+
+    with_build_environment(use_nix: true, ref: 'emacs-30.2') do |build, *, **|
+      expect { build.send(:env_PKG_CONFIG_PATH) }.to raise_error(
+        Error,
+        'NIX_TREE_SITTER_025_ROOT is required for Emacs 30 Tree-sitter builds'
+      )
+    end
+  end
+
+  it 'selects versioned Homebrew Tree-sitter pkg-config metadata ' \
+     'by Emacs major' do
+    status = instance_double(Process::Status, success?: true)
+    allow(Open3).to receive(:capture3) do |*args|
+      formula = args.last
+      ["/homebrew/opt/#{formula}\n", '', status]
+    end
+    allow(OS).to receive(:version).and_return(
+      instance_double(OSVersion, to_s: '14')
+    )
+
+    with_build_environment(use_nix: false, ref: 'emacs-30.2') do |build, *, **|
+      expect(build.send(:env_PKG_CONFIG_PATH).first).to eq(
+        '/homebrew/opt/tree-sitter@0.25/lib/pkgconfig'
+      )
+    end
+
+    with_build_environment(use_nix: false, ref: 'emacs-31') do |build, *, **|
+      expect(build.send(:env_PKG_CONFIG_PATH).first).to eq(
+        '/homebrew/opt/tree-sitter/lib/pkgconfig'
+      )
+    end
+
+    expect(Open3).to have_received(:capture3).with(
+      'brew', '--prefix', '--installed', 'tree-sitter@0.25'
+    )
+    expect(Open3).to have_received(:capture3).with(
+      'brew', '--prefix', '--installed', 'tree-sitter'
+    )
+  end
+
+  it 'reports a missing selected Homebrew Tree-sitter formula' do
+    status = instance_double(Process::Status, success?: false)
+    allow(Open3).to receive(:capture3).and_return(
+      ['', 'Error: formula is not installed', status]
+    )
+
+    with_build_environment(use_nix: false, ref: 'emacs-30.2') do |build, *, **|
+      expect { build.send(:tree_sitter_pkg_config_path) }.to raise_error(
+        Error,
+        'Homebrew formula is not installed: tree-sitter@0.25'
+      )
+    end
+  end
+
+  def with_build_environment(use_nix:, ref: 'emacs-30')
     Dir.mktmpdir('build-environment-test') do |root_dir|
       sdk_lib_dir = File.join(root_dir, 'host-sdk', 'usr', 'lib')
       FileUtils.mkdir_p(sdk_lib_dir)
       build = build_with_environment(
         use_nix: use_nix,
+        ref: ref,
         root_dir: root_dir,
         sdk_lib_dir: sdk_lib_dir
       )
@@ -55,11 +152,17 @@ RSpec.describe 'Build environment' do
     end
   end
 
-  def build_with_environment(use_nix:, root_dir:, sdk_lib_dir:)
+  def build_with_environment(use_nix:, ref:, root_dir:, sdk_lib_dir:)
     Build.allocate.tap do |build|
       build.instance_variable_set(:@root_dir, root_dir)
+      build.instance_variable_set(:@ref, ref)
       build.instance_variable_set(
-        :@options, { native_comp: true, use_nix: use_nix }
+        :@effective_version,
+        ref.match(/emacs-(\d+)/)[1].to_i
+      )
+      build.instance_variable_set(
+        :@options,
+        { native_comp: true, tree_sitter: true, use_nix: use_nix }
       )
       build.instance_variable_set(
         :@gcc_info,
@@ -71,6 +174,7 @@ RSpec.describe 'Build environment' do
         sdk_lib_dir
       end
       build.define_singleton_method(:host_arch) { 'arm64' }
+      build.define_singleton_method(:brew_dir) { '/homebrew' }
     end
   end
 end

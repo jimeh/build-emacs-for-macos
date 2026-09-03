@@ -124,9 +124,17 @@ builds compatible with macOS 11.3 or later. You can easily target later macOS
 SDKs. Versions 11 to 15 are available. For example, to target the macOS 12 SDK,
 run `nix develop .#macos12`
 
+The build selects Tree-sitter 0.25.x for Emacs 29 and 30, and Tree-sitter
+0.27.x for Emacs 31 and later. Both versions are built with the pinned Nixpkgs
+25.05 Darwin toolchain so their bundled libraries remain compatible with
+macOS 11.3 and later.
+
 ### Homebrew
 
-Run `make boostrap` to ensure all Ruby and Homebrew dependencies are installed.
+Run `make bootstrap` to ensure all Ruby and Homebrew dependencies are installed.
+The Brewfile installs both `tree-sitter@0.25` and the current `tree-sitter`
+formula, and the build selects between them using the same Emacs version policy
+as Nix.
 
 ### Build Script
 
@@ -152,8 +160,8 @@ Options:
         --[no-]relink-eln-files      Enable/disable re-linking shared libraries in bundled *.eln files (default: enabled)
         --[no-]rsvg                  Enable/disable SVG image support via librsvg (default: enabled)
         --[no-]dbus                  Enable/disable dbus support (default: enabled)
-        --alpha-background           Apply experimental alpha-background patch when building Emacs 30.x - 31.x (default: disabled)
-        --no-frame-refocus           Apply no-frame-refocus patch when building Emacs 27.x - 31.x (default: disabled)
+        --alpha-background           Apply experimental alpha-background patch when building Emacs 29.x - 31.x (default: disabled)
+        --no-frame-refocus           Apply no-frame-refocus patch when building Emacs 27.x - 29.x (default: disabled)
         --no-titlebar                Apply no-titlebar patch when building Emacs 27.x - 28.x (default: disabled)
         --[no-]xwidgets              Enable/disable XWidgets when building Emacs 27.x (default: disabled)
         --[no-]poll                  Apply poll patch (deprecated)

@@ -17,6 +17,35 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
+        treeSitterRuntime027 = pkgs.stdenv.mkDerivation rec {
+          pname = "tree-sitter-runtime";
+          version = "0.27.0";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "tree-sitter";
+            repo = "tree-sitter";
+            rev = "v${version}";
+            hash = "sha256-X5Hd0zcw7hxj7w7Jp1QBxLzsRSH9NgV2KquEvGdo3pE=";
+          };
+
+          nativeBuildInputs = [ pkgs.gnumake ];
+          enableParallelBuilding = true;
+          makeFlags = [ "PREFIX=$(out)" ];
+
+          installPhase = ''
+            runHook preInstall
+            make PREFIX="$out" install
+            runHook postInstall
+          '';
+
+          meta = {
+            description = "Tree-sitter 0.27 C runtime";
+            homepage = "https://tree-sitter.github.io/tree-sitter/";
+            license = pkgs.lib.licenses.mit;
+            platforms = pkgs.lib.platforms.unix;
+          };
+        };
+
         # List of supported macOS SDK versions.
         sdk_versions = [
           "11"
@@ -85,7 +114,6 @@
               sqlite
               texinfo
               time
-              tree-sitter
               which
               xcbuild
               zlib
@@ -97,6 +125,8 @@
               export DEVELOPER_DIR="${apple_sdk}"
               export NIX_LIBGCCJIT_VERSION="${pkgs.libgccjit.version}"
               export NIX_LIBGCCJIT_ROOT="${pkgs.libgccjit.outPath}"
+              export NIX_TREE_SITTER_025_ROOT="${pkgs.tree-sitter}"
+              export NIX_TREE_SITTER_027_ROOT="${treeSitterRuntime027}"
               export BUNDLE_WITHOUT=development
             '';
           };
@@ -110,6 +140,8 @@
         );
       in
       {
+        packages.tree-sitter-runtime-027 = treeSitterRuntime027;
+
         devShells = versionShells // {
           default = mkDevShell { };
         };
