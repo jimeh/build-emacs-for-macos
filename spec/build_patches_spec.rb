@@ -18,7 +18,11 @@ RSpec.describe 'Emacs patch selection' do
           "AC_INIT([GNU Emacs], [30.2], [bug-gnu-emacs@gnu.org], [],\n"
         )
         build = build_for(
-          'emacs-32', version: nil, use_nix: true, source_dir: source_dir
+          'emacs-32',
+          version: nil,
+          use_nix: true,
+          source_dir: source_dir,
+          alpha_background: true
         )
         allow(build).to receive(:github_api_get) do
           raise 'GitHub API should not be used when source is available'
@@ -35,6 +39,12 @@ RSpec.describe 'Emacs patch selection' do
         patches = patch_basenames(build)
         expect(patches).to include('fix-macos-tahoe-scrolling.patch')
         expect(patches).not_to include('fix-ns-scroll-crash.patch')
+        expect(patches).to include('ns-alpha-background.patch')
+        expect(patch_sources(build)).to include(
+          File.expand_path(
+            '../patches/emacs-30/ns-alpha-background.patch', __dir__
+          )
+        )
       end
     end
 
@@ -179,13 +189,12 @@ RSpec.describe 'Emacs patch selection' do
         sources = patch_sources(
           build_for(ref, alpha_background: true)
         )
-
-        expect(sources).to include(
-          File.expand_path(
-            "../patches/emacs-#{version}/ns-alpha-background.patch",
-            __dir__
-          )
+        expected_path = File.expand_path(
+          "../patches/emacs-#{version}/ns-alpha-background.patch", __dir__
         )
+
+        expect(File).to exist(expected_path)
+        expect(sources).to include(expected_path)
       end
     end
   end
