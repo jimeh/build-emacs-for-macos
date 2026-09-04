@@ -1,0 +1,367 @@
+From: Gary Oberbrunner <garyo@darkstarsystems.com>
+Date: Thu, 11 Dec 2025 10:51:42 -0500
+Subject: [PATCH] Update alpha_background feature for NS/MacOS
+
+Provenance: Adapted from https://github.com/jimeh/build-emacs-for-macos/pull/150,
+with missing fill coverage ported from the Emacs 30 work and local setOpaque
+handling.
+
+---
+ src/macfont.m |  8 +++++-
+ src/nsfns.m   | 44 +++++++++++++++++++++++++------
+ src/nsterm.m  | 84 +++++++++++++++++++++++++++++++++++++++--------------------
+ 3 files changed, 99 insertions(+), 37 deletions(-)
+
+diff --git a/src/macfont.m b/src/macfont.m
+index 84e3e0e..a9039dd 100644
+--- a/src/macfont.m
++++ b/src/macfont.m
+@@ -2994,9 +2994,14 @@ So we use CTFontDescriptorCreateMatchingFontDescriptor (no
+             CG_SET_FILL_COLOR_WITH_FACE_FOREGROUND (context, face);
+           else
+             CG_SET_FILL_COLOR_WITH_FRAME_CURSOR (context, f);
++          CGContextSetAlpha (context, 1);
+         }
+       else
+-        CG_SET_FILL_COLOR_WITH_FACE_BACKGROUND (context, face);
++        {
++          CGContextSetAlpha (context, f->alpha_background);
++          CG_SET_FILL_COLOR_WITH_FACE_BACKGROUND (context, face);
++        }
++      CGContextClearRect (context, background_rect);
+       CGContextFillRects (context, &background_rect, 1);
+     }
+ 
+@@ -3005,6 +3010,7 @@ So we use CTFontDescriptorCreateMatchingFontDescriptor (no
+       CGAffineTransform atfm;
+ 
+       CGContextScaleCTM (context, 1, -1);
++      CGContextSetAlpha (context, 1);
+       if (s->hl == DRAW_CURSOR)
+         {
+           if (face && (NS_FACE_BACKGROUND (face)
+diff --git a/src/nsfns.m b/src/nsfns.m
+index 148bbc7..d0e6ed8 100644
+--- a/src/nsfns.m
++++ b/src/nsfns.m
+@@ -295,7 +295,7 @@ Turn the input menu (an NSMenu) into a lisp list for tracking on lisp side.
+   struct face *face;
+   NSColor *col;
+   NSView *view = FRAME_NS_VIEW (f);
+-  EmacsCGFloat alpha;
++  EmacsCGFloat alpha = f->alpha_background;
+ 
+   block_input ();
+   if (ns_lisp_to_color (arg, &col))
+@@ -310,11 +310,10 @@ Turn the input menu (an NSMenu) into a lisp list for tracking on lisp side.
+   f->output_data.ns->background_color = col;
+ 
+   FRAME_BACKGROUND_PIXEL (f) = [col unsignedLong];
+-  alpha = [col alphaComponent];
+ 
+   if (view != nil)
+     {
+-      [[view window] setBackgroundColor: col];
++      [[view window] setBackgroundColor: [col colorWithAlphaComponent: alpha]];
+ 
+       if (alpha != (EmacsCGFloat) 1.0)
+           [[view window] setOpaque: NO];
+@@ -324,10 +323,7 @@ Turn the input menu (an NSMenu) into a lisp list for tracking on lisp side.
+       face = FRAME_DEFAULT_FACE (f);
+       if (face)
+         {
+-          col = [NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)];
+-          face->background = [[col colorWithAlphaComponent: alpha]
+-                               unsignedLong];
+-
++          face->background = [col unsignedLong];
+           update_face_from_frame_parameter (f, Qbackground_color, arg);
+         }
+ 
+@@ -340,6 +336,38 @@ Turn the input menu (an NSMenu) into a lisp list for tracking on lisp side.
+   unblock_input ();
+ }
+ 
++static void
++ns_set_alpha_background (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
++{
++  NSView *view = FRAME_NS_VIEW (f);
++  double alpha = 1.0;
++
++  if (NILP (arg))
++    alpha = 1.0;
++  else if (FLOATP (arg))
++    {
++      alpha = XFLOAT_DATA (arg);
++      if (! (0 <= alpha && alpha <= 1.0))
++	args_out_of_range (make_float (0.0), make_float (1.0));
++    }
++  else if (FIXNUMP (arg))
++    {
++      EMACS_INT ialpha = XFIXNUM (arg);
++      if (! (0 <= ialpha && ialpha <= 100))
++	args_out_of_range (make_fixnum (0), make_fixnum (100));
++      alpha = ialpha / 100.0;
++    }
++  else
++    wrong_type_argument (Qnumberp, arg);
++
++  f->alpha_background = alpha;
++  [[view window] setBackgroundColor: [f->output_data.ns->background_color
++					 colorWithAlphaComponent: alpha]];
++  [[view window] setOpaque: alpha == (EmacsCGFloat) 1.0];
++  recompute_basic_faces (f);
++  SET_FRAME_GARBAGED (f);
++}
++
+ 
+ static void
+ ns_set_cursor_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval)
+@@ -1105,7 +1133,7 @@ Turn the input menu (an NSMenu) into a lisp list for tracking on lisp side.
+   ns_set_z_group,
+   0, /* x_set_override_redirect */
+   gui_set_no_special_glyphs,
+-  gui_set_alpha_background,
++  ns_set_alpha_background,
+   gui_set_borders_respect_alpha_background,
+   NULL,
+ #ifdef NS_IMPL_COCOA
+diff --git a/src/nsterm.m b/src/nsterm.m
+index 288245d..59fb177 100644
+--- a/src/nsterm.m
++++ b/src/nsterm.m
+@@ -2808,8 +2808,10 @@ Hide the window (X11 semantics)
+ 
+   block_input ();
+   ns_focus (f, &r, 1);
+-  [[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND
+-			    (FACE_FROM_ID (f, DEFAULT_FACE_ID))] set];
++  [[[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND
++				 (FACE_FROM_ID (f, DEFAULT_FACE_ID))]
++                                 colorWithAlphaComponent: f->alpha_background]
++    set];
+   NSRectFill (r);
+   ns_unfocus (f);
+ 
+@@ -2837,7 +2839,8 @@ Hide the window (X11 semantics)
+ 
+   r = NSIntersectionRect (r, [view frame]);
+   ns_focus (f, &r, 1);
+-  [[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)] set];
++  [[[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)]
++     colorWithAlphaComponent: f->alpha_background] set];
+ 
+   NSRectFill (r);
+ 
+@@ -2921,6 +2924,8 @@ Hide the window (X11 semantics)
+       int height = FRAME_PIXEL_HEIGHT (f);
+       int margin = FRAME_TOP_MARGIN_HEIGHT (f);
+       int bottom_margin = FRAME_BOTTOM_MARGIN_HEIGHT (f);
++      EmacsCGFloat alpha = (f->borders_respect_alpha_background
++                            ? f->alpha_background : 1.0);
+       int face_id =
+         (FRAME_PARENT_FRAME (f)
+          ? (!NILP (Vface_remapping_alist)
+@@ -2941,7 +2946,8 @@ Hide the window (X11 semantics)
+         return;
+ 
+       ns_focus (f, NULL, 1);
+-      [[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)] set];
++      [[[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)]
++         colorWithAlphaComponent: alpha] set];
+       NSRectFill (NSMakeRect (0, margin, width, border));
+       NSRectFill (NSMakeRect (0, 0, border, height));
+       NSRectFill (NSMakeRect (0, margin, width, border));
+@@ -2981,6 +2987,8 @@ Hide the window (X11 semantics)
+ 	  height > 0))
+     {
+       int y = WINDOW_TO_FRAME_PIXEL_Y (w, max (0, desired_row->y));
++      EmacsCGFloat alpha = (f->borders_respect_alpha_background
++                            ? f->alpha_background : 1.0);
+       int face_id =
+         !NILP (Vface_remapping_alist)
+         ? lookup_basic_face (NULL, f, INTERNAL_BORDER_FACE_ID)
+@@ -2993,7 +3001,8 @@ Hide the window (X11 semantics)
+           NSRect r = NSMakeRect (0, y, FRAME_PIXEL_WIDTH (f), height);
+           ns_focus (f, &r, 1);
+ 
+-          [[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)] set];
++          [[[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)]
++             colorWithAlphaComponent: alpha] set];
+           NSRectFill (NSMakeRect (0, y, width, height));
+           NSRectFill (NSMakeRect (FRAME_PIXEL_WIDTH (f) - width,
+                                   y, width, height));
+@@ -3244,7 +3253,8 @@ Hide the window (X11 semantics)
+     {
+       NSTRACE_RECT ("clearRect", bmpRect);
+ 
+-      [[NSColor colorWithUnsignedLong:face->background] set];
++      [[[NSColor colorWithUnsignedLong:face->background]
++         colorWithAlphaComponent: f->alpha_background] set];
+       NSRectFill (bmpRect);
+     }
+ 
+@@ -3271,7 +3281,8 @@ Hide the window (X11 semantics)
+       if (!p->cursor_p)
+         bm_color = [NSColor colorWithUnsignedLong:face->foreground];
+       else if (p->overlay_p)
+-        bm_color = [NSColor colorWithUnsignedLong:face->background];
++        bm_color = [[NSColor colorWithUnsignedLong:face->background]
++                     colorWithAlphaComponent:f->alpha_background];
+       else
+         bm_color = f->output_data.ns->cursor_color;
+ 
+@@ -3461,6 +3472,8 @@ Note that CURSOR_WIDTH is meaningful only for (h)bar cursors.
+   unsigned long color_last = (face_last
+ 			      ? face_last->foreground
+ 			      : FRAME_FOREGROUND_PIXEL (f));
++  EmacsCGFloat alpha = (f->borders_respect_alpha_background
++                        ? f->alpha_background : 1.0);
+   NSRect divider = NSMakeRect (x0, y0, x1-x0, y1-y0);
+ 
+   NSTRACE ("ns_draw_window_divider");
+@@ -3471,29 +3484,36 @@ Note that CURSOR_WIDTH is meaningful only for (h)bar cursors.
+     /* A vertical divider, at least three pixels wide: Draw first and
+        last pixels differently.  */
+     {
+-      [[NSColor colorWithUnsignedLong:color_first] set];
++      [[[NSColor colorWithUnsignedLong:color_first]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(NSMakeRect (x0, y0, 1, y1 - y0));
+-      [[NSColor colorWithUnsignedLong:color] set];
++      [[[NSColor colorWithUnsignedLong:color]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(NSMakeRect (x0 + 1, y0, x1 - x0 - 2, y1 - y0));
+-      [[NSColor colorWithUnsignedLong:color_last] set];
++      [[[NSColor colorWithUnsignedLong:color_last]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(NSMakeRect (x1 - 1, y0, 1, y1 - y0));
+     }
+   else if ((x1 - x0 > y1 - y0) && (y1 - y0 >= 3))
+     /* A horizontal divider, at least three pixels high: Draw first and
+        last pixels differently.  */
+     {
+-      [[NSColor colorWithUnsignedLong:color_first] set];
++      [[[NSColor colorWithUnsignedLong:color_first]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(NSMakeRect (x0, y0, x1 - x0, 1));
+-      [[NSColor colorWithUnsignedLong:color] set];
++      [[[NSColor colorWithUnsignedLong:color]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(NSMakeRect (x0, y0 + 1, x1 - x0, y1 - y0 - 2));
+-      [[NSColor colorWithUnsignedLong:color_last] set];
++      [[[NSColor colorWithUnsignedLong:color_last]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(NSMakeRect (x0, y1 - 1, x1 - x0, 1));
+     }
+   else
+     {
+       /* In any other case do not draw the first and last pixels
+          differently.  */
+-      [[NSColor colorWithUnsignedLong:color] set];
++      [[[NSColor colorWithUnsignedLong:color]
++         colorWithAlphaComponent:alpha] set];
+       NSRectFill(divider);
+     }
+ 
+@@ -4103,7 +4123,8 @@ Function modeled after x_draw_glyph_string_box ().
+ #ifdef NS_IMPL_COCOA
+ 	  /* On cocoa emacs the stipple is stored as a mask CGImage.
+ 	     First we want to clear the background with the bg color.  */
+-	  [[NSColor colorWithUnsignedLong:face->background] set];
++	  [[[NSColor colorWithUnsignedLong:face->background]
++	     colorWithAlphaComponent:s->f->alpha_background] set];
+ 	  r = NSMakeRect (s->x, s->y + box_line_width,
+ 			  s->background_width,
+ 			  s->height - 2 * box_line_width);
+@@ -4147,9 +4168,10 @@ Function modeled after x_draw_glyph_string_box ().
+ 	       || force_p)
+ 	{
+ 	  if (s->hl != DRAW_CURSOR)
+-	    [(NS_FACE_BACKGROUND (face) != 0
+-	      ? [NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)]
+-	      : FRAME_BACKGROUND_COLOR (s->f)) set];
++	    [[(NS_FACE_BACKGROUND (face) != 0
++	       ? [NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)]
++	       : FRAME_BACKGROUND_COLOR (s->f))
++	      colorWithAlphaComponent:s->f->alpha_background] set];
+ 	  else if (face && (NS_FACE_BACKGROUND (face)
+ 			    == [(NSColor *) FRAME_CURSOR_COLOR (s->f)
+ 					    unsignedLong]))
+@@ -4289,7 +4311,8 @@ Function modeled after x_draw_glyph_string_box ().
+      otherwise, since we composite the image under NS (instead of mucking
+      with its background color), we must clear just the image area.  */
+ 
+-  [[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)] set];
++  [[[NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND (face)]
++     colorWithAlphaComponent: s->f->alpha_background] set];
+ 
+   if (bg_height > s->slice.height || s->img->hmargin || s->img->vmargin
+       || s->img->mask || s->img->pixmap == 0 || s->width != s->background_width)
+@@ -4359,7 +4382,8 @@ Function modeled after x_draw_glyph_string_box ().
+   if (s->hl == DRAW_CURSOR)
+     {
+       [FRAME_CURSOR_COLOR (s->f) set];
+-      tdCol = [NSColor colorWithUnsignedLong: NS_FACE_BACKGROUND (face)];
++      tdCol = [[NSColor colorWithUnsignedLong: NS_FACE_BACKGROUND (face)]
++                colorWithAlphaComponent: s->f->alpha_background];
+     }
+   else
+     tdCol = [NSColor colorWithUnsignedLong: NS_FACE_FOREGROUND (face)];
+@@ -4452,10 +4476,12 @@ Function modeled after x_draw_glyph_string_box ().
+ 		face = FACE_FROM_ID (s->f, MOUSE_FACE_ID);
+ 	      prepare_face_for_display (s->f, face);
+ 
+-	      [[NSColor colorWithUnsignedLong: face->background] set];
++	      [[[NSColor colorWithUnsignedLong: face->background]
++                 colorWithAlphaComponent: s->f->alpha_background] set];
+ 	    }
+ 	  else
+-	    [[NSColor colorWithUnsignedLong: s->face->background] set];
++	    [[[NSColor colorWithUnsignedLong: s->face->background]
++               colorWithAlphaComponent: s->f->alpha_background] set];
+ 	  NSRectFill (NSMakeRect (x, y, w, h));
+ 	}
+     }
+@@ -4489,7 +4515,8 @@ Function modeled after x_draw_glyph_string_box ().
+ 	      /* On cocoa emacs the stipple is stored as a mask CGImage.
+ 		 First we want to clear the background with the bg
+ 		 color.  */
+-	      [[NSColor colorWithUnsignedLong:s->face->background] set];
++	      [[[NSColor colorWithUnsignedLong:s->face->background]
++	         colorWithAlphaComponent:s->f->alpha_background] set];
+ 	      NSRectFill (NSMakeRect (x, s->y, background_width, s->height));
+ 
+ 	      /* This part could possibly be improved, the author is
+@@ -4517,7 +4544,8 @@ Function modeled after x_draw_glyph_string_box ().
+ #endif /* NS_IMPL_COCOA */
+ 	    }
+ 	  else
+-	    [[NSColor colorWithUnsignedLong: s->face->background] set];
++	    [[[NSColor colorWithUnsignedLong: s->face->background]
++               colorWithAlphaComponent: s->f->alpha_background] set];
+ 
+ 	  NSRectFill (NSMakeRect (x, s->y, background_width, s->height));
+ 	}
+@@ -9077,8 +9105,8 @@ - (void)toggleFullScreen: (id)sender
+         }
+ 
+       [w setContentView:[fw contentView]];
+-      [w setBackgroundColor: col];
+-      if ([col alphaComponent] != (EmacsCGFloat) 1.0)
++      [w setBackgroundColor: [col colorWithAlphaComponent: f->alpha_background]];
++      if (f->alpha_background != (EmacsCGFloat) 1.0)
+         [w setOpaque: NO];
+ 
+       f->border_width = [w borderWidth];
+@@ -9817,8 +9845,8 @@ - (instancetype) initWithEmacsFrame: (struct frame *) f
+ 
+       col = [NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND
+                                      (FACE_FROM_ID (f, DEFAULT_FACE_ID))];
+-      [self setBackgroundColor:col];
+-      if ([col alphaComponent] != (EmacsCGFloat) 1.0)
++      [self setBackgroundColor:[col colorWithAlphaComponent:f->alpha_background]];
++      if (f->alpha_background != (EmacsCGFloat) 1.0)
+         [self setOpaque:NO];
+ 
+       /* toolbar support */

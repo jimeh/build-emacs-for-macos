@@ -1299,20 +1299,13 @@ class Build
       }
     end
 
-    if options[:alpha_background]
-      if effective_version == 29
-        p << {
-          file: File.join(
-            __dir__, 'patches', 'emacs-29', 'ns-alpha-background.patch'
-          )
-        }
-      elsif (30..31).include?(effective_version)
-        p << {
-          url:
-          "https://github.com/emacs-mirror/emacs/compare/#{meta[:sha]}" \
-          '...jonrubens:emacs:ns-alpha-background.patch'
-        }
-      end
+    if options[:alpha_background] && (29..32).include?(effective_version)
+      p << {
+        file: File.join(
+          __dir__, 'patches', "emacs-#{effective_version}",
+          'ns-alpha-background.patch'
+        )
+      }
     end
 
     # Custom patches.
@@ -1336,7 +1329,7 @@ class Build
     fatal "\"#{target}\" does not exist." unless File.exist?(target)
 
     if patch[:file]
-      info 'Applying patch...'
+      info "Applying patch #{patch[:file]} in #{target}..."
       FileUtils.cd(target) do
         run_cmd('patch', '-f', '-p1', '-l', '-i', patch[:file])
       end
@@ -2478,7 +2471,7 @@ class CLIOptions
       opts.on(
         '--alpha-background',
         'Apply experimental alpha-background patch when building Emacs ' \
-        '29.x - 31.x (default: disabled)'
+        '29.x - 32.x (default: disabled)'
       ) { |v| options[:alpha_background] = v }
 
       opts.on(
