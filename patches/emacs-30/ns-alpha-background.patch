@@ -8,8 +8,8 @@ and includes a local setOpaque update.
 ---
  src/macfont.m |  8 +++++++-
  src/nsfns.m   | 44 ++++++++++++++++++++++++++++++++++++--------
- src/nsterm.m  | 54 ++++++++++++++++++++++++++++++++++--------------------
- 3 files changed, 77 insertions(+), 29 deletions(-)
+ src/nsterm.m  | 51 ++++++++++++++++++++++++++++++++-------------------
+ 3 files changed, 75 insertions(+), 28 deletions(-)
 
 diff --git a/src/macfont.m b/src/macfont.m
 index 4ff720c..ba8b10f 100644
@@ -126,7 +126,7 @@ index 29e3de4..bedd33c 100644
  #ifdef NS_IMPL_COCOA
    ns_set_appearance,
 diff --git a/src/nsterm.m b/src/nsterm.m
-index 8b4374c..18b08bf 100644
+index 8b4374c..7f8589e 100644
 --- a/src/nsterm.m
 +++ b/src/nsterm.m
 @@ -2627,8 +2627,10 @@ Hide the window (X11 semantics)
@@ -192,17 +192,7 @@ index 8b4374c..18b08bf 100644
        else
          bm_color = f->output_data.ns->cursor_color;
  
-@@ -3793,7 +3800,8 @@ Function modeled after x_draw_glyph_string_box ().
-   if (s->face->box == FACE_SIMPLE_BOX && s->face->box_color)
-     {
-       ns_draw_box (r, abs (hthickness), abs (vthickness),
--                   [NSColor colorWithUnsignedLong:face->box_color],
-+                   [[NSColor colorWithUnsignedLong:face->box_color]
-+                     colorWithAlphaComponent: s->f->alpha_background],
-                    left_p, right_p);
-     }
-   else
-@@ -3837,9 +3845,10 @@ Function modeled after x_draw_glyph_string_box ().
+@@ -3837,9 +3844,10 @@ Function modeled after x_draw_glyph_string_box ().
  	       || force_p)
  	{
  	  if (s->hl != DRAW_CURSOR)
@@ -216,7 +206,7 @@ index 8b4374c..18b08bf 100644
  	  else if (face && (NS_FACE_BACKGROUND (face)
  			    == [(NSColor *) FRAME_CURSOR_COLOR (s->f)
  					    unsignedLong]))
-@@ -3977,7 +3986,8 @@ Function modeled after x_draw_glyph_string_box ().
+@@ -3977,7 +3985,8 @@ Function modeled after x_draw_glyph_string_box ().
       otherwise, since we composite the image under NS (instead of mucking
       with its background color), we must clear just the image area.  */
  
@@ -226,7 +216,7 @@ index 8b4374c..18b08bf 100644
  
    if (bg_height > s->slice.height || s->img->hmargin || s->img->vmargin
        || s->img->mask || s->img->pixmap == 0 || s->width != s->background_width)
-@@ -4047,7 +4057,8 @@ Function modeled after x_draw_glyph_string_box ().
+@@ -4047,7 +4056,8 @@ Function modeled after x_draw_glyph_string_box ().
    if (s->hl == DRAW_CURSOR)
      {
        [FRAME_CURSOR_COLOR (s->f) set];
@@ -236,7 +226,7 @@ index 8b4374c..18b08bf 100644
      }
    else
      tdCol = [NSColor colorWithUnsignedLong: NS_FACE_FOREGROUND (face)];
-@@ -4140,10 +4151,12 @@ Function modeled after x_draw_glyph_string_box ().
+@@ -4140,10 +4150,12 @@ Function modeled after x_draw_glyph_string_box ().
  		face = FACE_FROM_ID (s->f, MOUSE_FACE_ID);
  	      prepare_face_for_display (s->f, face);
  
@@ -251,7 +241,7 @@ index 8b4374c..18b08bf 100644
  	  NSRectFill (NSMakeRect (x, y, w, h));
  	}
      }
-@@ -4174,7 +4187,8 @@ Function modeled after x_draw_glyph_string_box ().
+@@ -4174,7 +4186,8 @@ Function modeled after x_draw_glyph_string_box ().
  	  else if (s->stippled_p)
  	    [[dpyinfo->bitmaps[s->face->stipple - 1].img stippleMask] set];
  	  else
@@ -261,7 +251,7 @@ index 8b4374c..18b08bf 100644
  
  	  NSRectFill (NSMakeRect (x, s->y, background_width, s->height));
  	}
-@@ -8603,8 +8617,8 @@ - (void)toggleFullScreen: (id)sender
+@@ -8603,8 +8616,8 @@ - (void)toggleFullScreen: (id)sender
          }
  
        [w setContentView:[fw contentView]];
@@ -272,7 +262,7 @@ index 8b4374c..18b08bf 100644
          [w setOpaque: NO];
  
        f->border_width = [w borderWidth];
-@@ -9342,8 +9356,8 @@ - (instancetype) initWithEmacsFrame: (struct frame *) f
+@@ -9342,8 +9355,8 @@ - (instancetype) initWithEmacsFrame: (struct frame *) f
  
        col = [NSColor colorWithUnsignedLong:NS_FACE_BACKGROUND
                                       (FACE_FROM_ID (f, DEFAULT_FACE_ID))];
