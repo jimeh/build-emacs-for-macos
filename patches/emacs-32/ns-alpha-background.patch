@@ -7,8 +7,8 @@ Provenance: This is the Emacs 31 adaptation maintained for moving master.
 ---
  src/macfont.m |  8 +++++-
  src/nsfns.m   | 44 +++++++++++++++++++++++++------
- src/nsterm.m  | 84 +++++++++++++++++++++++++++++++++++++++--------------------
- 3 files changed, 99 insertions(+), 37 deletions(-)
+ src/nsterm.m  | 86 +++++++++++++++++++++++++++++++++++++++--------------------
+ 3 files changed, 100 insertions(+), 38 deletions(-)
 
 diff --git a/src/macfont.m b/src/macfont.m
 index 3cd3b79..f2542cd 100644
@@ -286,6 +286,14 @@ index 77ce7d9..08155bc 100644
  	  else if (face && (NS_FACE_BACKGROUND (face)
  			    == [(NSColor *) FRAME_CURSOR_COLOR (s->f)
  					    unsignedLong]))
+@@ -4166,4 +4188,4 @@ Function modeled after x_draw_glyph_string_box ().
+-	  NSRectFill (r);
++	  NSRectFillUsingOperation (r, NSCompositingOperationCopy);
+-	  s->background_filled_p = 1;
++	  s->background_filled_p = 1;
+-	}
++	}
+     }
 @@ -4289,7 +4311,8 @@ Function modeled after x_draw_glyph_string_box ().
       otherwise, since we composite the image under NS (instead of mucking
       with its background color), we must clear just the image area.  */
