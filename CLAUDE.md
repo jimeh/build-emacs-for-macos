@@ -53,10 +53,6 @@ Ruby build script (~2500 lines), with small supporting classes in `lib/`, that:
   `--info`, fetch `configure.ac` through the GitHub API. Do not infer the source
   version from the ref name. Patch and Tree-sitter selection must follow the
   resolved source version.
-- Keep the alpha-background patches version-specific. Current Emacs 32/master
-  must copy translucent end-of-line glyph-row fills into the backing store;
-  Source Over compositing produces opaque row bands. Emacs 30 and 31 do not
-  currently need that override.
 
 ### Go CLI (`cmd/emacs-builder/`)
 
