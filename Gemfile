@@ -2,6 +2,7 @@
 
 source 'https://rubygems.org/'
 
+gem 'logger'
 gem 'ruby-macho'
 
 group :development do

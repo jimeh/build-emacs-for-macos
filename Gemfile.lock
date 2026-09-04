@@ -5,6 +5,7 @@ GEM
     diff-lcs (1.6.2)
     json (2.8.2)
     language_server-protocol (3.17.0.3)
+    logger (1.7.0)
     parallel (1.26.3)
     parser (3.3.6.0)
       ast (~> 2.4.1)
@@ -47,6 +48,7 @@ PLATFORMS
   x86_64-darwin
 
 DEPENDENCIES
+  logger
   rspec
   rubocop
   ruby-macho
