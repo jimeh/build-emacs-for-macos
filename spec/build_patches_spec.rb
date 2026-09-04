@@ -15,7 +15,7 @@ RSpec.describe 'Emacs patch selection' do
       Dir.mktmpdir('emacs-source') do |source_dir|
         File.write(
           File.join(source_dir, 'configure.ac'),
-          "AC_INIT([GNU Emacs], [30.2], [bug-gnu-emacs@gnu.org], [],\n"
+          "AC_INIT([GNU Emacs], [29.4], [bug-gnu-emacs@gnu.org], [],\n"
         )
         build = build_for(
           'emacs-32',
@@ -32,17 +32,17 @@ RSpec.describe 'Emacs patch selection' do
           .with('NIX_TREE_SITTER_025_ROOT', nil)
           .and_return('/nix/tree-sitter-0.25')
 
-        expect(build.send(:effective_version)).to eq(30)
+        expect(build.send(:effective_version)).to eq(29)
         expect(build.send(:tree_sitter_pkg_config_path)).to eq(
           '/nix/tree-sitter-0.25/lib/pkgconfig'
         )
         patches = patch_basenames(build)
-        expect(patches).to include('fix-macos-tahoe-scrolling.patch')
+        expect(patches).not_to include('fix-macos-tahoe-scrolling.patch')
         expect(patches).not_to include('fix-ns-scroll-crash.patch')
         expect(patches).to include('ns-alpha-background.patch')
         expect(patch_sources(build)).to include(
           File.expand_path(
-            '../patches/emacs-30/ns-alpha-background.patch', __dir__
+            '../patches/emacs-29/ns-alpha-background.patch', __dir__
           )
         )
       end
@@ -171,17 +171,18 @@ RSpec.describe 'Emacs patch selection' do
         .not_to include(a_string_matching(/alpha/))
     end
 
-    it 'limits alpha-background support to Emacs 30 through 32' do
-      selected_versions = (29..32).select do |version|
+    it 'limits alpha-background support to Emacs 29 through 32' do
+      selected_versions = (28..33).select do |version|
         patch_sources(build_for("emacs-#{version}", alpha_background: true))
           .any? { |url| url.include?('alpha') }
       end
 
-      expect(selected_versions).to eq([30, 31, 32])
+      expect(selected_versions).to eq([29, 30, 31, 32])
     end
 
     it 'uses a version-specific vendored alpha-background patch' do
       {
+        'emacs-29.4' => 29,
         'emacs-30' => 30,
         'emacs-31' => 31,
         'master' => 32

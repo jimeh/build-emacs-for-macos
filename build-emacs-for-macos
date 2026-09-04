@@ -1299,7 +1299,7 @@ class Build
       }
     end
 
-    if options[:alpha_background] && (30..32).include?(effective_version)
+    if options[:alpha_background] && (29..32).include?(effective_version)
       p << {
         file: File.join(
           __dir__, 'patches', "emacs-#{effective_version}",
@@ -2471,7 +2471,7 @@ class CLIOptions
       opts.on(
         '--alpha-background',
         'Apply experimental alpha-background patch when building Emacs ' \
-        '30.x - 32.x (default: disabled)'
+        '29.x - 32.x (default: disabled)'
       ) { |v| options[:alpha_background] = v }
 
       opts.on(
