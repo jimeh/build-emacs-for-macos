@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.64](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.63...v0.6.64) (2026-09-06)
+
+
+### Features
+
+* align emacs-plus patches and Tree-sitter by Emacs version ([#157](https://github.com/jimeh/build-emacs-for-macos/issues/157)) ([337b9f2](https://github.com/jimeh/build-emacs-for-macos/commit/337b9f2a470b39b7fb24604a6dc58d03cb3740e4))
+* enable macOS privacy permission prompts ([#155](https://github.com/jimeh/build-emacs-for-macos/issues/155)) ([073f9a3](https://github.com/jimeh/build-emacs-for-macos/commit/073f9a31341b3ffa736b11e51650e2513d694d8a))
+* update alpha-background support for Emacs 29-32 ([#160](https://github.com/jimeh/build-emacs-for-macos/issues/160)) ([4ab45af](https://github.com/jimeh/build-emacs-for-macos/commit/4ab45afbf2fa7abfdcc48cffe6a449ced10b9be6))
+
 ## [0.6.63](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.62...v0.6.63) (2025-09-14)
 
 
