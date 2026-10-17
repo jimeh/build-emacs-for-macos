@@ -166,6 +166,49 @@ RSpec.describe 'Emacs patch selection' do
       expect(patch_basenames(build)).not_to include('fix-window-role.patch')
     end
 
+    it 'retains a pinned fix-ns-scroll-crash for Emacs 32 before its merge' do
+      build = build_for('master', date: Time.parse('2026-09-19 09:16:14Z'))
+
+      expect(patch_sources(build)).to include(
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
+        'cbd898a93367c7d0be28af99457fb9a0dde51833/' \
+        'patches/emacs-32/fix-ns-scroll-crash.patch'
+      )
+    end
+
+    it 'omits fix-ns-scroll-crash from Emacs 32 after its merge' do
+      build = build_for('master', date: Time.parse('2026-09-19 09:16:15Z'))
+
+      expect(patch_basenames(build)).not_to include('fix-ns-scroll-crash.patch')
+    end
+
+    it 'uses a pinned round-undecorated-frame for Emacs 32 before the ' \
+       'frame parameter enum' do
+      build = build_for('master', date: Time.parse('2026-10-10 08:11:22Z'))
+      sources = patch_sources(build).grep(/round-undecorated-frame/)
+
+      expect(sources).to eq(
+        [
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
+          'bc36c16fcf0def0dcc2d7a344283ade79e6dfffb/' \
+          'patches/emacs-32/round-undecorated-frame.patch'
+        ]
+      )
+    end
+
+    it 'uses the current round-undecorated-frame for Emacs 32 with the ' \
+       'frame parameter enum' do
+      build = build_for('master', date: Time.parse('2026-10-10 08:11:23Z'))
+      sources = patch_sources(build).grep(/round-undecorated-frame/)
+
+      expect(sources).to eq(
+        [
+          'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
+          'patches/emacs-32/round-undecorated-frame.patch'
+        ]
+      )
+    end
+
     it 'keeps alpha-background disabled by default' do
       expect(patch_sources(build_for('master')))
         .not_to include(a_string_matching(/alpha/))

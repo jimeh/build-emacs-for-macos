@@ -1211,7 +1211,20 @@ class Build
       }
     end
 
-    if (29..32).include?(effective_version)
+    # The emacs-32 round-undecorated-frame patch adds UNDECORATED_ROUND to enum
+    # x_frame_parameter, which was added to Emacs 32 on 2026-10-10 with commit
+    # 32b83859dbf9c7d9a9e0e1badd140a9b1e4a3eb4. Hence builds for commits before
+    # then need the patch from the last commit in emacs-plus before the enum
+    # entry was added to it.
+    if effective_version == 32 &&
+       meta[:date] < Time.utc(2026, 10, 10, 8, 11, 23)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
+        'bc36c16fcf0def0dcc2d7a344283ade79e6dfffb/' \
+        'patches/emacs-32/round-undecorated-frame.patch'
+      }
+    elsif (29..32).include?(effective_version)
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
@@ -1235,11 +1248,25 @@ class Build
       }
     end
 
-    if (31..32).include?(effective_version)
+    if effective_version == 31
       p << {
         url:
         'https://github.com/d12frosted/homebrew-emacs-plus/raw/master/' \
-        "patches/emacs-#{effective_version}/fix-ns-scroll-crash.patch"
+        'patches/emacs-31/fix-ns-scroll-crash.patch'
+      }
+    end
+
+    # The fix-ns-scroll-crash patch was merged into Emacs 32 on 2026-09-19 with
+    # commit b59a6ea35c03d5ca8e3a39964117bcb9e0dbc139. Hence builds for commits
+    # before then need the patch from the last commit in emacs-plus before it
+    # was removed.
+    if effective_version == 32 &&
+       meta[:date] < Time.utc(2026, 9, 19, 9, 16, 15)
+      p << {
+        url:
+        'https://github.com/d12frosted/homebrew-emacs-plus/raw/' \
+        'cbd898a93367c7d0be28af99457fb9a0dde51833/' \
+        'patches/emacs-32/fix-ns-scroll-crash.patch'
       }
     end
 
@@ -1345,7 +1372,7 @@ class Build
       patch_file = patch_file.gsub('{num}', num.to_s.rjust(3, '0'))
 
       info "Downloading patch: #{patch[:url]}"
-      run_cmd('curl', '-L#', patch[:url], '-o', patch_file)
+      run_cmd('curl', '-fL#', patch[:url], '-o', patch_file)
 
       real_patch_url = detect_github_symlink_patch(patch[:url], patch_file)
       if real_patch_url
