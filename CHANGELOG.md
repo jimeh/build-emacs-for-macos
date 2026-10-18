@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.65](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.64...v0.6.65) (2026-10-18)
+
+
+### Bug Fixes
+
+* date-gate Emacs 32 patches that changed upstream ([#161](https://github.com/jimeh/build-emacs-for-macos/issues/161)) ([2f70fa9](https://github.com/jimeh/build-emacs-for-macos/commit/2f70fa9975cd510bd2ebdf5dd87874395d0f886d))
+
 ## [0.6.64](https://github.com/jimeh/build-emacs-for-macos/compare/v0.6.63...v0.6.64) (2026-09-06)
 
 
